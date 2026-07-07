@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/text/app_text.dart';
+
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Text(
+      child: AppText(
         'Settings Page',
-        style: TextStyle(fontSize: 24),
+        variant: AppTextVariant.h2,
       ),
     );
   }
