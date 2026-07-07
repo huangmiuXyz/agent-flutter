@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -13,6 +15,7 @@ class AgentApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       title: 'Agent',
       themeMode: ThemeMode.system,
+      theme: ThemeData(fontFamily: Platform.isMacOS ? 'PingFang SC' : null),
       routerConfig: appRouter,
       builder: (context, child) {
         child = VirtualWindowFrameInit()(context, child);
