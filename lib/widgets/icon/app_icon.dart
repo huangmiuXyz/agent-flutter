@@ -15,8 +15,9 @@ const Map<String, Map<int, IconData>> _registry = {
 class AppIcon extends ConsumerWidget {
   final String name;
   final double? size;
+  final Color? color;
 
-  const AppIcon(this.name, {super.key, this.size});
+  const AppIcon(this.name, {super.key, this.size, this.color});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,7 +26,7 @@ class AppIcon extends ConsumerWidget {
     return Icon(
       icon,
       size: size,
-      color: Theme.of(context).colorScheme.onSurface,
+      color: color ?? Theme.of(context).colorScheme.onSurface,
     );
   }
 }

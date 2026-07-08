@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
+import 'package:agent/widgets/list/app_list.dart';
 
 const List<Color> _colorOptions = [
   Color(0xFF000000),
@@ -23,9 +25,80 @@ const List<Color> _colorOptions = [
   Color(0xFFFFFFFF),
 ];
 
-class DemoPage extends ConsumerWidget {
+class DemoPage extends HookConsumerWidget {
   const DemoPage({super.key});
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = useState(0);
+    final config = ref.watch(themeProvider);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 200,
+          child: Column(
+            children: [
+              AppList(
+                width: double.infinity,
+                children: [
+                  AppListItem(
+                    icon: 'rectangleVertical',
+                    label: 'Button',
+                    active: selectedIndex.value == 0,
+                    onTap: () => selectedIndex.value = 0,
+                  ),
+                  AppListItem(
+                    icon: 'terminal',
+                    label: 'Terminal',
+                    active: selectedIndex.value == 1,
+                    onTap: () => selectedIndex.value = 1,
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    AppButton(
+                        icon: switch (config.themeMode) {
+                          ThemeMode.system => 'sun',
+                          ThemeMode.light => 'sun',
+                          ThemeMode.dark => 'moon',
+                        },
+                        variant: ButtonVariant.iconOnly,
+                        text: switch (config.themeMode) {
+                          ThemeMode.system => '主题: 系统',
+                          ThemeMode.light => '主题: 亮色',
+                          ThemeMode.dark => '主题: 暗色',
+                        },
+                        onPressed: () {
+                          final next = switch (config.themeMode) {
+                            ThemeMode.system => ThemeMode.light,
+                            ThemeMode.light => ThemeMode.dark,
+                            ThemeMode.dark => ThemeMode.system,
+                          };
+                          ref.read(themeProvider.notifier).setThemeMode(next);
+                        },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: selectedIndex.value == 0 ? _ButtonDemo() : _TerminalPlaceholder(),
+        ),
+      ],
+    );
+  }
+}
+
+class _ButtonDemo extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(themeProvider);
@@ -35,22 +108,6 @@ class DemoPage extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // ── Theme mode ─────────────────────────────────────
-        Text('主题模式', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
-        const SizedBox(height: 8),
-        SegmentedButton<ThemeMode>(
-          segments: const [
-            ButtonSegment(value: ThemeMode.system, label: Text('系统')),
-            ButtonSegment(value: ThemeMode.light, label: Text('亮色')),
-            ButtonSegment(value: ThemeMode.dark, label: Text('暗色')),
-          ],
-          selected: {config.themeMode},
-          onSelectionChanged: (v) =>
-              ref.read(themeProvider.notifier).setThemeMode(v.first),
-        ),
-        const SizedBox(height: 16),
-
-        // ── Color scheme ───────────────────────────────────
         Text('配色 (${isDark ? "暗色" : "亮色"}模式)', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         _colorGroup(context, ref, config, colors, isDark, 'Primary', [
@@ -102,7 +159,6 @@ class DemoPage extends ConsumerWidget {
           ),
         const SizedBox(height: 16),
 
-        // ── Background color ───────────────────────────────
         Text('背景色', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         Wrap(
@@ -115,7 +171,6 @@ class DemoPage extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
-        // ── Icon thickness ─────────────────────────────────
         Text('图标粗细: ${config.iconThickness}', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 4),
         Slider(
@@ -145,7 +200,6 @@ class DemoPage extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
 
-        // ── Button variants ────────────────────────────────
         Text('按钮', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '主要'),
@@ -296,6 +350,29 @@ class DemoPage extends ConsumerWidget {
           ref.read(themeProvider.notifier).setScaffoldBackgroundColor(color);
         }
       },
+    );
+  }
+}
+
+class _TerminalPlaceholder extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.terminal, size: 48, color: colors.onSurface.withValues(alpha: 0.3)),
+          const SizedBox(height: 16),
+          Text(
+            'Terminal',
+            style: TextStyle(
+              fontSize: 24,
+              color: colors.onSurface.withValues(alpha: 0.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
