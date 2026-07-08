@@ -16,6 +16,7 @@ dependencies:
   riverpod_annotation: ^4.0.3
   window_manager: ^0.5.2
   freezed_annotation: ^3.0.0
+  cupertino_icons: ^1.0.8
 
 
 dev_dependencies:

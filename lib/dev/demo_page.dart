@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,7 +42,7 @@ class DemoPage extends ConsumerWidget {
               children: [
                 AppButton(
                   variant: ButtonVariant.iconOnly,
-                  icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  icon: isDark ? CupertinoIcons.sun_max : CupertinoIcons.moon,
                   onPressed: () =>
                       ref.read(themeProvider.notifier).toggle(),
                 ),
@@ -50,7 +51,7 @@ class DemoPage extends ConsumerWidget {
                   variant: hasCustomColor
                       ? ButtonVariant.primary
                       : ButtonVariant.secondary,
-                  icon: Icons.color_lens_outlined,
+                  icon: CupertinoIcons.paintbrush,
                   text: '换色',
                   onPressed: () {
                     final notifier = ref.read(themeProvider.notifier);
@@ -101,33 +102,33 @@ class DemoPage extends ConsumerWidget {
             children: [
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.settings_outlined,
+                icon: CupertinoIcons.gear,
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.settings_outlined,
+                icon: CupertinoIcons.gear,
                 onPressed: () {},
                 size: ButtonSize.sm,
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.settings_outlined,
+                icon: CupertinoIcons.gear,
                 onPressed: () {},
                 size: ButtonSize.lg,
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.refresh_outlined,
+                icon: CupertinoIcons.arrow_clockwise,
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.delete_outline,
+                icon: CupertinoIcons.trash,
                 onPressed: () {},
               ),
             ],
