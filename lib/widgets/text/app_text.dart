@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/custom_theme.dart';
+import 'package:agent/theme/custom_theme.dart';
 
 enum AppTextVariant { caption, body, subtitle, title, h2, h1 }
 
@@ -39,7 +39,8 @@ class AppText extends StatelessWidget {
           AppTextVariant.h2 => custom.fontSizeH2,
           AppTextVariant.h1 => custom.fontSizeH1,
         },
-      ).merge(style).copyWith(color: color),
+        fontFamily: custom.fontFamily,
+      ).merge(style).copyWith(color: color ?? Theme.of(context).colorScheme.onSurface),
       textAlign: textAlign,
       overflow: overflow,
       maxLines: maxLines,

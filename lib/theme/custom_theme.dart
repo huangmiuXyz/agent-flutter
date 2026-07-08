@@ -21,6 +21,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
   final List<BoxShadow> shadowMd;
   final List<BoxShadow> shadowLg;
 
+  final String fontFamily;
   final double fontSizeCaption;
   final double fontSizeBody;
   final double fontSizeSubtitle;
@@ -44,6 +45,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     required this.shadowSm,
     required this.shadowMd,
     required this.shadowLg,
+    required this.fontFamily,
     required this.fontSizeCaption,
     required this.fontSizeBody,
     required this.fontSizeSubtitle,
@@ -52,19 +54,38 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     required this.fontSizeH1,
   });
 
-  static final light = CustomTheme(
-    spacingXs: 4,
-    spacingSm: 8,
-    spacingMd: 16,
-    spacingLg: 24,
-    spacingXl: 32,
-    controlHeightSm: 24,
-    controlHeightMd: 32,
-    controlHeightLg: 40,
-    radiusXs: BorderRadius.all(Radius.circular(4)),
-    radiusSm: BorderRadius.all(Radius.circular(8)),
-    radiusMd: BorderRadius.all(Radius.circular(12)),
-    radiusFull: BorderRadius.all(Radius.circular(999)),
+  static CustomTheme _withShadows({
+    required List<BoxShadow> shadowSm,
+    required List<BoxShadow> shadowMd,
+    required List<BoxShadow> shadowLg,
+  }) {
+    return CustomTheme(
+      spacingXs: 4,
+      spacingSm: 8,
+      spacingMd: 16,
+      spacingLg: 24,
+      spacingXl: 32,
+      controlHeightSm: 24,
+      controlHeightMd: 32,
+      controlHeightLg: 40,
+      radiusXs: BorderRadius.all(Radius.circular(4)),
+      radiusSm: BorderRadius.all(Radius.circular(8)),
+      radiusMd: BorderRadius.all(Radius.circular(12)),
+      radiusFull: BorderRadius.all(Radius.circular(999)),
+      shadowSm: shadowSm,
+      shadowMd: shadowMd,
+      shadowLg: shadowLg,
+      fontFamily: 'NotoSansSC',
+      fontSizeCaption: 12,
+      fontSizeBody: 14,
+      fontSizeSubtitle: 16,
+      fontSizeTitle: 18,
+      fontSizeH2: 24,
+      fontSizeH1: 32,
+    );
+  }
+
+  static final light = _withShadows(
     shadowSm: [
       BoxShadow(
         color: Colors.black.withValues(alpha: 0.08),
@@ -86,27 +107,9 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
         offset: const Offset(0, 6),
       ),
     ],
-    fontSizeCaption: 12,
-    fontSizeBody: 14,
-    fontSizeSubtitle: 16,
-    fontSizeTitle: 18,
-    fontSizeH2: 24,
-    fontSizeH1: 32,
   );
 
-  static final dark = CustomTheme(
-    spacingXs: 4,
-    spacingSm: 8,
-    spacingMd: 16,
-    spacingLg: 24,
-    spacingXl: 32,
-    controlHeightSm: 24,
-    controlHeightMd: 32,
-    controlHeightLg: 40,
-    radiusXs: BorderRadius.all(Radius.circular(4)),
-    radiusSm: BorderRadius.all(Radius.circular(8)),
-    radiusMd: BorderRadius.all(Radius.circular(12)),
-    radiusFull: BorderRadius.all(Radius.circular(999)),
+  static final dark = _withShadows(
     shadowSm: [
       BoxShadow(
         color: Colors.black.withValues(alpha: 0.20),
@@ -128,12 +131,6 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
         offset: const Offset(0, 6),
       ),
     ],
-    fontSizeCaption: 12,
-    fontSizeBody: 14,
-    fontSizeSubtitle: 16,
-    fontSizeTitle: 18,
-    fontSizeH2: 24,
-    fontSizeH1: 32,
   );
 
   static CustomTheme of(BuildContext context) {
@@ -157,6 +154,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     List<BoxShadow>? shadowSm,
     List<BoxShadow>? shadowMd,
     List<BoxShadow>? shadowLg,
+    String? fontFamily,
     double? fontSizeCaption,
     double? fontSizeBody,
     double? fontSizeSubtitle,
@@ -180,6 +178,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
       shadowSm: shadowSm ?? this.shadowSm,
       shadowMd: shadowMd ?? this.shadowMd,
       shadowLg: shadowLg ?? this.shadowLg,
+      fontFamily: fontFamily ?? this.fontFamily,
       fontSizeCaption: fontSizeCaption ?? this.fontSizeCaption,
       fontSizeBody: fontSizeBody ?? this.fontSizeBody,
       fontSizeSubtitle: fontSizeSubtitle ?? this.fontSizeSubtitle,
@@ -208,6 +207,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
       shadowSm: t < 0.5 ? shadowSm : other.shadowSm,
       shadowMd: t < 0.5 ? shadowMd : other.shadowMd,
       shadowLg: t < 0.5 ? shadowLg : other.shadowLg,
+      fontFamily: t < 0.5 ? fontFamily : other.fontFamily,
       fontSizeCaption: lerpDouble(fontSizeCaption, other.fontSizeCaption, t)!,
       fontSizeBody: lerpDouble(fontSizeBody, other.fontSizeBody, t)!,
       fontSizeSubtitle: lerpDouble(fontSizeSubtitle, other.fontSizeSubtitle, t)!,

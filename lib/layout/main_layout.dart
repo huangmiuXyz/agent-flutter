@@ -10,8 +10,6 @@ class MainLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-
     if (Platform.isMacOS) {
       return Scaffold(
         appBar: PreferredSize(
@@ -24,6 +22,7 @@ class MainLayout extends StatelessWidget {
       );
     }
 
+    final brightness = Theme.of(context).brightness;
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kWindowCaptionHeight),
