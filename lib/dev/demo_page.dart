@@ -37,7 +37,7 @@ class DemoPage extends HookConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 200,
+          width: 240,
           child: Column(
             children: [
               AppList(

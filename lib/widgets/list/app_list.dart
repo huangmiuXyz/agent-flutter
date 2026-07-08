@@ -8,7 +8,7 @@ import 'package:agent/widgets/text/app_text.dart';
 class AppList extends StatelessWidget {
   final double? width;
   final EdgeInsetsGeometry? containerPadding;
-  final double itemGap;
+  final double? itemGap;
   final BorderRadiusGeometry? containerRadius;
   final Color? containerColor;
   final List<AppListItem> children;
@@ -17,7 +17,7 @@ class AppList extends StatelessWidget {
     super.key,
     this.width,
     this.containerPadding,
-    this.itemGap = 4,
+    this.itemGap,
     this.containerRadius,
     this.containerColor,
     required this.children,
@@ -38,7 +38,7 @@ class AppList extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int i = 0; i < children.length; i++) ...[
-            if (i > 0) SizedBox(height: itemGap),
+            if (i > 0) SizedBox(height: itemGap ?? custom.spacingXs),
             children[i],
           ],
         ],
@@ -57,8 +57,7 @@ class AppListItem extends HookWidget {
   final double? itemHeight;
   final EdgeInsetsGeometry? itemPadding;
   final BorderRadiusGeometry? itemRadius;
-  final Color? activeColor;
-  final Color? hoverColor;
+  final Color? itemColor;
   final Color? labelColor;
   final double? iconSize;
   final double? iconLabelGap;
@@ -73,8 +72,7 @@ class AppListItem extends HookWidget {
     this.itemHeight,
     this.itemPadding,
     this.itemRadius,
-    this.activeColor,
-    this.hoverColor,
+    this.itemColor,
     this.labelColor,
     this.iconSize,
     this.iconLabelGap,
@@ -88,18 +86,14 @@ class AppListItem extends HookWidget {
 
     final height = itemHeight ?? custom.controlHeightMd;
     final padding = itemPadding ??
-        const EdgeInsets.symmetric(horizontal: 8);
+        EdgeInsets.symmetric(horizontal: custom.spacingSm);
     final radius =
         (itemRadius ?? custom.radiusSm) as BorderRadius;
     final iconSz = iconSize ?? 18;
     final gap = iconLabelGap ?? custom.spacingSm;
 
-    final bgColor = active
-        ? (activeColor ?? colors.surfaceContainerHighest)
-        : isHovered.value
-        ? (hoverColor ?? (Theme.of(context).brightness == Brightness.light
-            ? Colors.black.withValues(alpha: 0.06)
-            : Colors.white.withValues(alpha: 0.06)))
+    final bgColor = active || isHovered.value
+        ? (itemColor ?? colors.surfaceContainerHighest)
         : Colors.transparent;
 
     return SizedBox(
@@ -117,13 +111,7 @@ class AppListItem extends HookWidget {
             child: Row(
               children: [
                 if (icon != null) ...[
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: Center(
-                      child: AppIcon(icon!, size: iconSz),
-                    ),
-                  ),
+                  AppIcon(icon!, size: iconSz),
                   SizedBox(width: gap),
                 ],
                 Expanded(
