@@ -53,10 +53,10 @@ ThemeData buildAppTheme(ThemeConfig config, Brightness brightness) {
 
   var theme = isDark ? appDarkTheme : appLightTheme;
 
-  if (config.colorScheme != null &&
-      config.colorScheme!.brightness == brightness) {
+  final customScheme = isDark ? config.darkColorScheme : config.lightColorScheme;
+  if (customScheme != null) {
     theme = (isDark ? appDarkTheme : appLightTheme).copyWith(
-      colorScheme: config.colorScheme,
+      colorScheme: customScheme,
     );
   }
 

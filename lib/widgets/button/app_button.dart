@@ -57,20 +57,24 @@ class AppButton extends StatelessWidget {
       ButtonVariant.iconOnly => _iconOnlyStyle(colors, custom),
     };
 
+    final sizeStyle = ButtonStyle(
+      mouseCursor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return SystemMouseCursors.basic;
+        }
+        return SystemMouseCursors.click;
+      }),
+      minimumSize: WidgetStateProperty.all(
+        variant == ButtonVariant.iconOnly ? Size(height, height) : Size(0, height),
+      ),
+      maximumSize: WidgetStateProperty.all(
+        variant == ButtonVariant.iconOnly ? Size(height, height) : Size(double.infinity, height),
+      ),
+    );
+
     final textButton = TextButton(
       onPressed: disabled ? null : onPressed,
-      style: btnStyle
-          .merge(
-            ButtonStyle(
-              mouseCursor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.disabled)) {
-                  return SystemMouseCursors.basic;
-                }
-                return SystemMouseCursors.click;
-              }),
-            ),
-          )
-          .merge(style),
+      style: btnStyle.merge(sizeStyle).merge(style),
       child: _buildChild(
         custom,
         iconSize,
@@ -78,10 +82,12 @@ class AppButton extends StatelessWidget {
       ),
     );
 
-    return SizedBox(
-      width: variant == ButtonVariant.iconOnly ? height : null,
-      height: height,
-      child: textButton,
+    if (variant == ButtonVariant.iconOnly) {
+      return SizedBox(width: height, height: height, child: textButton);
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [SizedBox(height: height, child: textButton)],
     );
   }
 

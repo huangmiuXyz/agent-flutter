@@ -11,8 +11,10 @@ part 'provider.g.dart';
 sealed class ThemeConfig with _$ThemeConfig {
   const factory ThemeConfig({
     @Default(ThemeMode.system) ThemeMode themeMode,
-    ColorScheme? colorScheme,
+    ColorScheme? lightColorScheme,
+    ColorScheme? darkColorScheme,
     Color? scaffoldBackgroundColor,
+    @Default(200) int iconThickness,
   }) = _ThemeConfig;
 }
 
@@ -41,8 +43,12 @@ class ThemeNotifier extends _$ThemeNotifier {
     state = state.copyWith(themeMode: mode);
   }
 
-  void setColorScheme(ColorScheme scheme) {
-    state = state.copyWith(colorScheme: scheme);
+  void setLightColorScheme(ColorScheme scheme) {
+    state = state.copyWith(lightColorScheme: scheme);
+  }
+
+  void setDarkColorScheme(ColorScheme scheme) {
+    state = state.copyWith(darkColorScheme: scheme);
   }
 
   void setScaffoldBackgroundColor(Color color) {
@@ -51,8 +57,17 @@ class ThemeNotifier extends _$ThemeNotifier {
 
   void resetColorScheme() {
     state = state.copyWith(
-      colorScheme: null,
+      lightColorScheme: null,
+      darkColorScheme: null,
       scaffoldBackgroundColor: null,
     );
+  }
+
+  void setIconThickness(int v) {
+    state = state.copyWith(iconThickness: v);
+  }
+
+  void resetScaffoldBackgroundColor() {
+    state = state.copyWith(scaffoldBackgroundColor: null);
   }
 }
