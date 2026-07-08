@@ -89,7 +89,7 @@ class AppListItem extends HookWidget {
         EdgeInsets.symmetric(horizontal: custom.spacingSm);
     final radius =
         (itemRadius ?? custom.radiusSm) as BorderRadius;
-    final iconSz = iconSize ?? 18;
+    final iconSz = iconSize ?? custom.fontSizeTitle;
     final gap = iconLabelGap ?? custom.spacingSm;
 
     final bgColor = active || isHovered.value

@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:agent/widgets/text/app_text.dart';
+
 class MainLayout extends StatelessWidget {
   final Widget child;
 
@@ -28,7 +30,7 @@ class MainLayout extends StatelessWidget {
         preferredSize: const Size.fromHeight(kWindowCaptionHeight),
         child: WindowCaption(
           brightness: brightness,
-          title: const Text('Agent'),
+          title: const AppText('Agent'),
         ),
       ),
       body: child,
