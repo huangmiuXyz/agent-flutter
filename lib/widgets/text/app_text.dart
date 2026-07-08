@@ -40,6 +40,7 @@ class AppText extends StatelessWidget {
           AppTextVariant.h1 => custom.fontSizeH1,
         },
         fontFamily: custom.fontFamily,
+        fontWeight: FontWeight.w400,
       ).merge(style).copyWith(color: color ?? Theme.of(context).colorScheme.onSurface),
       textAlign: textAlign,
       overflow: overflow,
