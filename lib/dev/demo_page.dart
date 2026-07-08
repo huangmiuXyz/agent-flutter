@@ -4,8 +4,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/terminal/terminal_widget.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 const List<Color> _colorOptions = [
   Color(0xFF000000),
@@ -37,7 +39,7 @@ class DemoPage extends HookConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 240,
+          width: 256,
           child: Column(
             children: [
               AppList(
@@ -91,7 +93,7 @@ class DemoPage extends HookConsumerWidget {
           ),
         ),
         Expanded(
-          child: selectedIndex.value == 0 ? _ButtonDemo() : _TerminalPlaceholder(),
+          child: selectedIndex.value == 0 ? _ButtonDemo() : const TerminalWidget(),
         ),
       ],
     );
@@ -108,7 +110,7 @@ class _ButtonDemo extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('配色 (${isDark ? "暗色" : "亮色"}模式)', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('配色 (${isDark ? "暗色" : "亮色"}模式)', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         _colorGroup(context, ref, config, colors, isDark, 'Primary', [
           ('primary', '主题', (cs) => cs.primary),
@@ -154,12 +156,12 @@ class _ButtonDemo extends ConsumerWidget {
             padding: const EdgeInsets.only(top: 8),
             child: GestureDetector(
               onTap: () => ref.read(themeProvider.notifier).resetColorScheme(),
-              child: Text('恢复默认', style: TextStyle(fontSize: 12, color: colors.primary)),
+              child: AppText('恢复默认', style: TextStyle(fontSize: 12, color: colors.primary)),
             ),
           ),
         const SizedBox(height: 16),
 
-        Text('背景色', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('背景色', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -171,7 +173,7 @@ class _ButtonDemo extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
-        Text('图标粗细: ${config.iconThickness}', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('图标粗细: ${config.iconThickness}', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 4),
         Slider(
           value: config.iconThickness.toDouble(),
@@ -192,7 +194,7 @@ class _ButtonDemo extends ConsumerWidget {
                       children: [
                         AppIcon(n, size: 24),
                         const SizedBox(height: 4),
-                        Text(n, style: const TextStyle(fontSize: 10)),
+                        AppText(n, style: const TextStyle(fontSize: 10)),
                       ],
                     ),
                   ))
@@ -200,7 +202,7 @@ class _ButtonDemo extends ConsumerWidget {
         ),
         const SizedBox(height: 24),
 
-        Text('按钮', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('按钮', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '主要'),
         const SizedBox(height: 8),
@@ -235,7 +237,7 @@ class _ButtonDemo extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colors.onSurface.withValues(alpha: 0.7))),
+        AppText(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colors.onSurface.withValues(alpha: 0.7))),
         const SizedBox(height: 4),
         Wrap(
           spacing: 12,
@@ -298,7 +300,7 @@ class _ButtonDemo extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 9)),
+          AppText(label, style: const TextStyle(fontSize: 9)),
         ],
       ),
     );
@@ -310,7 +312,7 @@ class _ButtonDemo extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('选择颜色'),
+        title: const AppText('选择颜色'),
         content: Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -354,25 +356,3 @@ class _ButtonDemo extends ConsumerWidget {
   }
 }
 
-class _TerminalPlaceholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.terminal, size: 48, color: colors.onSurface.withValues(alpha: 0.3)),
-          const SizedBox(height: 16),
-          Text(
-            'Terminal',
-            style: TextStyle(
-              fontSize: 24,
-              color: colors.onSurface.withValues(alpha: 0.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
