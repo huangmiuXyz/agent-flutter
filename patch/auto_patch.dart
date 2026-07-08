@@ -114,7 +114,7 @@ void _applyManually(Directory pkgDir, File patchFile) {
       if (line.startsWith('+')) {
         insertLine = line.substring(1);
         break;
-      } else if (line.startsWith(' ') && contextLine.isEmpty) {
+      } else if (line.startsWith(' ')) {
         contextLine = line.substring(1);
       }
     }
@@ -137,13 +137,15 @@ void _applyManually(Directory pkgDir, File patchFile) {
     return;
   }
 
+  // Insert AFTER the context line (unified diff: + line comes after context)
   final idx = content.indexOf(contextLine);
   if (idx == -1) {
     stderr.writeln('Pattern not found: ${patchFile.path} (version may have changed)');
     return;
   }
 
-  content = '${content.substring(0, idx)}$insertLine\n${content.substring(idx)}';
+  final insertAt = idx + contextLine.length;
+  content = '${content.substring(0, insertAt)}\n$insertLine${content.substring(insertAt)}';
   target.writeAsStringSync(content, flush: true);
   print('Applied: ${patchFile.path} -> ${target.path}');
 }
