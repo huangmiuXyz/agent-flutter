@@ -6,19 +6,21 @@ import 'package:kterm/kterm.dart';
 import 'provider.dart';
 
 class TerminalWidget extends HookConsumerWidget {
-  const TerminalWidget({super.key});
+  const TerminalWidget({super.key, this.terminalId = 'default'});
+
+  final String terminalId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final terminal = ref.watch(terminalManagerProvider);
+    final terminal = ref.watch(terminalManagerProvider(terminalId));
     final controller = useMemoized(() => TerminalController());
 
     useEffect(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(terminalManagerProvider.notifier).startPty();
+        ref.read(terminalManagerProvider(terminalId).notifier).startPty();
       });
       return null;
-    }, const []);
+    }, [terminalId]);
 
     return ClipRect(
       child: TerminalView(

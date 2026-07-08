@@ -20,6 +20,7 @@ dependencies:
   flutter_pty: ^0.4.2
   kterm: ^1.5.1
   path: ^1.9.0
+  meta: ^1.18.0
 
 
 dev_dependencies:
