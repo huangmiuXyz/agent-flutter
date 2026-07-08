@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 const _kHoverOpacity = 0.88;
@@ -13,7 +14,7 @@ enum ButtonSize { sm, md, lg }
 class AppButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final String? text;
-  final IconData? icon;
+  final String? icon;
   final ButtonStyle? style;
   final bool disabled;
   final ButtonVariant variant;
@@ -70,11 +71,7 @@ class AppButton extends StatelessWidget {
             ),
           )
           .merge(style),
-      child: _buildChild(
-        custom,
-        iconSize,
-        variant == ButtonVariant.primary ? colors.onPrimary : null,
-      ),
+      child: _buildChild(custom, iconSize),
     );
 
     return SizedBox(
@@ -84,11 +81,11 @@ class AppButton extends StatelessWidget {
     );
   }
 
-  Widget _buildChild(CustomTheme custom, double iconSize, Color? textColor) {
+  Widget _buildChild(CustomTheme custom, double iconSize) {
     if (variant == ButtonVariant.iconOnly) {
       return Tooltip(
         message: text ?? '',
-        child: Icon(icon, size: iconSize, color: textColor),
+        child: AppIcon(icon!, size: iconSize),
       );
     }
     if (icon != null) {
@@ -96,13 +93,13 @@ class AppButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: iconSize, color: textColor),
+          AppIcon(icon!, size: iconSize),
           SizedBox(width: custom.spacingSm),
-          AppText(_textNotNull, color: textColor),
+          AppText(_textNotNull),
         ],
       );
     }
-    return AppText(_textNotNull, color: textColor);
+    return AppText(_textNotNull);
   }
 
   ButtonStyle _primaryStyle(

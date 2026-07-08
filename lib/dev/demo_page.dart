@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:agent/theme/provider.dart';
@@ -42,7 +41,7 @@ class DemoPage extends ConsumerWidget {
               children: [
                 AppButton(
                   variant: ButtonVariant.iconOnly,
-                  icon: isDark ? PhosphorIcons.sun : PhosphorIcons.moon,
+                  icon: isDark ? 'sun' : 'moon',
                   onPressed: () =>
                       ref.read(themeProvider.notifier).toggle(),
                 ),
@@ -51,7 +50,7 @@ class DemoPage extends ConsumerWidget {
                   variant: hasCustomColor
                       ? ButtonVariant.primary
                       : ButtonVariant.secondary,
-                  icon: PhosphorIcons.paintBrush,
+                  icon: 'brush',
                   text: '换色',
                   onPressed: () {
                     final notifier = ref.read(themeProvider.notifier);
@@ -102,33 +101,33 @@ class DemoPage extends ConsumerWidget {
             children: [
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: PhosphorIcons.gear,
+                icon: 'settings',
+                                onPressed: () {},
+                              ),
+                              const SizedBox(width: 8),
+                              AppButton(
+                                variant: ButtonVariant.iconOnly,
+                                icon: 'settings',
+                                onPressed: () {},
+                                size: ButtonSize.sm,
+                              ),
+                              const SizedBox(width: 8),
+                              AppButton(
+                                variant: ButtonVariant.iconOnly,
+                                icon: 'settings',
+                                onPressed: () {},
+                                size: ButtonSize.lg,
+              ),
+              const SizedBox(width: 8),
+              AppButton(
+                variant: ButtonVariant.iconOnly,
+                icon: 'refresh',
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: PhosphorIcons.gear,
-                onPressed: () {},
-                size: ButtonSize.sm,
-              ),
-              const SizedBox(width: 8),
-              AppButton(
-                variant: ButtonVariant.iconOnly,
-                icon: PhosphorIcons.gear,
-                onPressed: () {},
-                size: ButtonSize.lg,
-              ),
-              const SizedBox(width: 8),
-              AppButton(
-                variant: ButtonVariant.iconOnly,
-                icon: PhosphorIcons.arrowClockwise,
-                onPressed: () {},
-              ),
-              const SizedBox(width: 8),
-              AppButton(
-                variant: ButtonVariant.iconOnly,
-                icon: PhosphorIcons.trash,
+                icon: 'trash',
                 onPressed: () {},
               ),
             ],
