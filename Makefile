@@ -1,9 +1,13 @@
-.PHONY: run build clean
+.PHONY: run build clean patch
 
-# 生成代码 + 启动 app
-run:
+# 应用 patch + 生成代码 + 启动 app
+run: patch
 	dart run build_runner build --delete-conflicting-outputs
 	flutter run
+
+# 手动应用 patch（或 pub get 后自动执行）
+patch:
+	dart run patch/auto_patch.dart
 
 # 仅重新生成代码
 build:

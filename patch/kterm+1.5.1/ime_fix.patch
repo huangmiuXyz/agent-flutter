@@ -1,0 +1,10 @@
+--- a/lib/src/ui/custom_text_edit.dart
++++ b/lib/src/ui/custom_text_edit.dart
+@@ -163,6 +163,7 @@
+       _connection!.show();
+     } else {
+       final config = TextInputConfiguration(
++        viewId: View.of(context).viewId,
+         inputType: widget.inputType,
+         inputAction: widget.inputAction,
+         keyboardAppearance: widget.keyboardAppearance,
