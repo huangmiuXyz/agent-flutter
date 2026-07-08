@@ -105,13 +105,6 @@ class AppButton extends StatelessWidget {
     return AppText(_textNotNull, color: textColor);
   }
 
-  TextStyle _baseTextStyle(CustomTheme custom, {FontWeight weight = FontWeight.w400}) {
-    return TextStyle(
-      fontSize: custom.fontSizeBody,
-      fontWeight: weight,
-    );
-  }
-
   ButtonStyle _primaryStyle(
     ColorScheme colors,
     CustomTheme custom,
@@ -134,7 +127,6 @@ class AppButton extends StatelessWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: custom.radiusXs),
       ),
-      textStyle: WidgetStateProperty.all(_baseTextStyle(custom)),
       elevation: WidgetStateProperty.all(1),
       shadowColor: WidgetStateProperty.all(
         colors.onSurface.withValues(alpha: 0.08),
@@ -168,7 +160,6 @@ class AppButton extends StatelessWidget {
           side: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
         ),
       ),
-      textStyle: WidgetStateProperty.all(_baseTextStyle(custom)),
       elevation: WidgetStateProperty.all(0),
     );
   }
@@ -186,7 +177,6 @@ class AppButton extends StatelessWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: custom.radiusXs),
       ),
-      textStyle: WidgetStateProperty.all(_baseTextStyle(custom)),
       elevation: WidgetStateProperty.all(0),
     );
   }
