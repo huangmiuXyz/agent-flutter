@@ -6,14 +6,14 @@ import 'package:agent/widgets/terminal/provider.dart';
 
 void main() {
   group('TerminalManager.execute', () {
-    const testId = 'test';
+    const testConfig = TerminalConfig(id: 'test');
 
     late ProviderContainer container;
     late TerminalManager tm;
 
     setUp(() {
       container = ProviderContainer();
-      tm = container.read(terminalManagerProvider(testId).notifier);
+      tm = container.read(terminalManagerProvider(testConfig).notifier);
     });
 
     tearDown(() => container.dispose());
@@ -61,8 +61,10 @@ void main() {
     });
 
     test('different IDs have independent state', () async {
-      final tm1 = container.read(terminalManagerProvider('tab1').notifier);
-      final tm2 = container.read(terminalManagerProvider('tab2').notifier);
+      final c1 = TerminalConfig(id: 'tab1');
+      final c2 = TerminalConfig(id: 'tab2');
+      final tm1 = container.read(terminalManagerProvider(c1).notifier);
+      final tm2 = container.read(terminalManagerProvider(c2).notifier);
 
       final r1 = tm1.execute('cmd1', timeout: const Duration(seconds: 1));
       final r2 = tm2.execute('cmd2', timeout: const Duration(seconds: 1));
@@ -74,6 +76,14 @@ void main() {
 
       expect(await r1, contains('tab1_output'));
       expect(await r2, contains('tab2_output'));
+    });
+  });
+
+  group('TerminalConfig', () {
+    test('resolvedShell routes non-cmd shells through cmd.exe on Windows', () {
+      expect(TerminalConfig(id: 't', shell: 'pwsh.exe').resolvedShell, 'cmd.exe');
+      expect(TerminalConfig(id: 't', shell: 'cmd.exe').resolvedShell, 'cmd.exe');
+      expect(TerminalConfig(id: 't').resolvedShell, 'cmd.exe');
     });
   });
 }

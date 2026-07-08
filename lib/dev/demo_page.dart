@@ -1,9 +1,13 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/terminal/provider.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
@@ -93,9 +97,152 @@ class DemoPage extends HookConsumerWidget {
           ),
         ),
         Expanded(
-          child: selectedIndex.value == 0 ? _ButtonDemo() : const TerminalWidget(),
+          child: selectedIndex.value == 0
+              ? _ButtonDemo()
+              : _TerminalTabs(),
         ),
       ],
+    );
+  }
+}
+
+List<String> _availableShells() {
+  if (kIsWeb) return ['/bin/bash'];
+  if (!Platform.isWindows) return ['bash', 'zsh', 'sh'];
+  final shells = <String>['cmd.exe'];
+  if (Process.runSync('where', ['pwsh.exe']).exitCode == 0) {
+    shells.add('pwsh.exe');
+  }
+  if (File(r'C:\Program Files\Git\bin\bash.exe').existsSync()) {
+    shells.add(r'C:\Program Files\Git\bin\bash.exe');
+  }
+  if (Process.runSync('where', ['wsl']).exitCode == 0) {
+    shells.add('wsl.exe');
+  }
+  return shells;
+}
+
+class _TerminalTabs extends HookConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tabs = useState<List<TerminalConfig>>([const TerminalConfig(id: 'tab-0')]);
+    final active = useState(0);
+    final colors = Theme.of(context).colorScheme;
+
+    void addTab(String shell) {
+      final id = 'tab-${tabs.value.length}';
+      tabs.value = [...tabs.value, TerminalConfig(id: id, shell: shell)];
+      active.value = tabs.value.length - 1;
+    }
+
+    void closeTab(int index) {
+      if (tabs.value.length <= 1) return;
+      final newTabs = [...tabs.value]..removeAt(index);
+      tabs.value = newTabs;
+      if (active.value >= newTabs.length) {
+        active.value = newTabs.length - 1;
+      } else if (active.value > index) {
+        active.value = active.value - 1;
+      }
+    }
+
+    return Column(
+      children: [
+        Container(
+          height: 36,
+          color: colors.surfaceContainerLow,
+          child: Row(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: tabs.value.length,
+                  itemBuilder: (context, index) => _TabItem(
+                    label: tabs.value[index].shell.isNotEmpty ? tabs.value[index].shell : 'cmd.exe',
+                    active: active.value == index,
+                    onTap: () => active.value = index,
+                    onClose: tabs.value.length > 1
+                        ? () => closeTab(index)
+                        : null,
+                  ),
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.add, size: 16, color: colors.onSurface),
+                tooltip: 'New terminal',
+                onSelected: addTab,
+                itemBuilder: (context) => [
+                  for (final shell in _availableShells())
+                    PopupMenuItem(value: shell, child: Text(shell, style: const TextStyle(fontSize: 13))),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: IndexedStack(
+            index: active.value,
+            children: [
+              for (final c in tabs.value)
+                TerminalWidget(key: ValueKey(c.id), config: c),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TabItem extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final VoidCallback? onClose;
+
+  const _TabItem({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: active ? colors.surface : Colors.transparent,
+          border: Border(
+            bottom: BorderSide(
+              color: active ? colors.primary : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: active ? colors.onSurface : colors.onSurfaceVariant,
+              ),
+            ),
+            if (onClose != null) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onClose,
+                child: Icon(Icons.close, size: 14, color: colors.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

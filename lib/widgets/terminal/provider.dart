@@ -2,24 +2,52 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter_pty/flutter_pty.dart';
+import 'package:kyroon_pty/kyroon_pty.dart';
 import 'package:kterm/kterm.dart';
 import 'package:meta/meta.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'provider.g.dart';
 
-@riverpod
-class TerminalRegistry extends _$TerminalRegistry {
-  @override
-  Set<String> build() => {};
+class TerminalConfig {
+  final String id;
+  final String shell;
+  final List<String> args;
+  const TerminalConfig({required this.id, this.shell = '', this.args = const []});
 
-  void add(String id) => state = {...state, id};
-  void remove(String id) => state = {...state}..remove(id);
+  static bool get _isWindows => Platform.isWindows;
+
+  List<String> get resolvedArgs {
+    if (args.isNotEmpty) return args;
+    if (!_isWindows) return [];
+    final name = shell.split(RegExp(r'[\\/]')).last;
+    if (name == 'cmd.exe' || name.isEmpty) return [];
+    final quoted = shell.contains(' ') ? '"$shell"' : shell;
+    if (name == 'pwsh.exe') return ['/c', quoted, '-NoLogo', '-NoProfile'];
+    if (name == 'bash.exe') return ['/c', quoted, '--login', '-i'];
+    return ['/c', quoted];
+  }
+
+  String get resolvedShell {
+    if (shell.isNotEmpty && _isWindows && shell != 'cmd.exe') return 'cmd.exe';
+    if (Platform.isWindows) return 'cmd.exe';
+    return Platform.environment['SHELL'] ?? '/bin/bash';
+  }
 }
+
+class TerminalRegistry {
+  final Set<String> _ids = {};
+  Set<String> get ids => Set.unmodifiable(_ids);
+  void add(String id) => _ids.add(id);
+  void remove(String id) => _ids.remove(id);
+}
+
+final terminalRegistryProvider = Provider<TerminalRegistry>((ref) => TerminalRegistry());
 
 @riverpod
 class TerminalManager extends _$TerminalManager {
+  TerminalRegistry? _registry;
   Pty? _pty;
   StreamSubscription? _subscription;
   final _outputController = StreamController<String>.broadcast();
@@ -27,11 +55,9 @@ class TerminalManager extends _$TerminalManager {
   Stream<String> get output => _outputController.stream;
 
   @override
-  Terminal build(String id) {
-    ref.read(terminalRegistryProvider.notifier).add(id);
-    ref.onDispose(() {
-      ref.read(terminalRegistryProvider.notifier).remove(id);
-    });
+  Terminal build(TerminalConfig config) {
+    _registry = ref.read(terminalRegistryProvider);
+    _registry!.add(config.id);
     final t = Terminal();
     t.onOutput = _onOutput;
     t.onResize = _onResize;
@@ -49,14 +75,13 @@ class TerminalManager extends _$TerminalManager {
 
   void startPty() {
     _kill();
-    final shell = Platform.isWindows
-        ? 'cmd.exe'
-        : (Platform.environment['SHELL'] ?? '/bin/bash');
 
     final pty = Pty.start(
-      shell,
+      config.resolvedShell,
+      arguments: config.resolvedArgs,
       columns: state.viewWidth,
       rows: state.viewHeight,
+      environment: Map<String, String>.from(Platform.environment),
     );
 
     _pty = pty;
@@ -70,6 +95,7 @@ class TerminalManager extends _$TerminalManager {
     });
 
     pty.exitCode.then((code) {
+      if (!ref.mounted) return;
       state.write('\r\n[exit $code]\r\n');
     });
   }
@@ -124,6 +150,7 @@ class TerminalManager extends _$TerminalManager {
   }
 
   void _dispose() {
+    _registry?.remove(config.id);
     _outputController.close();
     _kill();
   }
