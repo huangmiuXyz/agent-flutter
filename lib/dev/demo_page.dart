@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:agent/theme/provider.dart';
@@ -42,7 +42,7 @@ class DemoPage extends ConsumerWidget {
               children: [
                 AppButton(
                   variant: ButtonVariant.iconOnly,
-                  icon: isDark ? CupertinoIcons.sun_max : CupertinoIcons.moon,
+                  icon: isDark ? PhosphorIcons.sun : PhosphorIcons.moon,
                   onPressed: () =>
                       ref.read(themeProvider.notifier).toggle(),
                 ),
@@ -51,7 +51,7 @@ class DemoPage extends ConsumerWidget {
                   variant: hasCustomColor
                       ? ButtonVariant.primary
                       : ButtonVariant.secondary,
-                  icon: CupertinoIcons.paintbrush,
+                  icon: PhosphorIcons.paintBrush,
                   text: '换色',
                   onPressed: () {
                     final notifier = ref.read(themeProvider.notifier);
@@ -102,33 +102,33 @@ class DemoPage extends ConsumerWidget {
             children: [
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: CupertinoIcons.gear,
+                icon: PhosphorIcons.gear,
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: CupertinoIcons.gear,
+                icon: PhosphorIcons.gear,
                 onPressed: () {},
                 size: ButtonSize.sm,
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: CupertinoIcons.gear,
+                icon: PhosphorIcons.gear,
                 onPressed: () {},
                 size: ButtonSize.lg,
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: CupertinoIcons.arrow_clockwise,
+                icon: PhosphorIcons.arrowClockwise,
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: CupertinoIcons.trash,
+                icon: PhosphorIcons.trash,
                 onPressed: () {},
               ),
             ],
