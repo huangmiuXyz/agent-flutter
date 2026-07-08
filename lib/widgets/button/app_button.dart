@@ -43,6 +43,11 @@ class AppButton extends StatelessWidget {
       ButtonSize.md => custom.controlHeightMd,
       ButtonSize.lg => custom.controlHeightLg,
     };
+    final iconSize = switch (size) {
+      ButtonSize.sm => 12.0,
+      ButtonSize.md => 16.0,
+      ButtonSize.lg => 20.0,
+    };
 
     final btnStyle = switch (variant) {
       ButtonVariant.primary => _primaryStyle(colors, custom, height),
@@ -67,6 +72,7 @@ class AppButton extends StatelessWidget {
           .merge(style),
       child: _buildChild(
         custom,
+        iconSize,
         variant == ButtonVariant.primary ? colors.onPrimary : null,
       ),
     );
@@ -78,11 +84,11 @@ class AppButton extends StatelessWidget {
     );
   }
 
-  Widget _buildChild(CustomTheme custom, Color? textColor) {
+  Widget _buildChild(CustomTheme custom, double iconSize, Color? textColor) {
     if (variant == ButtonVariant.iconOnly) {
       return Tooltip(
         message: text ?? '',
-        child: Icon(icon, size: custom.fontSizeBody, color: textColor),
+        child: Icon(icon, size: iconSize, color: textColor),
       );
     }
     if (icon != null) {
@@ -90,7 +96,7 @@ class AppButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: custom.fontSizeBody, color: textColor),
+          Icon(icon, size: iconSize, color: textColor),
           SizedBox(width: custom.spacingSm),
           AppText(_textNotNull, color: textColor),
         ],

@@ -41,7 +41,7 @@ class DemoPage extends ConsumerWidget {
               children: [
                 AppButton(
                   variant: ButtonVariant.iconOnly,
-                  icon: isDark ? Icons.light_mode : Icons.dark_mode,
+                  icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
                   onPressed: () =>
                       ref.read(themeProvider.notifier).toggle(),
                 ),
@@ -50,7 +50,7 @@ class DemoPage extends ConsumerWidget {
                   variant: hasCustomColor
                       ? ButtonVariant.primary
                       : ButtonVariant.secondary,
-                  icon: Icons.color_lens,
+                  icon: Icons.color_lens_outlined,
                   text: '换色',
                   onPressed: () {
                     final notifier = ref.read(themeProvider.notifier);
@@ -101,27 +101,27 @@ class DemoPage extends ConsumerWidget {
             children: [
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.settings,
+                icon: Icons.settings_outlined,
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.settings,
+                icon: Icons.settings_outlined,
                 onPressed: () {},
                 size: ButtonSize.sm,
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.settings,
+                icon: Icons.settings_outlined,
                 onPressed: () {},
                 size: ButtonSize.lg,
               ),
               const SizedBox(width: 8),
               AppButton(
                 variant: ButtonVariant.iconOnly,
-                icon: Icons.refresh,
+                icon: Icons.refresh_outlined,
                 onPressed: () {},
               ),
               const SizedBox(width: 8),
