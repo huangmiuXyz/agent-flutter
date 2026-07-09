@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:kyroon_pty/kyroon_pty.dart';
 import 'package:kterm/kterm.dart';
-import 'package:meta/meta.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -15,6 +15,17 @@ class TerminalConfig {
   final String shell;
   final List<String> args;
   const TerminalConfig({required this.id, this.shell = '', this.args = const []});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TerminalConfig &&
+          id == other.id &&
+          shell == other.shell &&
+          listEquals(args, other.args);
+
+  @override
+  int get hashCode => Object.hash(id, shell, Object.hashAll(args));
 
   static bool get _isWindows => Platform.isWindows;
 
@@ -66,6 +77,11 @@ class TerminalManager extends _$TerminalManager {
     t.onOutput = _onOutput;
     t.onResize = _onResize;
     ref.onDispose(_dispose);
+
+    Future.microtask(() {
+      if (ref.mounted) startPty();
+    });
+
     return t;
   }
 
