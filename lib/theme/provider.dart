@@ -98,9 +98,17 @@ class ThemeNotifier extends _$ThemeNotifier {
       'surface' => base.copyWith(surface: c, onSurface: onC),
       'onSurface' => base.copyWith(onSurface: c),
       'surfaceContainerHighest' => base.copyWith(surfaceContainerHighest: c),
+      'surfaceContainerHigh' => base.copyWith(surfaceContainerHigh: c),
+      'surfaceContainer' => base.copyWith(surfaceContainer: c),
+      'surfaceContainerLow' => base.copyWith(surfaceContainerLow: c),
       'onSurfaceVariant' => base.copyWith(onSurfaceVariant: c),
       'outline' => base.copyWith(outline: c),
       'outlineVariant' => base.copyWith(outlineVariant: c),
+      'shadow' => base.copyWith(shadow: c),
+      'scrim' => base.copyWith(scrim: c),
+      'inverseSurface' => base.copyWith(inverseSurface: c, onInverseSurface: onC),
+      'onInverseSurface' => base.copyWith(onInverseSurface: c),
+      'inversePrimary' => base.copyWith(inversePrimary: c),
       _ => base,
     };
   }

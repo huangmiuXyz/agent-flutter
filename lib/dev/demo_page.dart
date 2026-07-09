@@ -318,13 +318,30 @@ class _ButtonDemo extends ConsumerWidget {
         _colorGroup(context, 'Surface', [
           ('surface', '表面', effective.surface),
           ('onSurface', '表面文', effective.onSurface),
-          ('surfaceContainerHighest', '表高', effective.surfaceContainerHighest),
           ('onSurfaceVariant', '表面变文', effective.onSurfaceVariant),
+        ], ref, config, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Surface Container', [
+          ('surfaceContainerLow', '容器低', effective.surfaceContainerLow),
+          ('surfaceContainer', '容器', effective.surfaceContainer),
+          ('surfaceContainerHigh', '容器高', effective.surfaceContainerHigh),
+          ('surfaceContainerHighest', '容器最高', effective.surfaceContainerHighest),
         ], ref, config, isDark, effective),
         const SizedBox(height: 8),
         _colorGroup(context, 'Outline', [
           ('outline', '轮廓', effective.outline),
           ('outlineVariant', '轮廓变', effective.outlineVariant),
+        ], ref, config, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Inverse', [
+          ('inverseSurface', '反表面', effective.inverseSurface),
+          ('onInverseSurface', '反表面文', effective.onInverseSurface),
+          ('inversePrimary', '反主题', effective.inversePrimary),
+        ], ref, config, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Other', [
+          ('shadow', '阴影', effective.shadow),
+          ('scrim', '遮罩', effective.scrim),
         ], ref, config, isDark, effective),
         if (config.lightCustomTheme != null || config.darkCustomTheme != null)
           Padding(
