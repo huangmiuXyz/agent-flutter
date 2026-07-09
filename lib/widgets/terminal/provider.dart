@@ -17,15 +17,10 @@ class TerminalConfig {
   const TerminalConfig({required this.id, this.shell = '', this.args = const []});
 
   @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is TerminalConfig &&
-          id == other.id &&
-          shell == other.shell &&
-          listEquals(args, other.args);
+  bool operator ==(Object other) => identical(this, other);
 
   @override
-  int get hashCode => Object.hash(id, shell, Object.hashAll(args));
+  int get hashCode => identityHashCode(this);
 
   static bool get _isWindows => Platform.isWindows;
 
