@@ -20,7 +20,6 @@ class TerminalWidget extends ConsumerWidget {
     final terminal = ref.watch(terminalManagerProvider(id));
     final theme = ref.watch(terminalThemeProvider);
 
-    // Start PTY once when the provider is first created
     ref.listen(terminalManagerProvider(id), (previous, next) {
       if (previous == null) {
         ref

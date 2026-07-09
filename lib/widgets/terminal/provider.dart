@@ -72,8 +72,6 @@ class TerminalManager extends _$TerminalManager {
     _pty?.resize(h, w);
   }
 
-  /// Start the PTY with the given [shell] and [args].
-  /// Safe to call multiple times – only the first call takes effect.
   void startPty({String shell = '', List<String> args = const []}) {
     if (_started) return;
     _started = true;
