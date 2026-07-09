@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/terminal/provider.dart';
@@ -97,9 +98,13 @@ class DemoPage extends HookConsumerWidget {
           ),
         ),
         Expanded(
-          child: selectedIndex.value == 0
-              ? _ButtonDemo()
-              : _TerminalTabs(),
+          child: IndexedStack(
+            index: selectedIndex.value,
+            children: [
+              _ButtonDemo(),
+              _TerminalTabs(),
+            ],
+          ),
         ),
       ],
     );
@@ -184,6 +189,7 @@ class _TerminalTabs extends HookConsumerWidget {
             ],
           ),
         ),
+        SizedBox(height: CustomTheme.of(context).spacingXs),
         Expanded(
           child: IndexedStack(
             index: active.value,
