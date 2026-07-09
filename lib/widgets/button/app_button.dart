@@ -83,11 +83,12 @@ class AppButton extends StatelessWidget {
     );
 
     if (variant == ButtonVariant.iconOnly) {
-      return SizedBox(width: height, height: height, child: textButton);
+      return UnconstrainedBox(
+        child: SizedBox(width: height, height: height, child: textButton),
+      );
     }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [SizedBox(height: height, child: textButton)],
+    return UnconstrainedBox(
+      child: SizedBox(height: height, child: textButton),
     );
   }
 
