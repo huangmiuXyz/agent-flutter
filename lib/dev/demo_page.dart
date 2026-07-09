@@ -9,7 +9,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
-import 'package:agent/widgets/terminal/provider.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -186,9 +185,18 @@ class DemoPage extends HookConsumerWidget {
   }
 }
 
-String _tabLabel(TerminalInstance config) {
-  final shell = config.shell.isNotEmpty ? config.shell : config.resolvedShell;
-  return shell.split(RegExp(r'[\\/]')).last;
+String _tabLabel(String shell) {
+  final resolved = shell.isNotEmpty
+      ? shell
+      : _resolveShell();
+  return resolved.split(RegExp(r'[\\/]')).last;
+}
+
+String _resolveShell() {
+  if (Platform.isWindows) return 'cmd.exe';
+  final envShell = Platform.environment['SHELL'];
+  if (envShell != null && envShell.isNotEmpty) return envShell;
+  return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
 }
 
 List<String> _availableShells() {
@@ -207,16 +215,22 @@ List<String> _availableShells() {
   return shells;
 }
 
+class _TabInfo {
+  final String id;
+  final String shell;
+  const _TabInfo({required this.id, this.shell = ''});
+}
+
 class _TerminalTabs extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = useState<List<TerminalInstance>>([TerminalInstance(id: nanoid(8))]);
+    final tabs = useState<List<_TabInfo>>([_TabInfo(id: nanoid(8))]);
     final active = useState(0);
     final custom = CustomTheme.of(context);
 
     void addTab(String shell) {
       final id = nanoid(8);
-      tabs.value = [...tabs.value, TerminalInstance(id: id, shell: shell)];
+      tabs.value = [...tabs.value, _TabInfo(id: id, shell: shell)];
       active.value = tabs.value.length - 1;
     }
 
@@ -243,7 +257,7 @@ class _TerminalTabs extends HookConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   itemCount: tabs.value.length,
                   itemBuilder: (context, index) => _TabItem(
-                    label: _tabLabel(tabs.value[index]),
+                    label: _tabLabel(tabs.value[index].shell),
                     active: active.value == index,
                     onTap: () => active.value = index,
                     onClose: tabs.value.length > 1
@@ -269,8 +283,8 @@ class _TerminalTabs extends HookConsumerWidget {
           child: IndexedStack(
             index: active.value,
             children: [
-              for (final c in tabs.value)
-                TerminalWidget(key: ValueKey(c.id), config: c),
+              for (final t in tabs.value)
+                TerminalWidget(key: ValueKey(t.id), id: t.id, shell: t.shell),
             ],
           ),
         ),

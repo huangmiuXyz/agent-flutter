@@ -10,40 +10,26 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'provider.g.dart';
 
-class TerminalInstance {
-  final String id;
-  final String shell;
-  final List<String> args;
-  const TerminalInstance({required this.id, this.shell = '', this.args = const []});
+/// Resolve the shell to spawn: use [shell] if given, otherwise fall back to
+/// the user's SHELL env or the platform default.
+String _resolveShell(String shell) {
+  if (shell.isNotEmpty) return shell;
+  if (Platform.isWindows) return 'cmd.exe';
+  final envShell = Platform.environment['SHELL'];
+  if (envShell != null && envShell.isNotEmpty) return envShell;
+  return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
+}
 
-  @override
-  bool operator ==(Object other) => identical(this, other);
-
-  @override
-  int get hashCode => identityHashCode(this);
-
-  static bool get _isWindows => Platform.isWindows;
-
-  List<String> get resolvedArgs {
-    if (args.isNotEmpty) return args;
-    if (!_isWindows) return [];
-    final name = shell.split(RegExp(r'[\\/]')).last;
-    if (name == 'cmd.exe' || name.isEmpty) return [];
-    final quoted = shell.contains(' ') ? '"$shell"' : shell;
-    if (name == 'pwsh.exe') return ['/c', quoted, '-NoLogo', '-NoProfile'];
-    if (name == 'bash.exe') return ['/c', quoted, '--login', '-i'];
-    return ['/c', quoted];
-  }
-
-  String get resolvedShell {
-    if (shell.isNotEmpty && _isWindows && shell != 'cmd.exe') return 'cmd.exe';
-    if (Platform.isWindows) return 'cmd.exe';
-    if (shell.isNotEmpty) return shell;
-    final envShell = Platform.environment['SHELL'];
-    if (envShell != null && envShell.isNotEmpty) return envShell;
-    // macOS 10.15+ defaults to zsh; check existence for older systems
-    return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
-  }
+/// Resolve extra CLI arguments for [shell] on Windows (pwsh/bash wrappers).
+List<String> _resolveArgs(String shell, List<String> args) {
+  if (args.isNotEmpty) return args;
+  if (!Platform.isWindows) return [];
+  final name = shell.split(RegExp(r'[\\/]')).last;
+  if (name.isEmpty || name == 'cmd.exe') return [];
+  final quoted = shell.contains(' ') ? '"$shell"' : shell;
+  if (name == 'pwsh.exe') return ['/c', quoted, '-NoLogo', '-NoProfile'];
+  if (name == 'bash.exe') return ['/c', quoted, '--login', '-i'];
+  return ['/c', quoted];
 }
 
 class TerminalRegistry {
@@ -58,25 +44,23 @@ final terminalRegistryProvider = Provider<TerminalRegistry>((ref) => TerminalReg
 @riverpod
 class TerminalManager extends _$TerminalManager {
   TerminalRegistry? _registry;
+  String? _id;
   Pty? _pty;
   StreamSubscription? _subscription;
   final _outputController = StreamController<String>.broadcast();
+  bool _started = false;
 
   Stream<String> get output => _outputController.stream;
 
   @override
-  Terminal build(TerminalInstance config) {
+  Terminal build(String id) {
+    _id = id;
     _registry = ref.read(terminalRegistryProvider);
-    _registry!.add(config.id);
+    _registry!.add(id);
     final t = Terminal();
     t.onOutput = _onOutput;
     t.onResize = _onResize;
     ref.onDispose(_dispose);
-
-    Future.microtask(() {
-      if (ref.mounted) startPty();
-    });
-
     return t;
   }
 
@@ -88,12 +72,15 @@ class TerminalManager extends _$TerminalManager {
     _pty?.resize(h, w);
   }
 
-  void startPty() {
-    _kill();
+  /// Start the PTY with the given [shell] and [args].
+  /// Safe to call multiple times – only the first call takes effect.
+  void startPty({String shell = '', List<String> args = const []}) {
+    if (_started) return;
+    _started = true;
 
     final pty = Pty.start(
-      config.resolvedShell,
-      arguments: config.resolvedArgs,
+      _resolveShell(shell),
+      arguments: _resolveArgs(shell, args),
       columns: state.viewWidth,
       rows: state.viewHeight,
       environment: Map<String, String>.from(Platform.environment),
@@ -165,7 +152,7 @@ class TerminalManager extends _$TerminalManager {
   }
 
   void _dispose() {
-    _registry?.remove(config.id);
+    _registry?.remove(_id!);
     _outputController.close();
     _kill();
   }
