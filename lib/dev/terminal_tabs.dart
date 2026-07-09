@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 
 String tabLabel(String shell) {
   final resolved = shell.isNotEmpty
@@ -75,11 +76,33 @@ class TerminalTabs extends HookConsumerWidget {
       }
     }
 
-    return Column(
+    return Stack(
       children: [
-        Container(
-          height: 36,
-          color: custom.surfaceContainerLow,
+        // Bottom layer: background + border + terminal content
+        Column(
+          children: [
+            Container(height: 31, color: custom.surfaceContainerLow),
+            Container(height: 1, color: custom.surfaceContainerHighest),
+            SizedBox(height: CustomTheme.of(context).spacingXs),
+            Expanded(
+              child: IndexedStack(
+                index: activeIndex.value,
+                children: [
+                  for (var i = 0; i < tabs.value.length; i++)
+                    TerminalWidget(
+                      key: ValueKey(tabs.value[i].id),
+                      id: tabs.value[i].id,
+                      shell: tabs.value[i].shell,
+                      visible: active && activeIndex.value == i,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        // Top layer: tab row (extends 1px into the border to cover it)
+        Positioned(
+          top: 0, left: 0, right: 0, height: 32,
           child: Row(
             children: [
               Expanded(
@@ -108,28 +131,13 @@ class TerminalTabs extends HookConsumerWidget {
             ],
           ),
         ),
-        SizedBox(height: CustomTheme.of(context).spacingXs),
-        Expanded(
-          child: IndexedStack(
-            index: activeIndex.value,
-            children: [
-              for (var i = 0; i < tabs.value.length; i++)
-                TerminalWidget(
-                  key: ValueKey(tabs.value[i].id),
-                  id: tabs.value[i].id,
-                  shell: tabs.value[i].shell,
-                  visible: active && activeIndex.value == i,
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
 }
 
 /// A single terminal tab header item.
-class TabItem extends StatelessWidget {
+class TabItem extends ConsumerWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
@@ -143,25 +151,35 @@ class TabItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final custom = CustomTheme.of(context);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? custom.surface : Colors.transparent,
           border: Border(
-            bottom: BorderSide(
-              color: active ? custom.primary : Colors.transparent,
-              width: 2,
+            left: BorderSide(
+              color: active ? custom.surfaceContainerHighest : Colors.transparent,
+              width: 1,
+            ),
+            right: BorderSide(
+              color: active ? custom.surfaceContainerHighest : Colors.transparent,
+              width: 1,
             ),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            AppIcon('terminalSquare', size: 12,
+              color: active ? custom.onSurface : custom.onSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(

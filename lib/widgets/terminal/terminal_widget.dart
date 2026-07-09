@@ -24,18 +24,22 @@ class TerminalWidget extends HookConsumerWidget {
     final terminal = ref.watch(terminalManagerProvider(id));
     final theme = ref.watch(terminalThemeProvider);
     final custom = CustomTheme.of(context);
+    final focusNode = useRef(FocusNode());
 
     // Start PTY once on mount.
     useEffect(() {
       ref.read(terminalManagerProvider(id).notifier).startPty(shell: shell);
-      return null;
+      return () => focusNode.value.dispose();
     }, []);
 
-    // Pause/resume PTY reading when visibility changes.
+    // Pause/resume PTY reading and request focus when visible.
     useEffect(() {
       final manager = ref.read(terminalManagerProvider(id).notifier);
       if (visible) {
         manager.resume();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          FocusScope.of(context).requestFocus(focusNode.value);
+        });
       } else {
         manager.suspend();
       }
@@ -50,6 +54,7 @@ class TerminalWidget extends HookConsumerWidget {
           fontFamily: custom.fontFamily,
           fontSize: custom.fontSizeSubtitle,
         ),
+        focusNode: focusNode.value,
         autofocus: false,
       ),
     );

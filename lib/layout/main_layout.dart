@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 class MainLayout extends StatelessWidget {
@@ -12,12 +13,23 @@ class MainLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    final bgColor = custom.surfaceContainerLow;
+
     if (Platform.isMacOS) {
       return Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kWindowCaptionHeight),
           child: DragToMoveArea(
-            child: const SizedBox(height: kWindowCaptionHeight),
+            child: Container(
+              height: kWindowCaptionHeight,
+              decoration: BoxDecoration(
+                color: bgColor,
+                border: Border(
+                  bottom: BorderSide(color: custom.surfaceContainerHighest),
+                ),
+              ),
+            ),
           ),
         ),
         body: child,
@@ -28,9 +40,17 @@ class MainLayout extends StatelessWidget {
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kWindowCaptionHeight),
-        child: WindowCaption(
-          brightness: brightness,
-          title: const AppText('Agent'),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: custom.surfaceContainerHighest),
+            ),
+          ),
+          child: WindowCaption(
+            brightness: brightness,
+            title: const AppText('Agent'),
+            backgroundColor: bgColor,
+          ),
         ),
       ),
       body: child,
