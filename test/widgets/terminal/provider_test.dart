@@ -77,14 +77,4 @@ void main() {
       expect(await r2, contains('tab2_output'));
     });
   });
-
-  group('shell resolution', () {
-    test('_resolveShell returns the provided shell on macOS/Linux, routes through cmd on Windows', () {
-      if (Platform.isWindows) {
-        // Can't test private functions directly, test via startPty behavior
-      } else {
-        // _resolveShell and _resolveArgs are top-level helpers in provider.dart
-      }
-    });
-  });
 }
