@@ -254,7 +254,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     surfaceContainerHigh: const Color(0xFFE0E0E0),
     surfaceContainerHighest: const Color(0xFFD4D4D4),
     outline: const Color(0xFFD4D4D4),
-    outlineVariant: const Color(0xFFCAC4D0),
+    outlineVariant: const Color(0xFFE6E6E6),
     shadow: const Color(0xFF000000),
     scrim: const Color(0xFF000000),
     inverseSurface: const Color(0xFF303030),

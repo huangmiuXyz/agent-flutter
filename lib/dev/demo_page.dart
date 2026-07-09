@@ -340,38 +340,71 @@ class _ButtonDemo extends ConsumerWidget {
     final custom = CustomTheme.of(context);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       children: [
-        AppText('按钮',
-            style: TextStyle(fontSize: 12, color: custom.onSurfaceVariant)),
-        const SizedBox(height: 8),
-        AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '主要'),
-        const SizedBox(height: 8),
-        Row(
+        // Primary
+        _sectionHeader(context, 'Primary', custom),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
+            AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '主要'),
             AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '小', size: ButtonSize.sm),
-            const SizedBox(width: 8),
             AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '中'),
-            const SizedBox(width: 8),
             AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '大', size: ButtonSize.lg),
           ],
         ),
-        const SizedBox(height: 8),
-        AppButton(variant: ButtonVariant.secondary, onPressed: () {}, text: '次要'),
-        const SizedBox(height: 8),
+        const SizedBox(height: 32),
+
+        // Secondary
+        _sectionHeader(context, 'Secondary', custom),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            AppButton(variant: ButtonVariant.secondary, onPressed: () {}, text: '次要'),
+            AppButton(variant: ButtonVariant.secondary, onPressed: () {}, text: '小', size: ButtonSize.sm),
+            AppButton(variant: ButtonVariant.secondary, onPressed: () {}, text: '中'),
+            AppButton(variant: ButtonVariant.secondary, onPressed: () {}, text: '大', size: ButtonSize.lg),
+          ],
+        ),
+        const SizedBox(height: 32),
+
+        // Text
+        _sectionHeader(context, 'Text', custom),
+        const SizedBox(height: 12),
         AppButton(variant: ButtonVariant.text, onPressed: () {}, text: '文字'),
-        const SizedBox(height: 8),
-        Row(
+        const SizedBox(height: 32),
+
+        // Icon only
+        _sectionHeader(context, 'Icon Only', custom),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             AppButton(variant: ButtonVariant.iconOnly, icon: 'settings', onPressed: () {}),
-            const SizedBox(width: 8),
             AppButton(variant: ButtonVariant.iconOnly, icon: 'refresh', onPressed: () {}),
-            const SizedBox(width: 8),
             AppButton(variant: ButtonVariant.iconOnly, icon: 'trash', onPressed: () {}),
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'sun', onPressed: () {}),
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'moon', onPressed: () {}),
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'brush', onPressed: () {}),
           ],
         ),
       ],
     );
+  }
+
+  Widget _sectionHeader(BuildContext context, String label, CustomTheme custom) {
+    return AppText(label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: custom.onSurfaceVariant,
+          letterSpacing: 0.5,
+        ));
   }
 }
 
@@ -440,6 +473,19 @@ class _ColorThemeEditor extends ConsumerWidget {
           ('shadow', '阴影', effective.shadow),
           ('scrim', '遮罩', effective.scrim),
         ], ref, isDark, effective),
+        const SizedBox(height: 16),
+        AppText('图标粗细: ${config.iconThickness}',
+            style: TextStyle(fontSize: 11, color: effective.onSurfaceVariant)),
+        const SizedBox(height: 4),
+        Slider(
+          value: config.iconThickness.toDouble(),
+          min: 0,
+          max: 600,
+          divisions: 6,
+          label: '${config.iconThickness}',
+          onChanged: (v) =>
+              ref.read(themeProvider.notifier).setIconThickness(v.round()),
+        ),
         if (config.lightCustomTheme != null || config.darkCustomTheme != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),

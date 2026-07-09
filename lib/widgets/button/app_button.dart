@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
@@ -8,7 +9,7 @@ enum ButtonVariant { primary, secondary, text, iconOnly }
 
 enum ButtonSize { sm, md, lg }
 
-class AppButton extends StatelessWidget {
+class AppButton extends HookWidget {
   final VoidCallback? onPressed;
   final String? text;
   final String? icon;
@@ -35,6 +36,7 @@ class AppButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    final isHovered = useState(false);
     final height = switch (size) {
       ButtonSize.sm => custom.controlHeightSm,
       ButtonSize.md => custom.controlHeightMd,
@@ -44,6 +46,12 @@ class AppButton extends StatelessWidget {
       ButtonSize.sm => 12.0,
       ButtonSize.md => 16.0,
       ButtonSize.lg => 20.0,
+    };
+
+    final textColor = switch (variant) {
+      ButtonVariant.primary => custom.onPrimary,
+      ButtonVariant.text => isHovered.value ? custom.primary : custom.onSurfaceVariant,
+      _ => null,
     };
 
     final btnStyle = switch (variant) {
@@ -61,10 +69,18 @@ class AppButton extends StatelessWidget {
         return SystemMouseCursors.click;
       }),
       minimumSize: WidgetStateProperty.all(
-        variant == ButtonVariant.iconOnly ? Size(height, height) : Size(0, height),
+        variant == ButtonVariant.iconOnly
+            ? Size(height, height)
+            : variant == ButtonVariant.text
+                ? Size.zero
+                : Size(0, height),
       ),
       maximumSize: WidgetStateProperty.all(
-        variant == ButtonVariant.iconOnly ? Size(height, height) : Size(double.infinity, height),
+        variant == ButtonVariant.iconOnly
+            ? Size(height, height)
+            : variant == ButtonVariant.text
+                ? Size.infinite
+                : Size(double.infinity, height),
       ),
     );
 
@@ -74,13 +90,23 @@ class AppButton extends StatelessWidget {
       child: _buildChild(
         custom,
         iconSize,
-        variant == ButtonVariant.primary ? custom.onPrimary : null,
+        textColor,
       ),
     );
 
     if (variant == ButtonVariant.iconOnly) {
       return UnconstrainedBox(
         child: SizedBox(width: height, height: height, child: textButton),
+      );
+    }
+    if (variant == ButtonVariant.text) {
+      return UnconstrainedBox(
+        alignment: Alignment.centerLeft,
+        child: MouseRegion(
+          onEnter: (_) => isHovered.value = true,
+          onExit: (_) => isHovered.value = false,
+          child: textButton,
+        ),
       );
     }
     return UnconstrainedBox(
@@ -111,7 +137,15 @@ class AppButton extends StatelessWidget {
 
   ButtonStyle _primaryStyle(CustomTheme custom, double height) {
     return ButtonStyle(
-      backgroundColor: WidgetStateProperty.all(custom.primary),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered)) {
+          return custom.primaryContainer;
+        }
+        if (states.contains(WidgetState.pressed)) {
+          return custom.surfaceContainerHighest;
+        }
+        return custom.primary;
+      }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
         EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
@@ -119,13 +153,19 @@ class AppButton extends StatelessWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: custom.radiusXs),
       ),
-      elevation: WidgetStateProperty.all(1),
+      elevation: WidgetStateProperty.all(2),
     );
   }
 
   ButtonStyle _secondaryStyle(CustomTheme custom, double height) {
     return ButtonStyle(
-      backgroundColor: WidgetStateProperty.all(custom.surfaceContainerLow),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.pressed)) {
+          return custom.surfaceContainerLow;
+        }
+        return custom.surface;
+      }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
         EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
@@ -133,10 +173,10 @@ class AppButton extends StatelessWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
           borderRadius: custom.radiusXs,
-          side: BorderSide(color: custom.outline),
+          side: BorderSide(color: custom.outlineVariant),
         ),
       ),
-      elevation: WidgetStateProperty.all(0),
+      elevation: WidgetStateProperty.all(1),
     );
   }
 
@@ -159,7 +199,13 @@ class AppButton extends StatelessWidget {
 
   ButtonStyle _iconOnlyStyle(CustomTheme custom) {
     return ButtonStyle(
-      backgroundColor: WidgetStateProperty.all(Colors.transparent),
+      backgroundColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.pressed)) {
+          return custom.surfaceContainer;
+        }
+        return Colors.transparent;
+      }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacingXs)),
       shape: WidgetStateProperty.all(

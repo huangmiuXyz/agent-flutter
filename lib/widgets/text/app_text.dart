@@ -41,7 +41,7 @@ class AppText extends StatelessWidget {
         },
         fontFamily: custom.fontFamily,
         fontWeight: FontWeight.w400,
-      ).merge(style).copyWith(color: color ?? Theme.of(context).colorScheme.onSurface),
+      ).merge(style).copyWith(color: color ?? custom.onSurface),
       textAlign: textAlign,
       overflow: overflow,
       maxLines: maxLines,
