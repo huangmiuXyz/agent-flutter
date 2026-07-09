@@ -39,11 +39,6 @@ flutter:
   fonts:
     - family: JetBrainsMono
       fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Light.ttf
         - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf
           weight: 700
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Italic.ttf
-          style: italic
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-BoldItalic.ttf
-          weight: 700
-          style: italic

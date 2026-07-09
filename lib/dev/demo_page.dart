@@ -128,7 +128,7 @@ class DemoPage extends HookConsumerWidget {
                       const _ButtonDemo(),
                       _TerminalTabs(active: selectedIndex.value == 1),
                       const PerformanceMonitor(),
-                      ],
+                    ],
                     ),
                   ),
                 ),
