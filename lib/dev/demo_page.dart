@@ -10,7 +10,6 @@ import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/terminal/provider.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
-import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -40,89 +39,150 @@ class DemoPage extends HookConsumerWidget {
     final selectedIndex = useState(0);
     final config = ref.watch(themeProvider);
     final custom = CustomTheme.of(context);
+    final showEditor = useState(false);
+    final trayWidth = MediaQuery.of(context).size.width / 4;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Stack(
       children: [
-        SizedBox(
-          width: 256,
-          child: Container(
-            decoration: BoxDecoration(
-              color: custom.surfaceContainerLow,
-              border: Border(
-                right: BorderSide(
-                  color: custom.surfaceContainerHighest,
-                ),
-              ),
-            ),
-            child: Column(
+        Positioned.fill(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppList(
-                width: double.infinity,
-                children: [
-                  AppListItem(
-                    icon: 'rectangleVertical',
-                    label: 'Button',
-                    active: selectedIndex.value == 0,
-                    onTap: () => selectedIndex.value = 0,
+              SizedBox(
+                width: 256,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: custom.surfaceContainerLow,
+                    border: Border(
+                      right: BorderSide(
+                        color: custom.surfaceContainerHighest,
+                      ),
+                    ),
                   ),
-                  AppListItem(
-                    icon: 'terminal',
-                    label: 'Terminal',
-                    active: selectedIndex.value == 1,
-                    onTap: () => selectedIndex.value = 1,
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
+                  child: Column(
                   children: [
-                    AppButton(
-                        icon: switch (config.themeMode) {
-                          ThemeMode.system => 'sun',
-                          ThemeMode.light => 'sun',
-                          ThemeMode.dark => 'moon',
-                        },
-                        variant: ButtonVariant.iconOnly,
-                        text: switch (config.themeMode) {
-                          ThemeMode.system => '主题: 系统',
-                          ThemeMode.light => '主题: 亮色',
-                          ThemeMode.dark => '主题: 暗色',
-                        },
-                        onPressed: () {
-                          final next = switch (config.themeMode) {
-                            ThemeMode.system => ThemeMode.light,
-                            ThemeMode.light => ThemeMode.dark,
-                            ThemeMode.dark => ThemeMode.system,
-                          };
-                          ref.read(themeProvider.notifier).setThemeMode(next);
-                        },
+                    AppList(
+                      width: double.infinity,
+                      children: [
+                        AppListItem(
+                          icon: 'rectangleVertical',
+                          label: 'Button',
+                          active: selectedIndex.value == 0,
+                          onTap: () => selectedIndex.value = 0,
+                        ),
+                        AppListItem(
+                          icon: 'terminal',
+                          label: 'Terminal',
+                          active: selectedIndex.value == 1,
+                          onTap: () => selectedIndex.value = 1,
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          AppButton(
+                              icon: switch (config.themeMode) {
+                                ThemeMode.system => 'sun',
+                                ThemeMode.light => 'sun',
+                                ThemeMode.dark => 'moon',
+                              },
+                              variant: ButtonVariant.iconOnly,
+                              text: switch (config.themeMode) {
+                                ThemeMode.system => '主题: 系统',
+                                ThemeMode.light => '主题: 亮色',
+                                ThemeMode.dark => '主题: 暗色',
+                              },
+                              onPressed: () {
+                                final next = switch (config.themeMode) {
+                                  ThemeMode.system => ThemeMode.light,
+                                  ThemeMode.light => ThemeMode.dark,
+                                  ThemeMode.dark => ThemeMode.system,
+                                };
+                                ref.read(themeProvider.notifier).setThemeMode(next);
+                              },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
+              ),
+              Expanded(
+                  child: ColoredBox(
+                    color: custom.surface,
+                    child: IndexedStack(
+                    index: selectedIndex.value,
+                    children: [
+                      const _ButtonDemo(),
+                      _TerminalTabs(),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
-      ),
-      Expanded(
-          child: ColoredBox(
-            color: custom.surface,
-            child: IndexedStack(
-            index: selectedIndex.value,
-            children: [
-              _ButtonDemo(),
-              _TerminalTabs(),
-              ],
-            ),
+        // FAB
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            mini: true,
+            onPressed: () => showEditor.value = !showEditor.value,
+            backgroundColor: custom.primary,
+            foregroundColor: custom.onPrimary,
+            child: Icon(Icons.palette,
+                size: custom.fontSizeSubtitle),
           ),
         ),
+        // Backdrop
+        if (showEditor.value)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => showEditor.value = false,
+              child: Container(color: Colors.black26),
+            ),
+          ),
+        // Right tray
+        if (showEditor.value)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: trayWidth.clamp(200, 400),
+            child: Material(
+              elevation: 16,
+              color: custom.surface,
+              child: SafeArea(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.close,
+                              size: custom.fontSizeTitle,
+                              color: custom.onSurfaceVariant),
+                          onPressed: () => showEditor.value = false,
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: _ColorThemeEditor(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
-    }
+  }
 }
 
 String _tabLabel(TerminalConfig config) {
@@ -273,116 +333,17 @@ class _TabItem extends StatelessWidget {
 }
 
 class _ButtonDemo extends ConsumerWidget {
+  const _ButtonDemo();
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(themeProvider);
-    final isDark = config.resolveBrightness() == Brightness.dark;
-    final effective = config.effectiveFor(isDark ? Brightness.dark : Brightness.light);
-
-    final colors = [
-      ('primary', '主题', effective.primary),
-      ('onPrimary', '主题文', effective.onPrimary),
-      ('primaryContainer', '主题容器', effective.primaryContainer),
-      ('onPrimaryContainer', '容器文', effective.onPrimaryContainer),
-    ];
+    final custom = CustomTheme.of(context);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AppText('配色 (${isDark ? "暗色" : "亮色"}模式)',
-            style: TextStyle(fontSize: 12, color: effective.onSurfaceVariant)),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Primary', colors, ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Secondary', [
-          ('secondary', '次要', effective.secondary),
-          ('onSecondary', '次要文', effective.onSecondary),
-          ('secondaryContainer', '次要容器', effective.secondaryContainer),
-          ('onSecondaryContainer', '容器文', effective.onSecondaryContainer),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Tertiary', [
-          ('tertiary', '第三', effective.tertiary),
-          ('onTertiary', '第三文', effective.onTertiary),
-          ('tertiaryContainer', '第三容器', effective.tertiaryContainer),
-          ('onTertiaryContainer', '容器文', effective.onTertiaryContainer),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Error', [
-          ('error', '错误', effective.error),
-          ('onError', '错误文', effective.onError),
-          ('errorContainer', '错误容器', effective.errorContainer),
-          ('onErrorContainer', '容器文', effective.onErrorContainer),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Surface', [
-          ('surface', '表面', effective.surface),
-          ('onSurface', '表面文', effective.onSurface),
-          ('onSurfaceVariant', '表面变文', effective.onSurfaceVariant),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Surface Container', [
-          ('surfaceContainerLow', '容器低', effective.surfaceContainerLow),
-          ('surfaceContainer', '容器', effective.surfaceContainer),
-          ('surfaceContainerHigh', '容器高', effective.surfaceContainerHigh),
-          ('surfaceContainerHighest', '容器最高', effective.surfaceContainerHighest),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Outline', [
-          ('outline', '轮廓', effective.outline),
-          ('outlineVariant', '轮廓变', effective.outlineVariant),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Inverse', [
-          ('inverseSurface', '反表面', effective.inverseSurface),
-          ('onInverseSurface', '反表面文', effective.onInverseSurface),
-          ('inversePrimary', '反主题', effective.inversePrimary),
-        ], ref, config, isDark, effective),
-        const SizedBox(height: 8),
-        _colorGroup(context, 'Other', [
-          ('shadow', '阴影', effective.shadow),
-          ('scrim', '遮罩', effective.scrim),
-        ], ref, config, isDark, effective),
-        if (config.lightCustomTheme != null || config.darkCustomTheme != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: GestureDetector(
-              onTap: () => ref.read(themeProvider.notifier).resetCustomTheme(),
-              child: AppText('恢复默认',
-                  style: TextStyle(fontSize: 12, color: effective.primary)),
-            ),
-          ),
-        const SizedBox(height: 16),
-
-        AppText('图标粗细: ${config.iconThickness}', style: TextStyle(fontSize: 12, color: effective.onSurfaceVariant)),
-        const SizedBox(height: 4),
-        Slider(
-          value: config.iconThickness.toDouble(),
-          min: 0,
-          max: 600,
-          divisions: 6,
-          label: '${config.iconThickness}',
-          onChanged: (v) =>
-              ref.read(themeProvider.notifier).setIconThickness(v.round()),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: ['sun', 'moon', 'brush', 'settings', 'refresh', 'trash']
-              .map((n) => Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Column(
-                      children: [
-                        AppIcon(n, size: 24),
-                        const SizedBox(height: 4),
-                        AppText(n, style: const TextStyle(fontSize: 10)),
-                      ],
-                    ),
-                  ))
-              .toList(),
-        ),
-        const SizedBox(height: 24),
-        AppText('按钮', style: TextStyle(fontSize: 12, color: effective.onSurfaceVariant)),
+        AppText('按钮',
+            style: TextStyle(fontSize: 12, color: custom.onSurfaceVariant)),
         const SizedBox(height: 8),
         AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '主要'),
         const SizedBox(height: 8),
@@ -412,8 +373,87 @@ class _ButtonDemo extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _colorGroup(BuildContext context, String label, List<(String field, String displayName, Color current)> fields, WidgetRef ref, ThemeConfig config, bool isDark, CustomTheme effective) {
+class _ColorThemeEditor extends ConsumerWidget {
+  const _ColorThemeEditor();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(themeProvider);
+    final isDark = config.resolveBrightness() == Brightness.dark;
+    final effective = config.effectiveFor(isDark ? Brightness.dark : Brightness.light);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _colorGroup(context, 'Primary', [
+          ('primary', '主题', effective.primary),
+          ('onPrimary', '主题文', effective.onPrimary),
+          ('primaryContainer', '主题容器', effective.primaryContainer),
+          ('onPrimaryContainer', '容器文', effective.onPrimaryContainer),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Secondary', [
+          ('secondary', '次要', effective.secondary),
+          ('onSecondary', '次要文', effective.onSecondary),
+          ('secondaryContainer', '次要容器', effective.secondaryContainer),
+          ('onSecondaryContainer', '容器文', effective.onSecondaryContainer),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Tertiary', [
+          ('tertiary', '第三', effective.tertiary),
+          ('onTertiary', '第三文', effective.onTertiary),
+          ('tertiaryContainer', '第三容器', effective.tertiaryContainer),
+          ('onTertiaryContainer', '容器文', effective.onTertiaryContainer),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Error', [
+          ('error', '错误', effective.error),
+          ('onError', '错误文', effective.onError),
+          ('errorContainer', '错误容器', effective.errorContainer),
+          ('onErrorContainer', '容器文', effective.onErrorContainer),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Surface', [
+          ('surface', '表面', effective.surface),
+          ('onSurface', '表面文', effective.onSurface),
+          ('onSurfaceVariant', '表面变文', effective.onSurfaceVariant),
+          ('surfaceContainerLow', '容器低', effective.surfaceContainerLow),
+          ('surfaceContainer', '容器', effective.surfaceContainer),
+          ('surfaceContainerHigh', '容器高', effective.surfaceContainerHigh),
+          ('surfaceContainerHighest', '容器最高', effective.surfaceContainerHighest),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Outline', [
+          ('outline', '轮廓', effective.outline),
+          ('outlineVariant', '轮廓变', effective.outlineVariant),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Inverse', [
+          ('inverseSurface', '反表面', effective.inverseSurface),
+          ('onInverseSurface', '反表面文', effective.onInverseSurface),
+          ('inversePrimary', '反主题', effective.inversePrimary),
+        ], ref, isDark, effective),
+        const SizedBox(height: 8),
+        _colorGroup(context, 'Other', [
+          ('shadow', '阴影', effective.shadow),
+          ('scrim', '遮罩', effective.scrim),
+        ], ref, isDark, effective),
+        if (config.lightCustomTheme != null || config.darkCustomTheme != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: GestureDetector(
+              onTap: () => ref.read(themeProvider.notifier).resetCustomTheme(),
+              child: AppText('恢复默认',
+                  style: TextStyle(fontSize: 12, color: effective.primary)),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _colorGroup(BuildContext context, String label, List<(String field, String displayName, Color current)> fields, WidgetRef ref, bool isDark, CustomTheme effective) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
