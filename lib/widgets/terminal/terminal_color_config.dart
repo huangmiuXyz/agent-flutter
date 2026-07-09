@@ -103,12 +103,12 @@ extension TerminalColorConfigX on TerminalColorConfig {
   ///
   /// Optionally overrides foreground/background from a [ColorScheme]
   /// to keep the terminal in sync with the app theme surface colors.
-  kterm.TerminalTheme toTerminalTheme({ColorScheme? colorScheme}) {
+  kterm.TerminalTheme toTerminalTheme({Color? foreground, Color? background}) {
     return kterm.TerminalTheme(
       cursor: cursor,
       selection: selection,
-      foreground: colorScheme?.onSurface ?? foreground,
-      background: colorScheme?.surface ?? background,
+      foreground: foreground ?? this.foreground,
+      background: background ?? this.background,
       black: black,
       red: red,
       green: green,
@@ -140,14 +140,14 @@ extension TerminalColorConfigX on TerminalColorConfig {
 final terminalThemeProvider = Provider<kterm.TerminalTheme>((ref) {
   final config = ref.watch(themeProvider);
   final brightness = config.resolveBrightness();
+  final effective = config.effectiveFor(brightness);
 
   final base = brightness == Brightness.dark
       ? TerminalColorConfig.dark
       : TerminalColorConfig.light;
 
-  final scheme = brightness == Brightness.dark
-      ? config.darkColorScheme
-      : config.lightColorScheme;
-
-  return base.toTerminalTheme(colorScheme: scheme);
+  return base.toTerminalTheme(
+    foreground: effective.onSurface,
+    background: effective.surface,
+  );
 });

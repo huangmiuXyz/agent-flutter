@@ -1,70 +1,38 @@
 import 'package:flutter/material.dart';
 
-import 'package:agent/theme/provider.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/theme/provider.dart';
 
-final ThemeData _base = ThemeData();
+ThemeData _buildTheme(
+  Brightness brightness,
+  CustomTheme defaultCustom,
+  CustomTheme? override,
+) {
+  final custom = override ?? defaultCustom;
+  return ThemeData(
+    brightness: brightness,
+    scaffoldBackgroundColor: custom.surface,
+    extensions: [custom],
+  );
+}
 
-final ThemeData appLightTheme = _base.copyWith(
-  colorScheme: const ColorScheme.light(
-    primary: Color(0xFF000000),
-    onPrimary: Color(0xFFFFFFFF),
-    primaryContainer: Color(0xFF333333),
-    onPrimaryContainer: Color(0xFFE0E0E0),
-    secondary: Color(0xFFF6F6F6),
-    onSecondary: Color(0xFF000000),
-    surface: Color(0xFFF9F9F9),
-    onSurface: Color(0xFF000000),
-    surfaceContainerHighest: Color(0xFFF0F0F0),
-    onSurfaceVariant: Color(0xFF86868B),
-    error: Color(0xFFFF3B30),
-    onError: Color(0xFFFFFFFF),
-  ),
-  scaffoldBackgroundColor: const Color(0xFFF9F9F9),
-  extensions: [
-    CustomTheme.light,
-  ],
+final appLightTheme = _buildTheme(
+  Brightness.light,
+  CustomTheme.light,
+  null,
 );
 
-final ThemeData appDarkTheme = _base.copyWith(
-  brightness: Brightness.dark,
-  colorScheme: const ColorScheme.dark(
-    primary: Color(0xFFFFFFFF),
-    onPrimary: Color(0xFF000000),
-    primaryContainer: Color(0xFFE0E0E0),
-    onPrimaryContainer: Color(0xFF333333),
-    secondary: Color(0xFFA1A1A6),
-    onSecondary: Color(0xFF000000),
-    surface: Color(0xFF181818),
-    onSurface: Color(0xFFF5F5F7),
-    surfaceContainerHighest: Color(0xFF2C2C2E),
-    onSurfaceVariant: Color(0xFFA1A1A6),
-    error: Color(0xFFFF453A),
-    onError: Color(0xFFFFFFFF),
-  ),
-  scaffoldBackgroundColor: const Color(0xFF181818),
-  extensions: [
-    CustomTheme.dark,
-  ],
+final appDarkTheme = _buildTheme(
+  Brightness.dark,
+  CustomTheme.dark,
+  null,
 );
 
-ThemeData buildAppTheme(ThemeConfig config, Brightness brightness) {
+ThemeData resolveTheme(ThemeConfig config, Brightness brightness) {
   final isDark = brightness == Brightness.dark;
-
-  var theme = isDark ? appDarkTheme : appLightTheme;
-
-  final customScheme = isDark ? config.darkColorScheme : config.lightColorScheme;
-  if (customScheme != null) {
-    theme = (isDark ? appDarkTheme : appLightTheme).copyWith(
-      colorScheme: customScheme,
-    );
-  }
-
-  if (config.scaffoldBackgroundColor != null) {
-    theme = theme.copyWith(
-      scaffoldBackgroundColor: config.scaffoldBackgroundColor,
-    );
-  }
-
-  return theme;
+  return _buildTheme(
+    brightness,
+    isDark ? CustomTheme.dark : CustomTheme.light,
+    isDark ? config.darkCustomTheme : config.lightCustomTheme,
+  );
 }

@@ -39,13 +39,23 @@ class DemoPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = useState(0);
     final config = ref.watch(themeProvider);
+    final custom = CustomTheme.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 256,
-          child: Column(
+          child: Container(
+            decoration: BoxDecoration(
+              color: custom.surfaceContainerLow,
+              border: Border(
+                right: BorderSide(
+                  color: custom.surfaceContainerHighest,
+                ),
+              ),
+            ),
+            child: Column(
             children: [
               AppList(
                 width: double.infinity,
@@ -97,18 +107,22 @@ class DemoPage extends HookConsumerWidget {
             ],
           ),
         ),
-        Expanded(
-          child: IndexedStack(
+      ),
+      Expanded(
+          child: ColoredBox(
+            color: custom.surface,
+            child: IndexedStack(
             index: selectedIndex.value,
             children: [
               _ButtonDemo(),
               _TerminalTabs(),
-            ],
+              ],
+            ),
           ),
         ),
       ],
     );
-  }
+    }
 }
 
 String _tabLabel(TerminalConfig config) {
@@ -137,7 +151,7 @@ class _TerminalTabs extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tabs = useState<List<TerminalConfig>>([const TerminalConfig(id: 'tab-0')]);
     final active = useState(0);
-    final colors = Theme.of(context).colorScheme;
+    final custom = CustomTheme.of(context);
 
     void addTab(String shell) {
       final id = 'tab-${tabs.value.length}';
@@ -160,7 +174,7 @@ class _TerminalTabs extends HookConsumerWidget {
       children: [
         Container(
           height: 36,
-          color: colors.surfaceContainerLow,
+          color: custom.surfaceContainerLow,
           child: Row(
             children: [
               Expanded(
@@ -178,7 +192,7 @@ class _TerminalTabs extends HookConsumerWidget {
                 ),
               ),
               PopupMenuButton<String>(
-                icon: Icon(Icons.add, size: 16, color: colors.onSurface),
+                icon: Icon(Icons.add, size: 16, color: custom.onSurface),
                 tooltip: 'New terminal',
                 onSelected: addTab,
                 itemBuilder: (context) => [
@@ -219,17 +233,17 @@ class _TabItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final custom = CustomTheme.of(context);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: active ? colors.surface : Colors.transparent,
+          color: active ? custom.surface : Colors.transparent,
           border: Border(
             bottom: BorderSide(
-              color: active ? colors.primary : Colors.transparent,
+              color: active ? custom.primary : Colors.transparent,
               width: 2,
             ),
           ),
@@ -241,14 +255,14 @@ class _TabItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: active ? colors.onSurface : colors.onSurfaceVariant,
+                color: active ? custom.onSurface : custom.onSurfaceVariant,
               ),
             ),
             if (onClose != null) ...[
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: onClose,
-                child: Icon(Icons.close, size: 14, color: colors.onSurfaceVariant),
+                child: Icon(Icons.close, size: 14, color: custom.onSurfaceVariant),
               ),
             ],
           ],
@@ -262,76 +276,68 @@ class _ButtonDemo extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(themeProvider);
-    final colors = Theme.of(context).colorScheme;
     final isDark = config.resolveBrightness() == Brightness.dark;
+    final effective = config.effectiveFor(isDark ? Brightness.dark : Brightness.light);
+
+    final colors = [
+      ('primary', '主题', effective.primary),
+      ('onPrimary', '主题文', effective.onPrimary),
+      ('primaryContainer', '主题容器', effective.primaryContainer),
+      ('onPrimaryContainer', '容器文', effective.onPrimaryContainer),
+    ];
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AppText('配色 (${isDark ? "暗色" : "亮色"}模式)', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('配色 (${isDark ? "暗色" : "亮色"}模式)',
+            style: TextStyle(fontSize: 12, color: effective.onSurfaceVariant)),
         const SizedBox(height: 8),
-        _colorGroup(context, ref, config, colors, isDark, 'Primary', [
-          ('primary', '主题', (cs) => cs.primary),
-          ('onPrimary', '主题文', (cs) => cs.onPrimary),
-          ('primaryContainer', '主题容器', (cs) => cs.primaryContainer),
-          ('onPrimaryContainer', '容器文', (cs) => cs.onPrimaryContainer),
-        ]),
+        _colorGroup(context, 'Primary', colors, ref, config, isDark, effective),
         const SizedBox(height: 8),
-        _colorGroup(context, ref, config, colors, isDark, 'Secondary', [
-          ('secondary', '次要', (cs) => cs.secondary),
-          ('onSecondary', '次要文', (cs) => cs.onSecondary),
-          ('secondaryContainer', '次要容器', (cs) => cs.secondaryContainer),
-          ('onSecondaryContainer', '容器文', (cs) => cs.onSecondaryContainer),
-        ]),
+        _colorGroup(context, 'Secondary', [
+          ('secondary', '次要', effective.secondary),
+          ('onSecondary', '次要文', effective.onSecondary),
+          ('secondaryContainer', '次要容器', effective.secondaryContainer),
+          ('onSecondaryContainer', '容器文', effective.onSecondaryContainer),
+        ], ref, config, isDark, effective),
         const SizedBox(height: 8),
-        _colorGroup(context, ref, config, colors, isDark, 'Tertiary', [
-          ('tertiary', '第三', (cs) => cs.tertiary),
-          ('onTertiary', '第三文', (cs) => cs.onTertiary),
-          ('tertiaryContainer', '第三容器', (cs) => cs.tertiaryContainer),
-          ('onTertiaryContainer', '容器文', (cs) => cs.onTertiaryContainer),
-        ]),
+        _colorGroup(context, 'Tertiary', [
+          ('tertiary', '第三', effective.tertiary),
+          ('onTertiary', '第三文', effective.onTertiary),
+          ('tertiaryContainer', '第三容器', effective.tertiaryContainer),
+          ('onTertiaryContainer', '容器文', effective.onTertiaryContainer),
+        ], ref, config, isDark, effective),
         const SizedBox(height: 8),
-        _colorGroup(context, ref, config, colors, isDark, 'Error', [
-          ('error', '错误', (cs) => cs.error),
-          ('onError', '错误文', (cs) => cs.onError),
-          ('errorContainer', '错误容器', (cs) => cs.errorContainer),
-          ('onErrorContainer', '容器文', (cs) => cs.onErrorContainer),
-        ]),
+        _colorGroup(context, 'Error', [
+          ('error', '错误', effective.error),
+          ('onError', '错误文', effective.onError),
+          ('errorContainer', '错误容器', effective.errorContainer),
+          ('onErrorContainer', '容器文', effective.onErrorContainer),
+        ], ref, config, isDark, effective),
         const SizedBox(height: 8),
-        _colorGroup(context, ref, config, colors, isDark, 'Surface', [
-          ('surface', '表面', (cs) => cs.surface),
-          ('onSurface', '表面文', (cs) => cs.onSurface),
-          ('surfaceContainerHighest', '表高', (cs) => cs.surfaceContainerHighest),
-          ('onSurfaceVariant', '表面变文', (cs) => cs.onSurfaceVariant),
-        ]),
+        _colorGroup(context, 'Surface', [
+          ('surface', '表面', effective.surface),
+          ('onSurface', '表面文', effective.onSurface),
+          ('surfaceContainerHighest', '表高', effective.surfaceContainerHighest),
+          ('onSurfaceVariant', '表面变文', effective.onSurfaceVariant),
+        ], ref, config, isDark, effective),
         const SizedBox(height: 8),
-        _colorGroup(context, ref, config, colors, isDark, 'Outline', [
-          ('outline', '轮廓', (cs) => cs.outline),
-          ('outlineVariant', '轮廓变', (cs) => cs.outlineVariant),
-        ]),
-        if (config.lightColorScheme != null || config.darkColorScheme != null)
+        _colorGroup(context, 'Outline', [
+          ('outline', '轮廓', effective.outline),
+          ('outlineVariant', '轮廓变', effective.outlineVariant),
+        ], ref, config, isDark, effective),
+        if (config.lightCustomTheme != null || config.darkCustomTheme != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: GestureDetector(
-              onTap: () => ref.read(themeProvider.notifier).resetColorScheme(),
-              child: AppText('恢复默认', style: TextStyle(fontSize: 12, color: colors.primary)),
+              onTap: () => ref.read(themeProvider.notifier).resetCustomTheme(),
+              child: AppText('恢复默认',
+                  style: TextStyle(fontSize: 12, color: effective.primary)),
             ),
           ),
         const SizedBox(height: 16),
 
-        AppText('背景色', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            _bgColorButton(ref, config, colors, null, '默认'),
-            _bgColorButton(ref, config, colors, const Color(0xFFF5F5F0), '米白'),
-            _bgColorButton(ref, config, colors, const Color(0xFF1A1A2E), '深蓝'),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        AppText('图标粗细: ${config.iconThickness}', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('图标粗细: ${config.iconThickness}', style: TextStyle(fontSize: 12, color: effective.onSurfaceVariant)),
         const SizedBox(height: 4),
         Slider(
           value: config.iconThickness.toDouble(),
@@ -359,8 +365,7 @@ class _ButtonDemo extends ConsumerWidget {
               .toList(),
         ),
         const SizedBox(height: 24),
-
-        AppText('按钮', style: TextStyle(fontSize: 12, color: colors.onSurface.withValues(alpha: 0.6))),
+        AppText('按钮', style: TextStyle(fontSize: 12, color: effective.onSurfaceVariant)),
         const SizedBox(height: 8),
         AppButton(variant: ButtonVariant.primary, onPressed: () {}, text: '主要'),
         const SizedBox(height: 8),
@@ -391,58 +396,30 @@ class _ButtonDemo extends ConsumerWidget {
     );
   }
 
-  Widget _colorGroup(BuildContext context, WidgetRef ref, ThemeConfig config, ColorScheme colors, bool isDark, String label, List<(String field, String displayName, Color Function(ColorScheme) getter)> fields) {
+  Widget _colorGroup(BuildContext context, String label, List<(String field, String displayName, Color current)> fields, WidgetRef ref, ThemeConfig config, bool isDark, CustomTheme effective) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppText(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: colors.onSurface.withValues(alpha: 0.7))),
+        AppText(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: effective.onSurfaceVariant)),
         const SizedBox(height: 4),
         Wrap(
           spacing: 12,
           runSpacing: 8,
-          children: fields.map((f) {
-            final scheme = isDark ? config.darkColorScheme : config.lightColorScheme;
-            final current = scheme != null ? f.$3(scheme) : f.$3(colors);
-            return _colorField(context, ref, config, isDark, f.$2, f.$1, current, colors);
-          }).toList(),
+          children: fields.map((f) =>
+            _colorField(context, f.$2, f.$1, f.$3, ref, isDark, effective),
+          ).toList(),
         ),
       ],
     );
   }
 
-  Widget _colorField(BuildContext context, WidgetRef ref, ThemeConfig config, bool isDark, String label, String field, Color current, ColorScheme colors) {
+  Widget _colorField(BuildContext context, String label, String field, Color current, WidgetRef ref, bool isDark, CustomTheme effective) {
     return GestureDetector(
-      onTap: () => _showColorPicker(context, current, (c) {
-        final base = (isDark ? config.darkColorScheme : config.lightColorScheme) ?? colors;
-        final updated = switch (field) {
-          'primary' => base.copyWith(primary: c, onPrimary: _onColor(c)),
-          'onPrimary' => base.copyWith(onPrimary: c),
-          'primaryContainer' => base.copyWith(primaryContainer: c, onPrimaryContainer: _onColor(c)),
-          'onPrimaryContainer' => base.copyWith(onPrimaryContainer: c),
-          'secondary' => base.copyWith(secondary: c, onSecondary: _onColor(c)),
-          'onSecondary' => base.copyWith(onSecondary: c),
-          'secondaryContainer' => base.copyWith(secondaryContainer: c, onSecondaryContainer: _onColor(c)),
-          'onSecondaryContainer' => base.copyWith(onSecondaryContainer: c),
-          'tertiary' => base.copyWith(tertiary: c, onTertiary: _onColor(c)),
-          'onTertiary' => base.copyWith(onTertiary: c),
-          'tertiaryContainer' => base.copyWith(tertiaryContainer: c, onTertiaryContainer: _onColor(c)),
-          'onTertiaryContainer' => base.copyWith(onTertiaryContainer: c),
-          'error' => base.copyWith(error: c, onError: _onColor(c)),
-          'onError' => base.copyWith(onError: c),
-          'errorContainer' => base.copyWith(errorContainer: c, onErrorContainer: _onColor(c)),
-          'onErrorContainer' => base.copyWith(onErrorContainer: c),
-          'surface' => base.copyWith(surface: c, onSurface: _onColor(c)),
-          'onSurface' => base.copyWith(onSurface: c),
-          'surfaceContainerHighest' => base.copyWith(surfaceContainerHighest: c),
-          'onSurfaceVariant' => base.copyWith(onSurfaceVariant: c),
-          'outline' => base.copyWith(outline: c),
-          'outlineVariant' => base.copyWith(outlineVariant: c),
-          _ => base,
-        };
+      onTap: () => _showColorPicker(context, current, effective, (c) {
         if (isDark) {
-          ref.read(themeProvider.notifier).setDarkColorScheme(updated);
+          ref.read(themeProvider.notifier).setDarkColor(field, c);
         } else {
-          ref.read(themeProvider.notifier).setLightColorScheme(updated);
+          ref.read(themeProvider.notifier).setLightColor(field, c);
         }
       }),
       child: Column(
@@ -454,7 +431,7 @@ class _ButtonDemo extends ConsumerWidget {
             decoration: BoxDecoration(
               color: current,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+              border: Border.all(color: effective.outline),
             ),
           ),
           const SizedBox(height: 2),
@@ -464,9 +441,7 @@ class _ButtonDemo extends ConsumerWidget {
     );
   }
 
-  Color _onColor(Color c) => c.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-
-  void _showColorPicker(BuildContext context, Color current, void Function(Color) onSelected) {
+  void _showColorPicker(BuildContext context, Color current, CustomTheme effective, void Function(Color) onSelected) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -486,7 +461,7 @@ class _ButtonDemo extends ConsumerWidget {
                 color: c,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: c == current ? Colors.black : Colors.grey.withValues(alpha: 0.3),
+                  color: c == current ? effective.primary : effective.outline,
                   width: c == current ? 3 : 1,
                 ),
               ),
@@ -496,21 +471,4 @@ class _ButtonDemo extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _bgColorButton(WidgetRef ref, ThemeConfig config, ColorScheme colors, Color? color, String label) {
-    return AppButton(
-      variant: config.scaffoldBackgroundColor == color
-          ? ButtonVariant.primary
-          : ButtonVariant.secondary,
-      text: label,
-      onPressed: () {
-        if (color == null) {
-          ref.read(themeProvider.notifier).resetScaffoldBackgroundColor();
-        } else {
-          ref.read(themeProvider.notifier).setScaffoldBackgroundColor(color);
-        }
-      },
-    );
-  }
 }
-

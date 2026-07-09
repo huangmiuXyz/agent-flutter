@@ -81,7 +81,6 @@ class AppListItem extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final colors = Theme.of(context).colorScheme;
     final isHovered = useState(false);
 
     final height = itemHeight ?? custom.controlHeightMd;
@@ -93,7 +92,7 @@ class AppListItem extends HookWidget {
     final gap = iconLabelGap ?? custom.spacingSm;
 
     final bgColor = active || isHovered.value
-        ? (itemColor ?? colors.surfaceContainerHighest)
+        ? (itemColor ?? custom.surfaceContainerHighest)
         : Colors.transparent;
 
     return SizedBox(
@@ -118,7 +117,7 @@ class AppListItem extends HookWidget {
                   child: AppText(
                     label,
                     variant: AppTextVariant.body,
-                    color: labelColor ?? colors.onSurface,
+                    color: labelColor ?? custom.onSurface,
                   ),
                 ),
                 if (trailing != null)
@@ -127,7 +126,7 @@ class AppListItem extends HookWidget {
                     child: AppText(
                       trailing!,
                       variant: AppTextVariant.caption,
-                      color: colors.onSurfaceVariant,
+                      color: custom.onSurfaceVariant,
                     ),
                   ),
               ],

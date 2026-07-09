@@ -4,9 +4,6 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
-const _kHoverOpacity = 0.88;
-const _kPressedOpacity = 0.82;
-
 enum ButtonVariant { primary, secondary, text, iconOnly }
 
 enum ButtonSize { sm, md, lg }
@@ -37,7 +34,6 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final custom = CustomTheme.of(context);
     final height = switch (size) {
       ButtonSize.sm => custom.controlHeightSm,
@@ -51,10 +47,10 @@ class AppButton extends StatelessWidget {
     };
 
     final btnStyle = switch (variant) {
-      ButtonVariant.primary => _primaryStyle(colors, custom, height),
-      ButtonVariant.secondary => _secondaryStyle(colors, custom, height),
-      ButtonVariant.text => _textStyle(colors, custom),
-      ButtonVariant.iconOnly => _iconOnlyStyle(colors, custom),
+      ButtonVariant.primary => _primaryStyle(custom, height),
+      ButtonVariant.secondary => _secondaryStyle(custom, height),
+      ButtonVariant.text => _textStyle(custom),
+      ButtonVariant.iconOnly => _iconOnlyStyle(custom),
     };
 
     final sizeStyle = ButtonStyle(
@@ -78,7 +74,7 @@ class AppButton extends StatelessWidget {
       child: _buildChild(
         custom,
         iconSize,
-        variant == ButtonVariant.primary ? colors.onPrimary : null,
+        variant == ButtonVariant.primary ? custom.onPrimary : null,
       ),
     );
 
@@ -113,21 +109,9 @@ class AppButton extends StatelessWidget {
     return AppText(_textNotNull, color: textColor);
   }
 
-  ButtonStyle _primaryStyle(
-    ColorScheme colors,
-    CustomTheme custom,
-    double height,
-  ) {
+  ButtonStyle _primaryStyle(CustomTheme custom, double height) {
     return ButtonStyle(
-      backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.pressed)) {
-          return colors.primary.withValues(alpha: _kPressedOpacity);
-        }
-        if (states.contains(WidgetState.hovered)) {
-          return colors.primary.withValues(alpha: _kHoverOpacity);
-        }
-        return colors.primary;
-      }),
+      backgroundColor: WidgetStateProperty.all(custom.primary),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
         EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
@@ -136,28 +120,12 @@ class AppButton extends StatelessWidget {
         RoundedRectangleBorder(borderRadius: custom.radiusXs),
       ),
       elevation: WidgetStateProperty.all(1),
-      shadowColor: WidgetStateProperty.all(
-        colors.onSurface.withValues(alpha: 0.08),
-      ),
     );
   }
 
-  ButtonStyle _secondaryStyle(
-    ColorScheme colors,
-    CustomTheme custom,
-    double height,
-  ) {
+  ButtonStyle _secondaryStyle(CustomTheme custom, double height) {
     return ButtonStyle(
-      backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered) ||
-            states.contains(WidgetState.pressed)) {
-          return Color.alphaBlend(
-            colors.onSurface.withValues(alpha: 0.04),
-            colors.surface,
-          );
-        }
-        return colors.surface;
-      }),
+      backgroundColor: WidgetStateProperty.all(custom.surfaceContainerLow),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
         EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
@@ -165,14 +133,14 @@ class AppButton extends StatelessWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
           borderRadius: custom.radiusXs,
-          side: BorderSide(color: colors.onSurface.withValues(alpha: 0.08)),
+          side: BorderSide(color: custom.outline),
         ),
       ),
       elevation: WidgetStateProperty.all(0),
     );
   }
 
-  ButtonStyle _textStyle(ColorScheme colors, CustomTheme custom) {
+  ButtonStyle _textStyle(CustomTheme custom) {
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.all(Colors.transparent),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -189,18 +157,9 @@ class AppButton extends StatelessWidget {
     );
   }
 
-  ButtonStyle _iconOnlyStyle(ColorScheme colors, CustomTheme custom) {
+  ButtonStyle _iconOnlyStyle(CustomTheme custom) {
     return ButtonStyle(
-      backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered) ||
-            states.contains(WidgetState.pressed)) {
-          return Color.alphaBlend(
-            colors.onSurface.withValues(alpha: 0.04),
-            colors.surface,
-          );
-        }
-        return Colors.transparent;
-      }),
+      backgroundColor: WidgetStateProperty.all(Colors.transparent),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacingXs)),
       shape: WidgetStateProperty.all(
