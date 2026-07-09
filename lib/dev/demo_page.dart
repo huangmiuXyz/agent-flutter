@@ -186,7 +186,7 @@ class DemoPage extends HookConsumerWidget {
   }
 }
 
-String _tabLabel(TerminalConfig config) {
+String _tabLabel(TerminalInstance config) {
   final shell = config.shell.isNotEmpty ? config.shell : config.resolvedShell;
   return shell.split(RegExp(r'[\\/]')).last;
 }
@@ -210,13 +210,13 @@ List<String> _availableShells() {
 class _TerminalTabs extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = useState<List<TerminalConfig>>([TerminalConfig(id: nanoid(8))]);
+    final tabs = useState<List<TerminalInstance>>([TerminalInstance(id: nanoid(8))]);
     final active = useState(0);
     final custom = CustomTheme.of(context);
 
     void addTab(String shell) {
       final id = nanoid(8);
-      tabs.value = [...tabs.value, TerminalConfig(id: id, shell: shell)];
+      tabs.value = [...tabs.value, TerminalInstance(id: id, shell: shell)];
       active.value = tabs.value.length - 1;
     }
 

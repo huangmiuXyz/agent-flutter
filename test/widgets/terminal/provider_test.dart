@@ -7,7 +7,7 @@ import 'package:agent/widgets/terminal/provider.dart';
 
 void main() {
   group('TerminalManager.execute', () {
-    const testConfig = TerminalConfig(id: 'test');
+    const testConfig = TerminalInstance(id: 'test');
 
     late ProviderContainer container;
     late TerminalManager tm;
@@ -62,8 +62,8 @@ void main() {
     });
 
     test('different IDs have independent state', () async {
-      final c1 = TerminalConfig(id: 'tab1');
-      final c2 = TerminalConfig(id: 'tab2');
+      final c1 = TerminalInstance(id: 'tab1');
+      final c2 = TerminalInstance(id: 'tab2');
       final tm1 = container.read(terminalManagerProvider(c1).notifier);
       final tm2 = container.read(terminalManagerProvider(c2).notifier);
 
@@ -80,15 +80,15 @@ void main() {
     });
   });
 
-  group('TerminalConfig', () {
+  group('TerminalInstance', () {
     test('resolvedShell returns the provided shell on macOS/Linux, routes through cmd on Windows', () {
       if (Platform.isWindows) {
-        expect(TerminalConfig(id: 't', shell: 'pwsh.exe').resolvedShell, 'cmd.exe');
-        expect(TerminalConfig(id: 't', shell: 'cmd.exe').resolvedShell, 'cmd.exe');
-        expect(TerminalConfig(id: 't').resolvedShell, 'cmd.exe');
+        expect(TerminalInstance(id: 't', shell: 'pwsh.exe').resolvedShell, 'cmd.exe');
+        expect(TerminalInstance(id: 't', shell: 'cmd.exe').resolvedShell, 'cmd.exe');
+        expect(TerminalInstance(id: 't').resolvedShell, 'cmd.exe');
       } else {
-        expect(TerminalConfig(id: 't', shell: '/bin/zsh').resolvedShell, '/bin/zsh');
-        expect(TerminalConfig(id: 't', shell: '').resolvedShell, isNot(equals('cmd.exe')));
+        expect(TerminalInstance(id: 't', shell: '/bin/zsh').resolvedShell, '/bin/zsh');
+        expect(TerminalInstance(id: 't', shell: '').resolvedShell, isNot(equals('cmd.exe')));
       }
     });
   });

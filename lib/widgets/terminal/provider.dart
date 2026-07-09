@@ -10,11 +10,11 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'provider.g.dart';
 
-class TerminalConfig {
+class TerminalInstance {
   final String id;
   final String shell;
   final List<String> args;
-  const TerminalConfig({required this.id, this.shell = '', this.args = const []});
+  const TerminalInstance({required this.id, this.shell = '', this.args = const []});
 
   @override
   bool operator ==(Object other) => identical(this, other);
@@ -65,7 +65,7 @@ class TerminalManager extends _$TerminalManager {
   Stream<String> get output => _outputController.stream;
 
   @override
-  Terminal build(TerminalConfig config) {
+  Terminal build(TerminalInstance config) {
     _registry = ref.read(terminalRegistryProvider);
     _registry!.add(config.id);
     final t = Terminal();

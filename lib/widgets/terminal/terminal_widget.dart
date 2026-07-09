@@ -8,7 +8,7 @@ import 'terminal_color_config.dart';
 class TerminalWidget extends ConsumerWidget {
   const TerminalWidget({super.key, required this.config});
 
-  final TerminalConfig config;
+  final TerminalInstance config;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
