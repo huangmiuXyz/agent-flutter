@@ -385,12 +385,21 @@ class _ButtonDemo extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'settings', onPressed: () {}, size: ButtonSize.sm),
             AppButton(variant: ButtonVariant.iconOnly, icon: 'settings', onPressed: () {}),
-            AppButton(variant: ButtonVariant.iconOnly, icon: 'refresh', onPressed: () {}),
-            AppButton(variant: ButtonVariant.iconOnly, icon: 'trash', onPressed: () {}),
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'settings', onPressed: () {}, size: ButtonSize.lg),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
             AppButton(variant: ButtonVariant.iconOnly, icon: 'sun', onPressed: () {}),
             AppButton(variant: ButtonVariant.iconOnly, icon: 'moon', onPressed: () {}),
             AppButton(variant: ButtonVariant.iconOnly, icon: 'brush', onPressed: () {}),
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'refresh', onPressed: () {}),
+            AppButton(variant: ButtonVariant.iconOnly, icon: 'trash', onPressed: () {}),
           ],
         ),
       ],

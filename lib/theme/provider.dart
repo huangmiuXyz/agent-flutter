@@ -15,7 +15,7 @@ sealed class ThemeConfig with _$ThemeConfig {
     @Default(ThemeMode.system) ThemeMode themeMode,
     CustomTheme? lightCustomTheme,
     CustomTheme? darkCustomTheme,
-    @Default(200) int iconThickness,
+    @Default(300) int iconThickness,
   }) = _ThemeConfig;
 }
 
