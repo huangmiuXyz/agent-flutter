@@ -10,6 +10,9 @@ const Map<String, Map<int, IconData>> _registry = {
   'settings': {0: LucideIcons.settings, 100: LucideIcons.settings100, 200: LucideIcons.settings200, 300: LucideIcons.settings300, 400: LucideIcons.settings400, 500: LucideIcons.settings500, 600: LucideIcons.settings600},
   'refresh': {0: LucideIcons.rotateCw, 100: LucideIcons.rotateCw100, 200: LucideIcons.rotateCw200, 300: LucideIcons.rotateCw300, 400: LucideIcons.rotateCw400, 500: LucideIcons.rotateCw500, 600: LucideIcons.rotateCw600},
   'trash': {0: LucideIcons.trash2, 100: LucideIcons.trash2100, 200: LucideIcons.trash2200, 300: LucideIcons.trash2300, 400: LucideIcons.trash2400, 500: LucideIcons.trash2500, 600: LucideIcons.trash2600},
+  'square': {0: LucideIcons.square, 100: LucideIcons.square100, 200: LucideIcons.square200, 300: LucideIcons.square300, 400: LucideIcons.square400, 500: LucideIcons.square500, 600: LucideIcons.square600},
+  'terminal': {0: LucideIcons.terminal, 100: LucideIcons.terminal100, 200: LucideIcons.terminal200, 300: LucideIcons.terminal300, 400: LucideIcons.terminal400, 500: LucideIcons.terminal500, 600: LucideIcons.terminal600},
+  'activity': {0: LucideIcons.activity, 100: LucideIcons.activity100, 200: LucideIcons.activity200, 300: LucideIcons.activity300, 400: LucideIcons.activity400, 500: LucideIcons.activity500, 600: LucideIcons.activity600},
 };
 
 class AppIcon extends ConsumerWidget {
