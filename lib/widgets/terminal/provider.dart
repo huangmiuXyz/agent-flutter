@@ -10,8 +10,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'provider.g.dart';
 
-/// Resolve the shell to spawn: use [shell] if given, otherwise fall back to
-/// the user's SHELL env or the platform default.
 String _resolveShell(String shell) {
   if (shell.isNotEmpty) return shell;
   if (Platform.isWindows) return 'cmd.exe';
@@ -20,7 +18,6 @@ String _resolveShell(String shell) {
   return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
 }
 
-/// Resolve extra CLI arguments for [shell] on Windows (pwsh/bash wrappers).
 List<String> _resolveArgs(String shell, List<String> args) {
   if (args.isNotEmpty) return args;
   if (!Platform.isWindows) return [];
@@ -102,6 +99,14 @@ class TerminalManager extends _$TerminalManager {
 
   void sendInput(String text) {
     _pty?.write(const Utf8Encoder().convert(text));
+  }
+
+  void suspend() {
+    _subscription?.pause();
+  }
+
+  void resume() {
+    _subscription?.resume();
   }
 
   @visibleForTesting

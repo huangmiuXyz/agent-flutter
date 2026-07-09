@@ -12,6 +12,7 @@ import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
+import 'package:agent/dev/performance_monitor.dart';
 
 const List<Color> _colorOptions = [
   Color(0xFF000000),
@@ -76,6 +77,12 @@ class DemoPage extends HookConsumerWidget {
                           active: selectedIndex.value == 1,
                           onTap: () => selectedIndex.value = 1,
                         ),
+                        AppListItem(
+                          icon: 'activity',
+                          label: 'Performance',
+                          active: selectedIndex.value == 2,
+                          onTap: () => selectedIndex.value = 2,
+                        ),
                       ],
                     ),
                     const Spacer(),
@@ -119,7 +126,8 @@ class DemoPage extends HookConsumerWidget {
                     index: selectedIndex.value,
                     children: [
                       const _ButtonDemo(),
-                      _TerminalTabs(),
+                      _TerminalTabs(active: selectedIndex.value == 1),
+                      const PerformanceMonitor(),
                       ],
                     ),
                   ),
@@ -222,26 +230,31 @@ class _TabInfo {
 }
 
 class _TerminalTabs extends HookConsumerWidget {
+  const _TerminalTabs({this.active = true});
+
+  /// Whether the outer tab (Terminal) is currently selected.
+  final bool active;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tabs = useState<List<_TabInfo>>([_TabInfo(id: nanoid(8))]);
-    final active = useState(0);
+    final activeIndex = useState(0);
     final custom = CustomTheme.of(context);
 
     void addTab(String shell) {
       final id = nanoid(8);
       tabs.value = [...tabs.value, _TabInfo(id: id, shell: shell)];
-      active.value = tabs.value.length - 1;
+      activeIndex.value = tabs.value.length - 1;
     }
 
     void closeTab(int index) {
       if (tabs.value.length <= 1) return;
       final newTabs = [...tabs.value]..removeAt(index);
       tabs.value = newTabs;
-      if (active.value >= newTabs.length) {
-        active.value = newTabs.length - 1;
-      } else if (active.value > index) {
-        active.value = active.value - 1;
+      if (activeIndex.value >= newTabs.length) {
+        activeIndex.value = newTabs.length - 1;
+      } else if (activeIndex.value > index) {
+        activeIndex.value = activeIndex.value - 1;
       }
     }
 
@@ -258,8 +271,8 @@ class _TerminalTabs extends HookConsumerWidget {
                   itemCount: tabs.value.length,
                   itemBuilder: (context, index) => _TabItem(
                     label: _tabLabel(tabs.value[index].shell),
-                    active: active.value == index,
-                    onTap: () => active.value = index,
+                    active: activeIndex.value == index,
+                    onTap: () => activeIndex.value = index,
                     onClose: tabs.value.length > 1
                         ? () => closeTab(index)
                         : null,
@@ -281,10 +294,15 @@ class _TerminalTabs extends HookConsumerWidget {
         SizedBox(height: CustomTheme.of(context).spacingXs),
         Expanded(
           child: IndexedStack(
-            index: active.value,
+            index: activeIndex.value,
             children: [
-              for (final t in tabs.value)
-                TerminalWidget(key: ValueKey(t.id), id: t.id, shell: t.shell),
+              for (var i = 0; i < tabs.value.length; i++)
+                TerminalWidget(
+                  key: ValueKey(tabs.value[i].id),
+                  id: tabs.value[i].id,
+                  shell: tabs.value[i].shell,
+                  visible: active && activeIndex.value == i,
+                ),
             ],
           ),
         ),

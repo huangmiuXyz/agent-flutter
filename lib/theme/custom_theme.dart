@@ -168,7 +168,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
       shadowSm: shadowSm,
       shadowMd: shadowMd,
       shadowLg: shadowLg,
-      fontFamily: 'NotoSansSC',
+      fontFamily: 'JetBrainsMono',
       fontSizeCaption: 12,
       fontSizeBody: 14,
       fontSizeSubtitle: 16,
