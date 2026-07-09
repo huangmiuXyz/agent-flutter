@@ -32,7 +32,11 @@ class TerminalConfig {
   String get resolvedShell {
     if (shell.isNotEmpty && _isWindows && shell != 'cmd.exe') return 'cmd.exe';
     if (Platform.isWindows) return 'cmd.exe';
-    return Platform.environment['SHELL'] ?? '/bin/bash';
+    if (shell.isNotEmpty) return shell;
+    final envShell = Platform.environment['SHELL'];
+    if (envShell != null && envShell.isNotEmpty) return envShell;
+    // macOS 10.15+ defaults to zsh; check existence for older systems
+    return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
   }
 }
 

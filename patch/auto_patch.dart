@@ -82,46 +82,37 @@ _PkgInfo? _splitNameVersion(String input) {
 Future<void> _applyPatch(Directory pkgDir, File patchFile) async {
   // Try git apply first
   final git = Platform.isWindows ? 'git.exe' : 'git';
+  final pkgParent = pkgDir.parent;
+  final dirName = pkgDir.path.split(separator).last;
   final result = await Process.run(git, [
     'apply',
-    '--directory', pkgDir.path,
+    '--directory', dirName,
     '--whitespace=nowarn',
     patchFile.path,
-  ]);
+  ], workingDirectory: pkgParent.path);
 
   if (result.exitCode == 0) {
     print('Applied: $patchFile -> $pkgDir');
     return;
   }
 
-  // Fallback
-  _applyManually(pkgDir, patchFile);
+  // Fallback: upgrade _applyManually to handle full unified diffs
+  _applyManuallyFull(pkgDir, patchFile);
 }
 
-void _applyManually(Directory pkgDir, File patchFile) {
-  final lines = patchFile.readAsLinesSync();
-  String targetPath = '';
-  String contextLine = '';
-  String insertLine = '';
-  bool inHunk = false;
+void _applyManuallyFull(Directory pkgDir, File patchFile) {
+  final patchLines = patchFile.readAsLinesSync();
 
-  for (final line in lines) {
+  // Find target file path
+  String? targetPath;
+  for (final line in patchLines) {
     if (line.startsWith('--- a/')) {
       targetPath = line.substring(6);
-    } else if (line.startsWith('@@')) {
-      inHunk = true;
-    } else if (inHunk) {
-      if (line.startsWith('+')) {
-        insertLine = line.substring(1);
-        break;
-      } else if (line.startsWith(' ')) {
-        contextLine = line.substring(1);
-      }
+      break;
     }
   }
-
-  if (targetPath.isEmpty || contextLine.isEmpty || insertLine.isEmpty) {
-    stderr.writeln('Failed to parse patch: ${patchFile.path}');
+  if (targetPath == null || targetPath!.isEmpty) {
+    stderr.writeln('Failed to parse target path from: ${patchFile.path}');
     return;
   }
 
@@ -132,20 +123,61 @@ void _applyManually(Directory pkgDir, File patchFile) {
   }
 
   var content = target.readAsStringSync();
-  if (content.contains(insertLine.trim())) {
+  bool anyApplied = false;
+
+  // Parse and apply each hunk
+  for (int i = 0; i < patchLines.length; i++) {
+    if (!patchLines[i].startsWith('@@')) continue;
+
+    // Collect hunk body lines
+    final hunkLines = <String>[];
+    i++;
+    while (i < patchLines.length) {
+      final hl = patchLines[i];
+      if (hl.startsWith('@@')) { i--; break; }
+      if (hl.startsWith('--- ') || hl.startsWith('+++ ')) { i--; break; }
+      if (hl.isEmpty) { /* skip empty lines in patch */ }
+      hunkLines.add(hl);
+      i++;
+    }
+
+    if (hunkLines.isEmpty) continue;
+
+    // Build "old block" (context + removed) and "new block" (context + added)
+    final oldBlock = <String>[];
+    final newBlock = <String>[];
+    for (final hl in hunkLines) {
+      final prefix = hl.isEmpty ? ' ' : hl[0];
+      if (prefix == ' ' || prefix == '-') {
+        oldBlock.add(hl.substring(1));
+      }
+      if (prefix == ' ' || prefix == '+') {
+        newBlock.add(hl.substring(1));
+      }
+    }
+
+    final oldText = oldBlock.join('\n');
+    final newText = newBlock.join('\n');
+
+    if (content.contains(newText)) {
+      // Already applied
+      continue;
+    }
+
+    if (!content.contains(oldText)) {
+      stderr.writeln('Pattern mismatch in ${patchFile.path} for $targetPath');
+      return;
+    }
+
+    content = content.replaceFirst(oldText, newText);
+    anyApplied = true;
+  }
+
+  if (!anyApplied) {
     print('Already patched: ${patchFile.path} -> ${target.path}');
     return;
   }
 
-  // Insert AFTER the context line (unified diff: + line comes after context)
-  final idx = content.indexOf(contextLine);
-  if (idx == -1) {
-    stderr.writeln('Pattern not found: ${patchFile.path} (version may have changed)');
-    return;
-  }
-
-  final insertAt = idx + contextLine.length;
-  content = '${content.substring(0, insertAt)}\n$insertLine${content.substring(insertAt)}';
   target.writeAsStringSync(content, flush: true);
   print('Applied: ${patchFile.path} -> ${target.path}');
 }

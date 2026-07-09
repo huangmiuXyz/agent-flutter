@@ -106,9 +106,14 @@ class DemoPage extends HookConsumerWidget {
   }
 }
 
+String _tabLabel(TerminalConfig config) {
+  final shell = config.shell.isNotEmpty ? config.shell : config.resolvedShell;
+  return shell.split(RegExp(r'[\\/]')).last;
+}
+
 List<String> _availableShells() {
   if (kIsWeb) return ['/bin/bash'];
-  if (!Platform.isWindows) return ['bash', 'zsh', 'sh'];
+  if (!Platform.isWindows) return ['/bin/bash', '/bin/zsh', '/bin/sh'];
   final shells = <String>['cmd.exe'];
   if (Process.runSync('where', ['pwsh.exe']).exitCode == 0) {
     shells.add('pwsh.exe');
@@ -158,7 +163,7 @@ class _TerminalTabs extends HookConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   itemCount: tabs.value.length,
                   itemBuilder: (context, index) => _TabItem(
-                    label: tabs.value[index].shell.isNotEmpty ? tabs.value[index].shell : 'cmd.exe',
+                    label: _tabLabel(tabs.value[index]),
                     active: active.value == index,
                     onTap: () => active.value = index,
                     onClose: tabs.value.length > 1

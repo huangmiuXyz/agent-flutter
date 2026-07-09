@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,10 +81,15 @@ void main() {
   });
 
   group('TerminalConfig', () {
-    test('resolvedShell routes non-cmd shells through cmd.exe on Windows', () {
-      expect(TerminalConfig(id: 't', shell: 'pwsh.exe').resolvedShell, 'cmd.exe');
-      expect(TerminalConfig(id: 't', shell: 'cmd.exe').resolvedShell, 'cmd.exe');
-      expect(TerminalConfig(id: 't').resolvedShell, 'cmd.exe');
+    test('resolvedShell returns the provided shell on macOS/Linux, routes through cmd on Windows', () {
+      if (Platform.isWindows) {
+        expect(TerminalConfig(id: 't', shell: 'pwsh.exe').resolvedShell, 'cmd.exe');
+        expect(TerminalConfig(id: 't', shell: 'cmd.exe').resolvedShell, 'cmd.exe');
+        expect(TerminalConfig(id: 't').resolvedShell, 'cmd.exe');
+      } else {
+        expect(TerminalConfig(id: 't', shell: '/bin/zsh').resolvedShell, '/bin/zsh');
+        expect(TerminalConfig(id: 't', shell: '').resolvedShell, isNot(equals('cmd.exe')));
+      }
     });
   });
 }

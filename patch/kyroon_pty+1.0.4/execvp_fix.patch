@@ -1,0 +1,10 @@
+--- a/src/kyroon_pty_unix.c
++++ b/src/kyroon_pty_unix.c
+@@ -147,6 +147,7 @@
+         if (ok < 0)
+         {
+             perror("execvp");
++            _exit(255);
+         }
+     }
+ 
