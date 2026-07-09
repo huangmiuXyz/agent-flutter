@@ -20,13 +20,7 @@ class TerminalWidget extends ConsumerWidget {
     final terminal = ref.watch(terminalManagerProvider(id));
     final theme = ref.watch(terminalThemeProvider);
 
-    ref.listen(terminalManagerProvider(id), (previous, next) {
-      if (previous == null) {
-        ref
-            .read(terminalManagerProvider(id).notifier)
-            .startPty(shell: shell);
-      }
-    });
+    ref.read(terminalManagerProvider(id).notifier).startPty(shell: shell);
 
     return ClipRect(
       child: TerminalView(
