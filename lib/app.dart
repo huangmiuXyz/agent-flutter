@@ -19,6 +19,7 @@ class AgentApp extends ConsumerWidget {
       themeMode: config.themeMode,
       theme: resolveTheme(config, Brightness.light),
       darkTheme: resolveTheme(config, Brightness.dark),
+      themeAnimationDuration: Duration.zero,
       routerConfig: appRouter,
       builder: (context, child) => VirtualWindowFrameInit()(context, child),
     );

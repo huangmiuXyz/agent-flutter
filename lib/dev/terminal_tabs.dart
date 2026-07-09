@@ -112,6 +112,7 @@ class TerminalTabs extends HookConsumerWidget {
                   itemBuilder: (context, index) => TabItem(
                     label: tabLabel(tabs.value[index].shell),
                     active: activeIndex.value == index,
+                    isFirst: index == 0,
                     onTap: () => activeIndex.value = index,
                     onClose: tabs.value.length > 1
                         ? () => closeTab(index)
@@ -140,12 +141,14 @@ class TerminalTabs extends HookConsumerWidget {
 class TabItem extends ConsumerWidget {
   final String label;
   final bool active;
+  final bool isFirst;
   final VoidCallback onTap;
   final VoidCallback? onClose;
 
   const TabItem({
     required this.label,
     required this.active,
+    required this.isFirst,
     required this.onTap,
     this.onClose,
   });
@@ -164,7 +167,7 @@ class TabItem extends ConsumerWidget {
           color: active ? custom.surface : Colors.transparent,
           border: Border(
             left: BorderSide(
-              color: active ? custom.surfaceContainerHighest : Colors.transparent,
+              color: active && !isFirst ? custom.surfaceContainerHighest : Colors.transparent,
               width: 1,
             ),
             right: BorderSide(
