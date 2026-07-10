@@ -73,27 +73,29 @@ class TerminalManager extends _$TerminalManager {
     if (_started) return;
     _started = true;
 
-    final pty = Pty.start(
-      _resolveShell(shell),
-      arguments: _resolveArgs(shell, args),
-      columns: state.viewWidth,
-      rows: state.viewHeight,
-      environment: Map<String, String>.from(Platform.environment),
-    );
+    scheduleMicrotask(() {
+      final pty = Pty.start(
+        _resolveShell(shell),
+        arguments: _resolveArgs(shell, args),
+        columns: state.viewWidth,
+        rows: state.viewHeight,
+        environment: Map<String, String>.from(Platform.environment),
+      );
 
-    _pty = pty;
+      _pty = pty;
 
-    _subscription = pty.output
-        .cast<List<int>>()
-        .listen((bytes) {
-      final text = utf8.decode(bytes);
-      state.write(text);
-      _outputController.add(text);
-    });
+      _subscription = pty.output
+          .cast<List<int>>()
+          .listen((bytes) {
+        final text = utf8.decode(bytes);
+        state.write(text);
+        _outputController.add(text);
+      });
 
-    pty.exitCode.then((code) {
-      if (!ref.mounted) return;
-      state.write('\r\n[exit $code]\r\n');
+      pty.exitCode.then((code) {
+        if (!ref.mounted) return;
+        state.write('\r\n[exit $code]\r\n');
+      });
     });
   }
 

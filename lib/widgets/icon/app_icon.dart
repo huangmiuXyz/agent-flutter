@@ -14,6 +14,8 @@ const Map<String, Map<int, IconData>> _registry = {
   'terminal': {0: LucideIcons.terminal, 100: LucideIcons.terminal100, 200: LucideIcons.terminal200, 300: LucideIcons.terminal300, 400: LucideIcons.terminal400, 500: LucideIcons.terminal500, 600: LucideIcons.terminal600},
   'terminalSquare': {0: LucideIcons.terminalSquare, 100: LucideIcons.terminalSquare100, 200: LucideIcons.terminalSquare200, 300: LucideIcons.terminalSquare300, 400: LucideIcons.terminalSquare400, 500: LucideIcons.terminalSquare500, 600: LucideIcons.terminalSquare600},
   'activity': {0: LucideIcons.activity, 100: LucideIcons.activity100, 200: LucideIcons.activity200, 300: LucideIcons.activity300, 400: LucideIcons.activity400, 500: LucideIcons.activity500, 600: LucideIcons.activity600},
+  'x': {0: LucideIcons.x, 100: LucideIcons.x100, 200: LucideIcons.x200, 300: LucideIcons.x300, 400: LucideIcons.x400, 500: LucideIcons.x500, 600: LucideIcons.x600},
+  'plus': {0: LucideIcons.plus, 100: LucideIcons.plus100, 200: LucideIcons.plus200, 300: LucideIcons.plus300, 400: LucideIcons.plus400, 500: LucideIcons.plus500, 600: LucideIcons.plus600},
 };
 
 class AppIcon extends ConsumerWidget {

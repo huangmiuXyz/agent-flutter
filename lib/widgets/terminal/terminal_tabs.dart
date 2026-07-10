@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:nanoid/nanoid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -8,12 +7,12 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
+import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 String tabLabel(String shell) {
-  final resolved = shell.isNotEmpty
-      ? shell
-      : resolveShell();
+  final resolved = shell.isNotEmpty ? shell : resolveShell();
   return resolved.split(RegExp(r'[\\/]')).last;
 }
 
@@ -24,33 +23,15 @@ String resolveShell() {
   return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
 }
 
-List<String> availableShells() {
-  if (kIsWeb) return ['/bin/bash'];
-  if (!Platform.isWindows) return ['/bin/bash', '/bin/zsh', '/bin/sh'];
-  final shells = <String>['cmd.exe'];
-  if (Process.runSync('where', ['pwsh.exe']).exitCode == 0) {
-    shells.add('pwsh.exe');
-  }
-  if (File(r'C:\Program Files\Git\bin\bash.exe').existsSync()) {
-    shells.add(r'C:\Program Files\Git\bin\bash.exe');
-  }
-  if (Process.runSync('where', ['wsl']).exitCode == 0) {
-    shells.add('wsl.exe');
-  }
-  return shells;
-}
-
 class TabInfo {
   final String id;
   final String shell;
   const TabInfo({required this.id, this.shell = ''});
 }
 
-/// A terminal tab bar with multiple terminal instances.
 class TerminalTabs extends HookConsumerWidget {
-  const TerminalTabs({this.active = true});
+  const TerminalTabs({super.key, this.active = true});
 
-  /// Whether the outer tab (Terminal) is currently selected.
   final bool active;
 
   @override
@@ -76,14 +57,21 @@ class TerminalTabs extends HookConsumerWidget {
       }
     }
 
+    final tabBarHeight = custom.controlHeightMd;
+
     return Stack(
       children: [
-        // Bottom layer: background + border + terminal content
         Column(
           children: [
-            Container(height: 31, color: custom.surfaceContainerLow),
-            Container(height: 1, color: custom.surfaceContainerHighest),
-            SizedBox(height: CustomTheme.of(context).spacingXs),
+            Container(
+              height: tabBarHeight - 1.0,
+              color: custom.surfaceContainer,
+            ),
+            Container(
+              height: 1.0,
+              color: custom.surfaceContainerHighest,
+            ),
+            SizedBox(height: custom.spacingXs),
             Expanded(
               child: IndexedStack(
                 index: activeIndex.value,
@@ -100,36 +88,35 @@ class TerminalTabs extends HookConsumerWidget {
             ),
           ],
         ),
-        // Top layer: tab row (extends 1px into the border to cover it)
         Positioned(
-          top: 0, left: 0, right: 0, height: 32,
-          child: Row(
-            children: [
-              Expanded(
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: tabs.value.length,
-                  itemBuilder: (context, index) => TabItem(
-                    label: tabLabel(tabs.value[index].shell),
-                    active: activeIndex.value == index,
-                    isFirst: index == 0,
-                    onTap: () => activeIndex.value = index,
-                    onClose: tabs.value.length > 1
-                        ? () => closeTab(index)
-                        : null,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: tabBarHeight,
+          child: GestureDetector(
+            onDoubleTap: () => addTab(resolveShell()),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: tabs.value.length,
+                    itemBuilder: (context, index) => GestureDetector(
+                      onDoubleTap: () {},
+                      child: TabItem(
+                        label: tabLabel(tabs.value[index].shell),
+                        active: activeIndex.value == index,
+                        isFirst: index == 0,
+                        onTap: () => activeIndex.value = index,
+                        onClose: tabs.value.length > 1
+                            ? () => closeTab(index)
+                            : null,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-              PopupMenuButton<String>(
-                icon: Icon(Icons.add, size: 16, color: custom.onSurface),
-                tooltip: 'New terminal',
-                onSelected: addTab,
-                itemBuilder: (context) => [
-                  for (final shell in availableShells())
-                    PopupMenuItem(value: shell, child: Text(shell, style: const TextStyle(fontSize: 13))),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -137,7 +124,6 @@ class TerminalTabs extends HookConsumerWidget {
   }
 }
 
-/// A single terminal tab header item.
 class TabItem extends ConsumerWidget {
   final String label;
   final bool active;
@@ -146,6 +132,7 @@ class TabItem extends ConsumerWidget {
   final VoidCallback? onClose;
 
   const TabItem({
+    super.key,
     required this.label,
     required this.active,
     required this.isFirst,
@@ -160,41 +147,53 @@ class TabItem extends ConsumerWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: custom.controlHeightMd,
+        padding: EdgeInsets.symmetric(horizontal: custom.spacingSm),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: active ? custom.surface : Colors.transparent,
           border: Border(
             left: BorderSide(
-              color: active && !isFirst ? custom.surfaceContainerHighest : Colors.transparent,
-              width: 1,
+              color: active && !isFirst
+                  ? custom.surfaceContainerHighest
+                  : Colors.transparent,
+              width: 1.0,
             ),
             right: BorderSide(
-              color: active ? custom.surfaceContainerHighest : Colors.transparent,
-              width: 1,
+              color: active
+                  ? custom.surfaceContainerHighest
+                  : Colors.transparent,
+              width: 1.0,
             ),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            AppIcon('terminalSquare', size: 12,
+            AppIcon(
+              'terminalSquare',
+              size: custom.fontSizeCaption,
               color: active ? custom.onSurface : custom.onSurfaceVariant,
             ),
-            const SizedBox(width: 4),
-            Text(
+            SizedBox(width: custom.spacingXs),
+            AppText(
               label,
-              style: TextStyle(
-                fontSize: 12,
-                color: active ? custom.onSurface : custom.onSurfaceVariant,
-              ),
+              variant: AppTextVariant.caption,
+              color: active ? custom.onSurface : custom.onSurfaceVariant,
             ),
             if (onClose != null) ...[
-              const SizedBox(width: 4),
-              GestureDetector(
-                onTap: onClose,
-                child: Icon(Icons.close, size: 14, color: custom.onSurfaceVariant),
+              SizedBox(width: custom.spacingXs),
+              AppButton(
+                icon: 'x',
+                variant: ButtonVariant.iconOnly,
+                size: ButtonSize.sm,
+                text: '关闭',
+                hoverStyle: false,
+                onPressed: onClose,
+                style: ButtonStyle(
+                  padding: WidgetStateProperty.all(EdgeInsets.all(2)),
+                ),
               ),
             ],
           ],

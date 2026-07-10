@@ -8,7 +8,7 @@ import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
-import 'package:agent/dev/terminal_tabs.dart';
+import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
 
 class DemoPage extends HookConsumerWidget {
