@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
+import 'package:flterm/flterm.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_pty_new/flutter_pty_new.dart';
-import 'package:kterm/kterm.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-part 'provider.g.dart';
+part 'flterm_provider.g.dart';
 
 String _resolveShell(String shell) {
   if (shell.isNotEmpty) return shell;
@@ -29,24 +30,21 @@ List<String> _resolveArgs(String shell, List<String> args) {
   return ['/c', quoted];
 }
 
-class TerminalRegistry {
+class FltermRegistry {
   final Set<String> _ids = {};
   Set<String> get ids => Set.unmodifiable(_ids);
   void add(String id) => _ids.add(id);
   void remove(String id) => _ids.remove(id);
 }
 
-final terminalRegistryProvider = Provider<TerminalRegistry>(
-  (ref) => TerminalRegistry(),
-);
+final fltermRegistryProvider = Provider<FltermRegistry>((ref) => FltermRegistry());
 
 @riverpod
-class TerminalManager extends _$TerminalManager {
-  TerminalRegistry? _registry;
+class FltermManager extends _$FltermManager {
+  FltermRegistry? _registry;
   String? _id;
   Pty? _pty;
   StreamSubscription? _subscription;
-  final _outputController = StreamController<String>.broadcast();
   bool _started = false;
 
   String _shell = '';
@@ -56,32 +54,19 @@ class TerminalManager extends _$TerminalManager {
   static const Duration _crashWindow = Duration(seconds: 5);
   static const int _maxConsecutiveCrashes = 3;
 
-  Stream<String> get output => _outputController.stream;
-
   @override
-  Terminal build(String id) {
+  TerminalController build(String id) {
     _id = id;
-    _registry = ref.read(terminalRegistryProvider);
+    _registry = ref.read(fltermRegistryProvider);
     _registry!.add(id);
-    final t = Terminal();
-    t.onOutput = _onOutput;
-    t.onResize = _onResize;
-    ref.onDispose(_dispose);
-    return t;
-  }
-
-  void _onOutput(String data) {
-    if (_pty == null && !_started) {
-      _exitCount = 0;
-      startPty(shell: _shell, args: _args);
-      _pty?.write(const Utf8Encoder().convert(data));
-      return;
-    }
-    _pty?.write(const Utf8Encoder().convert(data));
-  }
-
-  void _onResize(int w, int h, int pw, int ph) {
-    _pty?.resize(h, w);
+    final controller = TerminalController(
+      config: TerminalConfig(scrollbackLimit: 5000),
+    );
+    ref.onDispose(() {
+      _registry?.remove(_id!);
+      _dispose();
+    });
+    return controller;
   }
 
   void startPty({String shell = '', List<String> args = const []}) {
@@ -91,32 +76,44 @@ class TerminalManager extends _$TerminalManager {
     _shell = shell;
     _args = args;
 
+    final controller = state;
+
     Pty pty;
     try {
       pty = Pty.start(
         _resolveShell(shell),
         arguments: _resolveArgs(shell, args),
-        columns: state.viewWidth,
-        rows: state.viewHeight,
+        columns: 80,
+        rows: 24,
         environment: Map<String, String>.from(Platform.environment),
       );
     } catch (e) {
       _started = false;
-      state.write('\r\n[error: failed to start PTY - $e]\r\n');
+      controller.write(utf8.encode('[error: failed to start PTY - $e]\r\n'));
       return;
     }
 
     _pty = pty;
-    _exitCount = 0;
 
-    _subscription = pty.output.cast<List<int>>().listen(
-      (bytes) {
-        final text = utf8.decode(bytes, allowMalformed: true);
-        state.write(text);
-        _outputController.add(text);
+    controller.onOutput = (Uint8List bytes) {
+      if (!_started) return;
+      try {
+        pty.write(bytes);
+      } catch (_) {}
+    };
+
+    controller.onResize = (int cols, int rows) {
+      pty.resize(rows, cols);
+    };
+
+    _subscription = pty.output
+        .cast<List<int>>()
+        .listen(
+      (List<int> bytes) {
+        controller.write(Uint8List.fromList(bytes));
       },
       onError: (error) {
-        state.write('\r\n[error: $error]\r\n');
+        controller.write(utf8.encode('[error: $error]\r\n'));
       },
       onDone: () {
         _subscription = null;
@@ -125,7 +122,8 @@ class TerminalManager extends _$TerminalManager {
 
     pty.exitCode.then((code) {
       if (!ref.mounted) return;
-      state.write('\r\n[exit $code]\r\n');
+      _started = false;
+      controller.write(utf8.encode('[exit $code]\r\n'));
       _cleanup();
       _scheduleRestart(code);
     });
@@ -133,8 +131,7 @@ class TerminalManager extends _$TerminalManager {
 
   void _scheduleRestart(int exitCode) {
     final now = DateTime.now();
-    if (_lastExitTime != null &&
-        now.difference(_lastExitTime!) < _crashWindow) {
+    if (_lastExitTime != null && now.difference(_lastExitTime!) < _crashWindow) {
       _exitCount++;
     } else {
       _exitCount = 1;
@@ -142,9 +139,17 @@ class TerminalManager extends _$TerminalManager {
     _lastExitTime = now;
 
     if (_exitCount > _maxConsecutiveCrashes) {
-      state.write(
-        '\r\n[terminal: too many consecutive exits ($_exitCount), press Enter to retry]\r\n',
-      );
+      state.write(utf8.encode(
+          '[terminal: too many consecutive exits ($_exitCount), press a key to retry]\r\n'));
+      final originalOnOutput = state.onOutput;
+      state.onOutput = (Uint8List bytes) {
+        originalOnOutput?.call(bytes);
+        if (ref.mounted) {
+          _exitCount = 0;
+          state.onOutput = originalOnOutput;
+          startPty(shell: _shell, args: _args);
+        }
+      };
       return;
     }
 
@@ -154,40 +159,32 @@ class TerminalManager extends _$TerminalManager {
   }
 
   void sendInput(String text) {
-    _pty?.write(const Utf8Encoder().convert(text));
-  }
-
-  void suspend() {
-    _subscription?.pause();
-  }
-
-  void resume() {
-    _subscription?.resume();
-  }
-
-  @visibleForTesting
-  void injectOutput(String text) {
-    _outputController.add(text);
+    if (_pty != null) {
+      state.sendText(text);
+    }
   }
 
   Future<String> execute(
     String command, {
     Duration timeout = const Duration(minutes: 2),
+    String marker = 'EXEC_DONE',
   }) async {
     final completer = Completer<String>();
     final buffer = StringBuffer();
-    final marker = RegExp(r'\x1b\]633;D;\d+(?:;\d+)?\x1b\\');
-    StreamSubscription<String>? sub;
+    StreamSubscription<List<int>>? sub;
 
-    sub = _outputController.stream.listen((chunk) {
-      buffer.write(chunk);
-      if (marker.hasMatch(buffer.toString())) {
-        sub?.cancel();
-        if (!completer.isCompleted) completer.complete(buffer.toString());
-      }
-    });
+    sub = _pty?.output.cast<List<int>>().listen(
+      (bytes) {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        buffer.write(text);
+        if (text.contains(marker)) {
+          sub?.cancel();
+          if (!completer.isCompleted) completer.complete(buffer.toString());
+        }
+      },
+    );
 
-    sendInput('$command\r');
+    state.sendText('$command\r\necho $marker\r');
 
     if (timeout > Duration.zero) {
       Future.delayed(timeout, () {
@@ -211,16 +208,10 @@ class TerminalManager extends _$TerminalManager {
     _started = false;
   }
 
-  void _kill() {
+  void _dispose() {
     _subscription?.cancel();
     _subscription = null;
     _pty?.kill();
     _pty = null;
-  }
-
-  void _dispose() {
-    _registry?.remove(_id!);
-    _outputController.close();
-    _kill();
   }
 }

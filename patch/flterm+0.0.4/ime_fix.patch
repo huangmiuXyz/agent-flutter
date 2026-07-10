@@ -1,0 +1,24 @@
+--- a/lib/src/widgets/terminal_input_client.dart
++++ b/lib/src/widgets/terminal_input_client.dart
+@@ -1,6 +1,7 @@
+ import 'dart:async';
++import 'dart:ui';
+
+ import 'package:flutter/services.dart';
+ import 'package:meta/meta.dart';
+@@ -63,9 +64,14 @@
+   set onTextCommitted(ValueChanged<String>? callback) {
+     _onTextCommitted = callback;
+   }
+
++  int? get _viewId {
++    final views = PlatformDispatcher.instance.views;
++    return views.isNotEmpty ? views.first.viewId : null;
++  }
++
+   TextInputConfiguration get _configuration {
+     return TextInputConfiguration(
++      viewId: _viewId,
+       autocorrect: false,
+       inputType: .multiline,
+       inputAction: .newline,

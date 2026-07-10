@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/terminal/terminal_widget.dart';
+import 'package:agent/widgets/terminal/flterm_widget.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -66,7 +66,7 @@ class TerminalTabs extends HookWidget {
                 index: activeIndex.value,
                 children: [
                   for (var i = 0; i < tabs.value.length; i++)
-                    TerminalWidget(
+                    FltermTerminalWidget(
                       key: ValueKey(tabs.value[i].id),
                       id: tabs.value[i].id,
                       shell: tabs.value[i].shell,

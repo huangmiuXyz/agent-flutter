@@ -21,9 +21,5 @@ void main() async {
     await windowManager.focus();
   });
 
-  runApp(
-    const ProviderScope(
-      child: AgentApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: AgentApp()));
 }

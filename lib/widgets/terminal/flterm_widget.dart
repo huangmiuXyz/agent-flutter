@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:kterm/kterm.dart';
+import 'package:flterm/flterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/terminal/provider.dart';
-import 'package:agent/widgets/terminal/terminal_color_config.dart';
+import 'package:agent/widgets/terminal/flterm_provider.dart';
+import 'package:agent/widgets/terminal/terminal_palette.dart';
 
-class TerminalWidget extends HookConsumerWidget {
-  const TerminalWidget({
+class FltermTerminalWidget extends HookConsumerWidget {
+  const FltermTerminalWidget({
     super.key,
     required this.id,
     this.shell = '',
@@ -21,48 +21,46 @@ class TerminalWidget extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final terminal = ref.watch(terminalManagerProvider(id));
-    final theme = ref.watch(terminalThemeProvider);
+    final controller = ref.watch(fltermManagerProvider(id));
     final custom = CustomTheme.of(context);
     final focusNode = useRef(FocusNode());
 
     useEffect(() {
-      ref.read(terminalManagerProvider(id).notifier).startPty(shell: shell);
-      return () => focusNode.value.dispose();
+      ref.read(fltermManagerProvider(id).notifier).startPty(shell: shell);
+      return () {};
     }, []);
 
     useEffect(() {
-      final manager = ref.read(terminalManagerProvider(id).notifier);
       if (visible) {
-        manager.resume();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           try {
             FocusScope.of(context).requestFocus(focusNode.value);
           } catch (_) {}
         });
-      } else {
-        manager.suspend();
       }
       return null;
     }, [visible, id]);
 
     return ClipRect(
       child: TerminalView(
-        terminal,
-        theme: theme,
-        textStyle: TerminalStyle(
+        controller: controller,
+        focusNode: focusNode.value,
+        autofocus: false,
+        theme: TerminalTheme(
+          palette: ref.watch(fltermPaletteProvider),
           fontFamily: custom.fontFamily,
           fontSize: custom.fontSizeBody,
-          height: 1.2,
           fontFamilyFallback: const [
             'Menlo',
             'Consolas',
             'Courier New',
             'monospace',
           ],
+          cursor: const CursorTheme(shape: CursorShape.block),
+          selection: const SelectionTheme(
+            background: DynamicColor.fixed(Color(0x40000000)),
+          ),
         ),
-        focusNode: focusNode.value,
-        autofocus: false,
       ),
     );
   }
