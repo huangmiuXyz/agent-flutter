@@ -12,7 +12,7 @@ import 'package:agent/widgets/text/app_text.dart';
 
 String tabLabel(String shell) {
   final resolved = shell.isNotEmpty ? shell : resolveShell();
-  return resolved.split(RegExp(r'[\\/]')).last;
+  return resolved.split(RegExp(r'[\\/]')).last.replaceAll('.exe', '');
 }
 
 String resolveShell() {
