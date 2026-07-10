@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,7 +19,10 @@ void main() {
     tearDown(() => container.dispose());
 
     test('returns output when OSC 633 marker is detected', () async {
-      final result = tm.execute('echo hello', timeout: const Duration(seconds: 1));
+      final result = tm.execute(
+        'echo hello',
+        timeout: const Duration(seconds: 1),
+      );
 
       tm.injectOutput('hello\r\n');
       tm.injectOutput('\x1b]633;D;0\x1b\\C:\\path>');
