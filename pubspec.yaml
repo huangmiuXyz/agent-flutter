@@ -21,7 +21,7 @@ dependencies:
   path: ^1.9.0
   meta: ^1.18.0
   riverpod: ^3.3.2
-  kyroon_pty: ^1.0.4
+  flutter_pty_new: ^1.0.0
   nanoid: ^1.0.0
 
 

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:kyroon_pty/kyroon_pty.dart';
+import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:kterm/kterm.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

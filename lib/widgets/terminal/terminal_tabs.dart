@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:nanoid/nanoid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
@@ -23,26 +22,19 @@ String resolveShell() {
   return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
 }
 
-class TabInfo {
-  final String id;
-  final String shell;
-  const TabInfo({required this.id, this.shell = ''});
-}
-
-class TerminalTabs extends HookConsumerWidget {
+class TerminalTabs extends HookWidget {
   const TerminalTabs({super.key, this.active = true});
 
   final bool active;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tabs = useState<List<TabInfo>>([TabInfo(id: nanoid(8))]);
+  Widget build(BuildContext context) {
+    final tabs = useState<List<_TabState>>([_TabState(id: nanoid(8))]);
     final activeIndex = useState(0);
     final custom = CustomTheme.of(context);
 
     void addTab(String shell) {
-      final id = nanoid(8);
-      tabs.value = [...tabs.value, TabInfo(id: id, shell: shell)];
+      tabs.value = [...tabs.value, _TabState(id: nanoid(8), shell: shell)];
       activeIndex.value = tabs.value.length - 1;
     }
 
@@ -93,30 +85,38 @@ class TerminalTabs extends HookConsumerWidget {
           left: 0,
           right: 0,
           height: tabBarHeight,
-          child: GestureDetector(
-            onDoubleTap: () => addTab(resolveShell()),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: tabs.value.length,
-                    itemBuilder: (context, index) => GestureDetector(
-                      onDoubleTap: () {},
-                      child: TabItem(
-                        label: tabLabel(tabs.value[index].shell),
-                        active: activeIndex.value == index,
-                        isFirst: index == 0,
-                        onTap: () => activeIndex.value = index,
-                        onClose: tabs.value.length > 1
-                            ? () => closeTab(index)
-                            : null,
-                      ),
-                    ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < tabs.value.length; i++)
+                        _TabItem(
+                          label: tabLabel(tabs.value[i].shell),
+                          active: activeIndex.value == i,
+                          isFirst: i == 0,
+                          onTap: () => activeIndex.value = i,
+                          onClose: tabs.value.length > 1
+                              ? () => closeTab(i)
+                              : null,
+                        ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => addTab(resolveShell()),
+                  child: Container(
+                    color: Colors.red.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -124,15 +124,20 @@ class TerminalTabs extends HookConsumerWidget {
   }
 }
 
-class TabItem extends ConsumerWidget {
+class _TabState {
+  final String id;
+  final String shell;
+  const _TabState({required this.id, this.shell = ''});
+}
+
+class _TabItem extends StatelessWidget {
   final String label;
   final bool active;
   final bool isFirst;
   final VoidCallback onTap;
   final VoidCallback? onClose;
 
-  const TabItem({
-    super.key,
+  const _TabItem({
     required this.label,
     required this.active,
     required this.isFirst,
@@ -141,7 +146,7 @@ class TabItem extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
     return GestureDetector(

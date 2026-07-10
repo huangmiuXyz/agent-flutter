@@ -4,8 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:kterm/kterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'provider.dart';
-import 'terminal_color_config.dart';
+import 'package:agent/widgets/terminal/provider.dart';
+import 'package:agent/widgets/terminal/terminal_color_config.dart';
 
 class TerminalWidget extends HookConsumerWidget {
   const TerminalWidget({
@@ -26,13 +26,11 @@ class TerminalWidget extends HookConsumerWidget {
     final custom = CustomTheme.of(context);
     final focusNode = useRef(FocusNode());
 
-    // Start PTY once on mount.
     useEffect(() {
       ref.read(terminalManagerProvider(id).notifier).startPty(shell: shell);
       return () => focusNode.value.dispose();
     }, []);
 
-    // Pause/resume PTY reading and request focus when visible.
     useEffect(() {
       final manager = ref.read(terminalManagerProvider(id).notifier);
       if (visible) {

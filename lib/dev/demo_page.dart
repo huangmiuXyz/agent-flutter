@@ -10,6 +10,7 @@ import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
+import 'package:agent/dev/fps_monitor.dart';
 
 class DemoPage extends HookConsumerWidget {
   const DemoPage({super.key});
@@ -114,6 +115,8 @@ class DemoPage extends HookConsumerWidget {
             ],
           ),
         ),
+        const FpsMonitor(),
+
         // FAB
         Positioned(
           right: 16,

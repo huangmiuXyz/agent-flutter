@@ -1,21 +1,21 @@
 PODS:
-  - FlutterMacOS (1.0.0)
-  - kyroon_pty (0.0.1):
+  - flutter_pty_new (0.0.1):
     - FlutterMacOS
+  - FlutterMacOS (1.0.0)
 
 DEPENDENCIES:
+  - flutter_pty_new (from `Flutter/ephemeral/.symlinks/plugins/flutter_pty_new/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
-  - kyroon_pty (from `Flutter/ephemeral/.symlinks/plugins/kyroon_pty/macos`)
 
 EXTERNAL SOURCES:
+  flutter_pty_new:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_pty_new/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
-  kyroon_pty:
-    :path: Flutter/ephemeral/.symlinks/plugins/kyroon_pty/macos
 
 SPEC CHECKSUMS:
+  flutter_pty_new: 76ea3908c5d46eba13bb9254a48c5c201128b408
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
-  kyroon_pty: e18136e9694e71923a9ad8c3d27ca73153fbcd08
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 
