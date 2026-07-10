@@ -59,10 +59,7 @@ class TerminalTabs extends HookWidget {
               height: tabBarHeight - 1.0,
               color: custom.surfaceContainer,
             ),
-            Container(
-              height: 1.0,
-              color: custom.surfaceContainerHighest,
-            ),
+            Container(height: 1.0, color: custom.surfaceContainerHighest),
             SizedBox(height: custom.spacingXs),
             Expanded(
               child: IndexedStack(
@@ -85,38 +82,45 @@ class TerminalTabs extends HookWidget {
           left: 0,
           right: 0,
           height: tabBarHeight,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Flexible(
-                fit: FlexFit.loose,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < tabs.value.length; i++)
-                        _TabItem(
-                          label: tabLabel(tabs.value[i].shell),
-                          active: activeIndex.value == i,
-                          isFirst: i == 0,
-                          onTap: () => activeIndex.value = i,
-                          onClose: tabs.value.length > 1
-                              ? () => closeTab(i)
-                              : null,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              const double rightMinWidth = 30.0;
+              final leftMaxWidth = constraints.maxWidth - rightMinWidth;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Flexible(
+                    flex: 0,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: leftMaxWidth),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < tabs.value.length; i++)
+                              _TabItem(
+                                label: tabLabel(tabs.value[i].shell),
+                                active: activeIndex.value == i,
+                                isFirst: i == 0,
+                                onTap: () => activeIndex.value = i,
+                                onClose: tabs.value.length > 1
+                                    ? () => closeTab(i)
+                                    : null,
+                              ),
+                          ],
                         ),
-                    ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => addTab(resolveShell()),
-                  child: Container(
-                    color: Colors.red.withValues(alpha: 0.2),
+                  Expanded(
+                    child: GestureDetector(
+                      onDoubleTap: () => addTab(resolveShell()),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ],
