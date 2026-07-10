@@ -147,12 +147,14 @@ void _applyManuallyFull(Directory pkgDir, File patchFile) {
     final oldBlock = <String>[];
     final newBlock = <String>[];
     for (final hl in hunkLines) {
-      final prefix = hl.isEmpty ? ' ' : hl[0];
+      if (hl.isEmpty) { oldBlock.add(''); newBlock.add(''); continue; }
+      final prefix = hl[0];
+      final rest = hl.length > 1 ? hl.substring(1) : '';
       if (prefix == ' ' || prefix == '-') {
-        oldBlock.add(hl.substring(1));
+        oldBlock.add(rest);
       }
       if (prefix == ' ' || prefix == '+') {
-        newBlock.add(hl.substring(1));
+        newBlock.add(rest);
       }
     }
 

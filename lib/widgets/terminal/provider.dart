@@ -12,7 +12,7 @@ part 'provider.g.dart';
 
 String _resolveShell(String shell) {
   if (shell.isNotEmpty) return shell;
-  if (Platform.isWindows) return 'cmd.exe';
+  if (Platform.isWindows) return 'pwsh.exe';
   final envShell = Platform.environment['SHELL'];
   if (envShell != null && envShell.isNotEmpty) return envShell;
   return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
@@ -36,7 +36,9 @@ class TerminalRegistry {
   void remove(String id) => _ids.remove(id);
 }
 
-final terminalRegistryProvider = Provider<TerminalRegistry>((ref) => TerminalRegistry());
+final terminalRegistryProvider = Provider<TerminalRegistry>(
+  (ref) => TerminalRegistry(),
+);
 
 @riverpod
 class TerminalManager extends _$TerminalManager {
@@ -46,6 +48,13 @@ class TerminalManager extends _$TerminalManager {
   StreamSubscription? _subscription;
   final _outputController = StreamController<String>.broadcast();
   bool _started = false;
+
+  String _shell = '';
+  List<String> _args = [];
+  int _exitCount = 0;
+  DateTime? _lastExitTime;
+  static const Duration _crashWindow = Duration(seconds: 5);
+  static const int _maxConsecutiveCrashes = 3;
 
   Stream<String> get output => _outputController.stream;
 
@@ -62,6 +71,12 @@ class TerminalManager extends _$TerminalManager {
   }
 
   void _onOutput(String data) {
+    if (_pty == null && !_started) {
+      _exitCount = 0;
+      startPty(shell: _shell, args: _args);
+      _pty?.write(const Utf8Encoder().convert(data));
+      return;
+    }
     _pty?.write(const Utf8Encoder().convert(data));
   }
 
@@ -73,28 +88,69 @@ class TerminalManager extends _$TerminalManager {
     if (_started) return;
     _started = true;
 
-    final pty = Pty.start(
-      _resolveShell(shell),
-      arguments: _resolveArgs(shell, args),
-      columns: state.viewWidth,
-      rows: state.viewHeight,
-      environment: Map<String, String>.from(Platform.environment),
-    );
+    _shell = shell;
+    _args = args;
+
+    Pty pty;
+    try {
+      pty = Pty.start(
+        _resolveShell(shell),
+        arguments: _resolveArgs(shell, args),
+        columns: state.viewWidth,
+        rows: state.viewHeight,
+        environment: Map<String, String>.from(Platform.environment),
+      );
+    } catch (e) {
+      _started = false;
+      state.write('\r\n[error: failed to start PTY - $e]\r\n');
+      return;
+    }
 
     _pty = pty;
+    _exitCount = 0;
 
-    _subscription = pty.output
-        .cast<List<int>>()
-        .listen((bytes) {
-      final text = utf8.decode(bytes);
-      state.write(text);
-      _outputController.add(text);
-    });
+    _subscription = pty.output.cast<List<int>>().listen(
+      (bytes) {
+        final text = utf8.decode(bytes, allowMalformed: true);
+        state.write(text);
+        _outputController.add(text);
+      },
+      onError: (error) {
+        state.write('\r\n[error: $error]\r\n');
+      },
+      onDone: () {
+        _subscription = null;
+      },
+    );
 
     pty.exitCode.then((code) {
       if (!ref.mounted) return;
       state.write('\r\n[exit $code]\r\n');
+      _cleanup();
+      _scheduleRestart(code);
     });
+  }
+
+  void _scheduleRestart(int exitCode) {
+    final now = DateTime.now();
+    if (_lastExitTime != null &&
+        now.difference(_lastExitTime!) < _crashWindow) {
+      _exitCount++;
+    } else {
+      _exitCount = 1;
+    }
+    _lastExitTime = now;
+
+    if (_exitCount > _maxConsecutiveCrashes) {
+      state.write(
+        '\r\n[terminal: too many consecutive exits ($_exitCount), press Enter to retry]\r\n',
+      );
+      return;
+    }
+
+    _started = false;
+    if (!ref.mounted) return;
+    startPty(shell: _shell, args: _args);
   }
 
   void sendInput(String text) {
@@ -145,6 +201,14 @@ class TerminalManager extends _$TerminalManager {
     }
 
     return completer.future;
+  }
+
+  void _cleanup() {
+    _subscription?.cancel();
+    _subscription = null;
+    _pty?.kill();
+    _pty = null;
+    _started = false;
   }
 
   void _kill() {

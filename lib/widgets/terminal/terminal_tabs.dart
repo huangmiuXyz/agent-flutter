@@ -16,7 +16,7 @@ String tabLabel(String shell) {
 }
 
 String resolveShell() {
-  if (Platform.isWindows) return 'cmd.exe';
+  if (Platform.isWindows) return 'pwsh.exe';
   final envShell = Platform.environment['SHELL'];
   if (envShell != null && envShell.isNotEmpty) return envShell;
   return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';

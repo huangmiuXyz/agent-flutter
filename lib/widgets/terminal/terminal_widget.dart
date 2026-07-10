@@ -36,7 +36,9 @@ class TerminalWidget extends HookConsumerWidget {
       if (visible) {
         manager.resume();
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          FocusScope.of(context).requestFocus(focusNode.value);
+          try {
+            FocusScope.of(context).requestFocus(focusNode.value);
+          } catch (_) {}
         });
       } else {
         manager.suspend();
@@ -50,7 +52,14 @@ class TerminalWidget extends HookConsumerWidget {
         theme: theme,
         textStyle: TerminalStyle(
           fontFamily: custom.fontFamily,
-          fontSize: custom.fontSizeSubtitle,
+          fontSize: custom.fontSizeBody,
+          height: 1.2,
+          fontFamilyFallback: const [
+            'Menlo',
+            'Consolas',
+            'Courier New',
+            'monospace',
+          ],
         ),
         focusNode: focusNode.value,
         autofocus: false,

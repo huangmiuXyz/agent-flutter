@@ -388,10 +388,10 @@ packages:
     dependency: "direct main"
     description:
       name: kterm
-      sha256: "67e38249643687f57ed6d2c7cef160d1f34f8426d8bd7715a31568b94dca73a8"
+      sha256: "725d6ecec29f94f2f877bb5968ee5bda315418fcf13f18c701db7463fa6fae91"
       url: "https://pub.dev"
     source: hosted
-    version: "1.5.1"
+    version: "1.5.2"
   leak_tracker:
     dependency: transitive
     description:
