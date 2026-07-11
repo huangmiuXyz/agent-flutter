@@ -102,6 +102,20 @@ class ColorThemeEditor extends ConsumerWidget {
           onChanged: (v) =>
               ref.read(themeProvider.notifier).setIconThickness(v.round()),
         ),
+        const SizedBox(height: 16),
+        AppText('字体粗细: w${100 * (effective.fontWeight.index + 1)}',
+            style: TextStyle(fontSize: 11, color: effective.onSurfaceVariant)),
+        const SizedBox(height: 4),
+        Slider(
+          value: effective.fontWeight.index.toDouble(),
+          min: 0,
+          max: 8,
+          divisions: 8,
+          label: 'w${100 * (effective.fontWeight.index + 1)}',
+          onChanged: (v) => ref.read(themeProvider.notifier).setFontWeight(
+            FontWeight.values[v.round()],
+          ),
+        ),
         if (config.lightCustomTheme != null || config.darkCustomTheme != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),

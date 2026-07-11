@@ -16,7 +16,6 @@ sealed class ThemeConfig with _$ThemeConfig {
     CustomTheme? lightCustomTheme,
     CustomTheme? darkCustomTheme,
     @Default(300) int iconThickness,
-    @Default(FontWeight.w400) FontWeight terminalFontWeight,
   }) = _ThemeConfig;
 }
 
@@ -55,8 +54,13 @@ class ThemeNotifier extends _$ThemeNotifier {
     state = state.copyWith(iconThickness: v);
   }
 
-  void setTerminalFontWeight(FontWeight w) {
-    state = state.copyWith(terminalFontWeight: w);
+  void setFontWeight(FontWeight w) {
+    final lightBase = state.lightCustomTheme ?? CustomTheme.light;
+    final darkBase = state.darkCustomTheme ?? CustomTheme.dark;
+    state = state.copyWith(
+      lightCustomTheme: lightBase.copyWith(fontWeight: w),
+      darkCustomTheme: darkBase.copyWith(fontWeight: w),
+    );
   }
 
   void setLightColor(String field, Color c) {
