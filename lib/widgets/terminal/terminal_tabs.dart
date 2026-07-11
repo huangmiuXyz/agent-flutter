@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
+import 'package:agent/widgets/terminal/execute_panel.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -31,6 +32,7 @@ class TerminalTabs extends HookWidget {
   Widget build(BuildContext context) {
     final tabs = useState<List<_TabState>>([_TabState(id: nanoid(8))]);
     final activeIndex = useState(0);
+    final showExecute = useState(false);
     final custom = CustomTheme.of(context);
 
     void addTab(String shell) {
@@ -75,6 +77,11 @@ class TerminalTabs extends HookWidget {
                 ],
               ),
             ),
+            if (showExecute.value)
+              SizedBox(
+                height: 200,
+                child: ExecutePanel(),
+              ),
           ],
         ),
         Positioned(
@@ -82,45 +89,42 @@ class TerminalTabs extends HookWidget {
           left: 0,
           right: 0,
           height: tabBarHeight,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              const double rightMinWidth = 30.0;
-              final leftMaxWidth = constraints.maxWidth - rightMinWidth;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Flexible(
-                    flex: 0,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: leftMaxWidth),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < tabs.value.length; i++)
-                              _TabItem(
-                                label: tabLabel(tabs.value[i].shell),
-                                active: activeIndex.value == i,
-                                isFirst: i == 0,
-                                onTap: () => activeIndex.value = i,
-                                onClose: tabs.value.length > 1
-                                    ? () => closeTab(i)
-                                    : null,
-                              ),
-                          ],
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var i = 0; i < tabs.value.length; i++)
+                        _TabItem(
+                          label: tabLabel(tabs.value[i].shell),
+                          active: activeIndex.value == i,
+                          isFirst: i == 0,
+                          onTap: () => activeIndex.value = i,
+                          onClose: tabs.value.length > 1
+                              ? () => closeTab(i)
+                              : null,
+                        ),
+                      SizedBox(width: custom.spacingSm),
+                      GestureDetector(
+                        onDoubleTap: () => addTab(resolveShell()),
+                        child: SizedBox(
+                          width: custom.spacingMd,
+                          height: tabBarHeight,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  Expanded(
-                    child: GestureDetector(
-                      onDoubleTap: () => addTab(resolveShell()),
-                    ),
-                  ),
-                ],
-              );
-            },
+                ),
+              ),
+              _ExecuteToggle(
+                active: showExecute.value,
+                onToggle: () => showExecute.value = !showExecute.value,
+              ),
+            ],
           ),
         ),
       ],
@@ -132,6 +136,51 @@ class _TabState {
   final String id;
   final String shell;
   const _TabState({required this.id, this.shell = ''});
+}
+
+class _ExecuteToggle extends StatelessWidget {
+  final bool active;
+  final VoidCallback onToggle;
+
+  const _ExecuteToggle({
+    required this.active,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+
+    return GestureDetector(
+      onTap: onToggle,
+      child: Container(
+        height: custom.controlHeightMd,
+        padding: EdgeInsets.symmetric(horizontal: custom.spacingSm),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: custom.surfaceContainerHighest, width: 1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              active ? Icons.terminal : Icons.terminal,
+              size: custom.fontSizeCaption,
+              color: active ? custom.primary : custom.onSurfaceVariant,
+            ),
+            SizedBox(width: custom.spacingXs),
+            AppText(
+              active ? '关闭执行' : '执行命令',
+              variant: AppTextVariant.caption,
+              color: active ? custom.primary : custom.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _TabItem extends StatelessWidget {

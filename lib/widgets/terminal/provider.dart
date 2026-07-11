@@ -55,7 +55,6 @@ class TerminalManager extends _$TerminalManager {
   DateTime? _lastExitTime;
   static const Duration _crashWindow = Duration(seconds: 5);
   static const int _maxConsecutiveCrashes = 3;
-
   Stream<String> get output => _outputController.stream;
 
   @override
@@ -91,14 +90,18 @@ class TerminalManager extends _$TerminalManager {
     _shell = shell;
     _args = args;
 
+    final resolvedShell = _resolveShell(shell);
+    final env = Map<String, String>.from(Platform.environment);
+    final resolvedArgs = _prepareIntegration(resolvedShell, env);
+
     Pty pty;
     try {
       pty = Pty.start(
-        _resolveShell(shell),
-        arguments: _resolveArgs(shell, args),
+        resolvedShell,
+        arguments: resolvedArgs,
         columns: 80,
         rows: 24,
-        environment: Map<String, String>.from(Platform.environment),
+        environment: env,
       );
     } catch (e) {
       _started = false;
@@ -153,6 +156,43 @@ class TerminalManager extends _$TerminalManager {
     startPty(shell: _shell, args: _args);
   }
 
+  String? _integrationPath;
+
+  /// 创建 shell 集成文件并返回修改后的参数（bash --rcfile 或 zsh 空参数）
+  List<String> _prepareIntegration(String shell, Map<String, String> env) {
+    final name = shell.split(RegExp(r'[\\/]')).last;
+    if (name.contains('zsh')) {
+      return _prepareZshIntegration(env);
+    }
+    if (name.contains('bash')) {
+      return _prepareBashIntegration(env);
+    }
+    return _resolveArgs(shell, _args);
+  }
+
+  List<String> _prepareZshIntegration(Map<String, String> env) {
+    try {
+      final tmpDir = Directory.systemTemp.createTempSync('agent-zsh-');
+      _integrationPath = tmpDir.path;
+
+      final bs = String.fromCharCode(0x5c); // 反斜杠
+      final dl = String.fromCharCode(0x24); // 美元符号
+      final content = 'source ~/.zshrc 2>/dev/null\n'
+          "precmd() { printf '${bs}033]633;D;'${dl}?'${bs}007'; }\n";
+      File('${tmpDir.path}/.zshrc').writeAsStringSync(content);
+
+      env['ZDOTDIR'] = tmpDir.path;
+    } catch (e) {
+      debugPrint('[TERMINAL] zsh integration error: $e');
+    }
+    return _resolveArgs('', const []);
+  }
+
+  List<String> _prepareBashIntegration(Map<String, String> env) {
+    // TODO: implement bash integration
+    return _resolveArgs('', const []);
+  }
+
   void sendInput(String text) {
     _pty?.write(const Utf8Encoder().convert(text));
   }
@@ -168,17 +208,23 @@ class TerminalManager extends _$TerminalManager {
   }) async {
     final completer = Completer<String>();
     final buffer = StringBuffer();
-    final marker = RegExp(r'\x1b\]633;D;\d+(?:;\d+)?\x1b\\');
+    // OSC 633 序列: ESC ] 633 ; D ; exitcode BEL
+    // 注意: 不能用 raw string，\x1B 需要是真正的 ESC 字节
+    final osc633 = RegExp('\x1B]633;D;\\d+\x07');
     StreamSubscription<String>? sub;
 
     sub = _outputController.stream.listen((chunk) {
       buffer.write(chunk);
-      if (marker.hasMatch(buffer.toString())) {
+      final full = buffer.toString();
+      if (osc633.hasMatch(full)) {
         sub?.cancel();
-        if (!completer.isCompleted) completer.complete(buffer.toString());
+        if (!completer.isCompleted) {
+          final all = buffer.toString();
+          final cleaned = all.replaceAll(osc633, '').trim();
+          completer.complete(cleaned);
+        }
       }
     });
-
     sendInput('$command\r');
 
     if (timeout > Duration.zero) {
@@ -186,7 +232,7 @@ class TerminalManager extends _$TerminalManager {
         if (!completer.isCompleted) {
           sub?.cancel();
           completer.completeError(
-            TimeoutException('Command timed out after $timeout', timeout),
+            TimeoutException('Command timed out. Did you set up shell integration?'),
           );
         }
       });
@@ -213,6 +259,17 @@ class TerminalManager extends _$TerminalManager {
   void _dispose() {
     _registry?.remove(_id!);
     _outputController.close();
+    _cleanupIntegration();
     _kill();
+  }
+
+  void _cleanupIntegration() {
+    final path = _integrationPath;
+    if (path == null) return;
+    try {
+      final d = Directory(path);
+      if (d.existsSync()) d.deleteSync(recursive: true);
+    } catch (_) {}
+    _integrationPath = null;
   }
 }
