@@ -29,6 +29,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
   final double fontSizeTitle;
   final double fontSizeH2;
   final double fontSizeH1;
+  final FontWeight fontWeight;
 
   // ── Color tokens ───────────────────────────────────────────────────
   final Color primary;
@@ -85,6 +86,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     required this.fontSizeTitle,
     required this.fontSizeH2,
     required this.fontSizeH1,
+    required this.fontWeight,
     required this.primary,
     required this.onPrimary,
     required this.primaryContainer,
@@ -174,8 +176,9 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
       fontSizeSubtitle: 16,
       fontSizeTitle: 18,
       fontSizeH2: 24,
-      fontSizeH1: 32,
-      primary: primary,
+	      fontSizeH1: 32,
+	      fontWeight: FontWeight.w400,
+	      primary: primary,
       onPrimary: onPrimary,
       primaryContainer: primaryContainer,
       onPrimaryContainer: onPrimaryContainer,
@@ -344,6 +347,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     double? fontSizeTitle,
     double? fontSizeH2,
     double? fontSizeH1,
+    FontWeight? fontWeight,
     Color? primary,
     Color? onPrimary,
     Color? primaryContainer,
@@ -398,6 +402,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
       fontSizeTitle: fontSizeTitle ?? this.fontSizeTitle,
       fontSizeH2: fontSizeH2 ?? this.fontSizeH2,
       fontSizeH1: fontSizeH1 ?? this.fontSizeH1,
+      fontWeight: fontWeight ?? this.fontWeight,
       primary: primary ?? this.primary,
       onPrimary: onPrimary ?? this.onPrimary,
       primaryContainer: primaryContainer ?? this.primaryContainer,
@@ -466,8 +471,9 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
           lerpDouble(fontSizeSubtitle, other.fontSizeSubtitle, t)!,
       fontSizeTitle: lerpDouble(fontSizeTitle, other.fontSizeTitle, t)!,
       fontSizeH2: lerpDouble(fontSizeH2, other.fontSizeH2, t)!,
-      fontSizeH1: lerpDouble(fontSizeH1, other.fontSizeH1, t)!,
-      primary: Color.lerp(primary, other.primary, t)!,
+	      fontSizeH1: lerpDouble(fontSizeH1, other.fontSizeH1, t)!,
+	      fontWeight: t < 0.5 ? fontWeight : other.fontWeight,
+	      primary: Color.lerp(primary, other.primary, t)!,
       onPrimary: Color.lerp(onPrimary, other.onPrimary, t)!,
       primaryContainer:
           Color.lerp(primaryContainer, other.primaryContainer, t)!,

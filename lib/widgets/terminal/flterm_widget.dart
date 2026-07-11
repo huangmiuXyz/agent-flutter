@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flterm/flterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/terminal/flterm_provider.dart';
 import 'package:agent/widgets/terminal/terminal_palette.dart';
 
@@ -50,7 +51,7 @@ class FltermTerminalWidget extends HookConsumerWidget {
           palette: ref.watch(fltermPaletteProvider),
           fontFamily: 'Menlo',
           fontSize: custom.fontSizeBody,
-          fontWeight: FontWeight.w400,
+          fontWeight: ref.watch(themeProvider).terminalFontWeight,
           fontFamilyFallback: const [
             'Menlo',
             'Consolas',
