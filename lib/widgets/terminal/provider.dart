@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ansi_strip/ansi_strip.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:kterm/kterm.dart';
@@ -178,6 +179,7 @@ class TerminalManager extends _$TerminalManager {
       final bs = String.fromCharCode(0x5c); // 反斜杠
       final dl = String.fromCharCode(0x24); // 美元符号
       final content = 'source ~/.zshrc 2>/dev/null\n'
+          "preexec() { printf '${bs}033]633;C${bs}007'; }\n"
           "precmd() { printf '${bs}033]633;D;'${dl}?'${bs}007'; }\n";
       File('${tmpDir.path}/.zshrc').writeAsStringSync(content);
 
@@ -224,19 +226,39 @@ class TerminalManager extends _$TerminalManager {
   }) async {
     final completer = Completer<String>();
     final buffer = StringBuffer();
-    // OSC 633 序列: ESC ] 633 ; D ; exitcode BEL
-    // 注意: 不能用 raw string，\x1B 需要是真正的 ESC 字节
-    final osc633 = RegExp('\x1B]633;D;\\d+\x07');
+    final oscEnd = RegExp('\x1B]633;D;\\d+\x07');
     StreamSubscription<String>? sub;
 
     sub = _outputController.stream.listen((chunk) {
       buffer.write(chunk);
       final full = buffer.toString();
-      if (osc633.hasMatch(full)) {
+      if (oscEnd.hasMatch(full)) {
         sub?.cancel();
         if (!completer.isCompleted) {
           final all = buffer.toString();
-          final cleaned = all.replaceAll(osc633, '').trim();
+          // 取开始标记和结束标记之间的内容
+          final startIdx = all.lastIndexOf('\x1B]633;C\x07');
+          final endIdx = all.lastIndexOf('\x1B]633;D;');
+          var output = all;
+          if (startIdx >= 0 && endIdx > startIdx) {
+            final startEnd = all.indexOf('\x07', startIdx) + 1;
+            output = all.substring(startEnd, endIdx);
+          } else if (endIdx >= 0) {
+            output = all.substring(0, endIdx);
+          }
+          // 去转义、退格、换行
+          var cleaned = stripAnsi(output);
+          while (cleaned.contains('\x08')) {
+            final idx = cleaned.indexOf('\x08');
+            cleaned = (idx > 0 ? cleaned.substring(0, idx - 1) : '') +
+                cleaned.substring(idx + 1);
+          }
+          cleaned = cleaned.replaceAll('\r\n', '\n')
+              .replaceAll('\r', '\n').trim();
+          // 去掉末尾的 shell 提示符行（% $ # 等）
+          final resultLines = cleaned.split('\n')
+            ..retainWhere((l) => !RegExp(r'^[%$#>]\s*$').hasMatch(l.trim()));
+          cleaned = resultLines.join('\n').trim();
           completer.complete(cleaned);
         }
       }

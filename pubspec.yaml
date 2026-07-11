@@ -23,6 +23,7 @@ dependencies:
   riverpod: ^3.3.2
   flutter_pty_new: ^1.0.0
   nanoid: ^1.0.0
+  ansi_strip: ^0.1.1+1
 
 
 dev_dependencies:

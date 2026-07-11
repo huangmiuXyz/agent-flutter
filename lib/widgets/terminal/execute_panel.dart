@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
@@ -23,6 +24,13 @@ class _ExecutePanelState extends ConsumerState<ExecutePanel> {
     _controller.dispose();
     _output.dispose();
     super.dispose();
+  }
+
+  void _sendSigint() {
+    final registry = ref.read(terminalRegistryProvider);
+    final ids = registry.ids.toList();
+    if (ids.isEmpty) return;
+    ref.read(terminalManagerProvider(ids.first).notifier).sendInput('\x03');
   }
 
   Future<void> _execute() async {
@@ -71,33 +79,53 @@ class _ExecutePanelState extends ConsumerState<ExecutePanel> {
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_running,
-                    style: TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: custom.fontSizeCaption,
-                      color: custom.onSurface,
+                  child: CallbackShortcuts(
+                    bindings: {
+                      SingleActivator(
+                        LogicalKeyboardKey.enter,
+                        control: true,
+                      ): _execute,
+                    },
+                    child: Focus(
+                      child: TextField(
+                        controller: _controller,
+                        enabled: !_running,
+                        maxLines: 4,
+                        minLines: 1,
+                        style: TextStyle(
+                          fontFamily: 'JetBrainsMono',
+                          fontSize: custom.fontSizeCaption,
+                          color: custom.onSurface,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: custom.spacingSm,
+                            vertical: custom.spacingXs,
+                          ),
+                          hintText: '输入命令... (Ctrl+Enter 执行)',
+                          hintStyle: TextStyle(
+                            color: custom.onSurfaceVariant,
+                            fontSize: custom.fontSizeCaption,
+                          ),
+                          filled: true,
+                          fillColor: custom.surfaceContainerLow,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(custom.radiusSm.topLeft.x),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
                     ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: custom.spacingSm,
-                        vertical: custom.spacingXs,
-                      ),
-                      hintText: '输入命令...',
-                      hintStyle: TextStyle(
-                        color: custom.onSurfaceVariant,
-                        fontSize: custom.fontSizeCaption,
-                      ),
-                      filled: true,
-                      fillColor: custom.surfaceContainerLow,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(custom.radiusSm.topLeft.x),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onSubmitted: (_) => _execute(),
+                  ),
+                ),
+                SizedBox(width: custom.spacingSm),
+                AppButton(
+                  icon: 'square',
+                  text: 'Ctrl+C',
+                  onPressed: _sendSigint,
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
                   ),
                 ),
                 SizedBox(width: custom.spacingSm),
