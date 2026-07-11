@@ -190,7 +190,22 @@ class TerminalManager extends _$TerminalManager {
   }
 
   List<String> _prepareBashIntegration(Map<String, String> env) {
-    // TODO: implement bash integration
+    try {
+      final tmpFile = File('${Directory.systemTemp.path}/agent-bash-'
+          '${_id ?? 'unknown'}.sh');
+      _integrationPath = tmpFile.path;
+
+      final bs = String.fromCharCode(0x5c); // 反斜杠
+      final dl = String.fromCharCode(0x24); // 美元符号
+      // 生成临时 rc 文件：source 原配置 + 设置 PROMPT_COMMAND
+      final content = 'source ~/.bashrc 2>/dev/null\n'
+          "PROMPT_COMMAND='printf \"${bs}033]633;D;${dl}?${bs}007\"'\n";
+      tmpFile.writeAsStringSync(content);
+
+      return ['--rcfile', tmpFile.path];
+    } catch (e) {
+      debugPrint('[TERMINAL] bash integration error: $e');
+    }
     return _resolveArgs('', const []);
   }
 
@@ -268,8 +283,13 @@ class TerminalManager extends _$TerminalManager {
     final path = _integrationPath;
     if (path == null) return;
     try {
-      final d = Directory(path);
-      if (d.existsSync()) d.deleteSync(recursive: true);
+      final f = File(path);
+      if (f.existsSync()) {
+        f.deleteSync();
+      } else {
+        final d = Directory(path);
+        if (d.existsSync()) d.deleteSync(recursive: true);
+      }
     } catch (_) {}
     _integrationPath = null;
   }
