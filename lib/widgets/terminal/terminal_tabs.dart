@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/terminal/terminal_widget.dart';
-import 'package:agent/widgets/terminal/execute_panel.dart';
+import 'package:agent/dev/execute_panel.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
