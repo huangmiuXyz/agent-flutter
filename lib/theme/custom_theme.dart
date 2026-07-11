@@ -2,6 +2,19 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
+/// 将 FontWeight 映射到对应字重的独立字体族名，绕过 atlas 字重缓存问题。
+String? fontWeightToFamily(FontWeight w) => switch (w) {
+  FontWeight.w100 => 'JetBrainsMonoThin',
+  FontWeight.w200 => 'JetBrainsMonoExtraLight',
+  FontWeight.w300 => 'JetBrainsMonoLight',
+  FontWeight.w400 => 'JetBrainsMonoRegular',
+  FontWeight.w500 => 'JetBrainsMonoMedium',
+  FontWeight.w600 => 'JetBrainsMonoSemiBold',
+  FontWeight.w700 => 'JetBrainsMonoBold',
+  FontWeight.w800 => 'JetBrainsMonoExtraBold',
+  _ => null,
+};
+
 class CustomTheme extends ThemeExtension<CustomTheme> {
   // ── Layout tokens ─────────────────────────────────────────────────
   final double spacingXs;

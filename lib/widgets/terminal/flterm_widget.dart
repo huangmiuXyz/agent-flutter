@@ -7,18 +7,6 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/terminal/flterm_provider.dart';
 import 'package:agent/widgets/terminal/terminal_palette.dart';
 
-String? _fontFamilyForWeight(FontWeight w) => switch (w) {
-  FontWeight.w100 => 'JetBrainsMonoThin',
-  FontWeight.w200 => 'JetBrainsMonoExtraLight',
-  FontWeight.w300 => 'JetBrainsMonoLight',
-  FontWeight.w400 => 'JetBrainsMonoRegular',
-  FontWeight.w500 => 'JetBrainsMonoMedium',
-  FontWeight.w600 => 'JetBrainsMonoSemiBold',
-  FontWeight.w700 => 'JetBrainsMonoBold',
-  FontWeight.w800 => 'JetBrainsMonoExtraBold',
-  _ => null,
-};
-
 class FltermTerminalWidget extends HookConsumerWidget {
   const FltermTerminalWidget({
     super.key,
@@ -60,7 +48,7 @@ class FltermTerminalWidget extends HookConsumerWidget {
         autofocus: false,
         theme: TerminalTheme(
           palette: ref.watch(fltermPaletteProvider),
-          fontFamily: _fontFamilyForWeight(custom.fontWeight) ?? 'JetBrainsMono',
+          fontFamily: fontWeightToFamily(custom.fontWeight) ?? 'JetBrainsMono',
           fontSize: custom.fontSizeBody,
           fontWeight: custom.fontWeight,
           fontFamilyFallback: const [
