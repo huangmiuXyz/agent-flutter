@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flterm/flterm.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -45,6 +44,7 @@ class FltermManager extends _$FltermManager {
   String? _id;
   Pty? _pty;
   StreamSubscription? _subscription;
+  StreamSubscription? _execSub;
   bool _started = false;
 
   String _shell = '';
@@ -143,7 +143,6 @@ class FltermManager extends _$FltermManager {
           '[terminal: too many consecutive exits ($_exitCount), press a key to retry]\r\n'));
       final originalOnOutput = state.onOutput;
       state.onOutput = (Uint8List bytes) {
-        originalOnOutput?.call(bytes);
         if (ref.mounted) {
           _exitCount = 0;
           state.onOutput = originalOnOutput;
@@ -169,16 +168,21 @@ class FltermManager extends _$FltermManager {
     Duration timeout = const Duration(minutes: 2),
     String marker = 'EXEC_DONE',
   }) async {
+    _execSub?.cancel();
     final completer = Completer<String>();
     final buffer = StringBuffer();
-    StreamSubscription<List<int>>? sub;
 
-    sub = _pty?.output.cast<List<int>>().listen(
+    void done() {
+      _execSub?.cancel();
+      _execSub = null;
+    }
+
+    _execSub = _pty?.output.cast<List<int>>().listen(
       (bytes) {
         final text = utf8.decode(bytes, allowMalformed: true);
         buffer.write(text);
         if (text.contains(marker)) {
-          sub?.cancel();
+          done();
           if (!completer.isCompleted) completer.complete(buffer.toString());
         }
       },
@@ -189,7 +193,7 @@ class FltermManager extends _$FltermManager {
     if (timeout > Duration.zero) {
       Future.delayed(timeout, () {
         if (!completer.isCompleted) {
-          sub?.cancel();
+          done();
           completer.completeError(
             TimeoutException('Command timed out after $timeout', timeout),
           );
@@ -211,6 +215,8 @@ class FltermManager extends _$FltermManager {
   void _dispose() {
     _subscription?.cancel();
     _subscription = null;
+    _execSub?.cancel();
+    _execSub = null;
     _pty?.kill();
     _pty = null;
   }
