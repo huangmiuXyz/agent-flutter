@@ -1,0 +1,10 @@
+--- a/lib/src/ui/gesture/gesture_detector.dart
++++ b/lib/src/ui/gesture/gesture_detector.dart
+@@ -53,6 +53,7 @@
+     if (!_isDoubleTap) {
+       widget.onSingleTapUp?.call(details);
+       _lastTapOffset = details.globalPosition;
++      widget.onTapUp?.call(details);
+       _doubleTapTimer = Timer(kDoubleTapTimeout, _doubleTapTimeout);
+     }
+     _isDoubleTap = false;
