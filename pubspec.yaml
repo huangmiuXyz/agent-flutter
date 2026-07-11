@@ -40,6 +40,19 @@ flutter:
   fonts:
     - family: JetBrainsMono
       fonts:
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-ExtraLight.ttf
+          weight: 200
         - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Light.ttf
+          weight: 300
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-SemiBold.ttf
+          weight: 600
         - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf
           weight: 700
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-ExtraBold.ttf
+          weight: 800
