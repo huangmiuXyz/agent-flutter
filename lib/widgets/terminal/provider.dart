@@ -158,7 +158,7 @@ class TerminalManager extends _$TerminalManager {
 
   String? _integrationPath;
 
-  /// 创建 shell 集成文件并返回修改后的参数（bash --rcfile 或 zsh 空参数）
+  /// 创建 shell 集成文件并返回修改后的启动参数
   List<String> _prepareIntegration(String shell, Map<String, String> env) {
     final name = shell.split(RegExp(r'[\\/]')).last;
     if (name.contains('zsh')) {
@@ -185,6 +185,7 @@ class TerminalManager extends _$TerminalManager {
     } catch (e) {
       debugPrint('[TERMINAL] zsh integration error: $e');
     }
+    // zsh 不需要额外启动参数，ZDOTDIR 环境变量已足够
     return _resolveArgs('', const []);
   }
 
