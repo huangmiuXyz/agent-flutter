@@ -1,0 +1,13 @@
+--- a/lib/src/widgets/terminal_view.dart
++++ b/lib/src/widgets/terminal_view.dart
+@@ -229,7 +229,9 @@
+       if (_theme.fontFamily != oldTheme.fontFamily && widget.fontData == null) {
+         _resolvedFontData = null;
+         unawaited(_resolveFontData(_theme.fontFamily));
+-      }
++      }
++      setState(() {});
++    }
+ 
+     if (oldWidget.bellDuration != widget.bellDuration) {
+       _bellCtrl.duration = widget.bellDuration > Duration.zero
