@@ -4,9 +4,20 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flterm/flterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/terminal/flterm_provider.dart';
 import 'package:agent/widgets/terminal/terminal_palette.dart';
+
+String? _fontFamilyForWeight(FontWeight w) => switch (w) {
+  FontWeight.w100 => 'JetBrainsMonoThin',
+  FontWeight.w200 => 'JetBrainsMonoExtraLight',
+  FontWeight.w300 => 'JetBrainsMonoLight',
+  FontWeight.w400 => 'JetBrainsMonoRegular',
+  FontWeight.w500 => 'JetBrainsMonoMedium',
+  FontWeight.w600 => 'JetBrainsMonoSemiBold',
+  FontWeight.w700 => 'JetBrainsMonoBold',
+  FontWeight.w800 => 'JetBrainsMonoExtraBold',
+  _ => null,
+};
 
 class FltermTerminalWidget extends HookConsumerWidget {
   const FltermTerminalWidget({
@@ -49,9 +60,9 @@ class FltermTerminalWidget extends HookConsumerWidget {
         autofocus: false,
         theme: TerminalTheme(
           palette: ref.watch(fltermPaletteProvider),
-          fontFamily: 'Menlo',
+          fontFamily: _fontFamilyForWeight(custom.fontWeight) ?? 'JetBrainsMono',
           fontSize: custom.fontSizeBody,
-          fontWeight: ref.watch(themeProvider).terminalFontWeight,
+          fontWeight: custom.fontWeight,
           fontFamilyFallback: const [
             'Menlo',
             'Consolas',
