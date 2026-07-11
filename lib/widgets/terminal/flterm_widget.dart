@@ -48,9 +48,9 @@ class FltermTerminalWidget extends HookConsumerWidget {
         autofocus: false,
         theme: TerminalTheme(
           palette: ref.watch(fltermPaletteProvider),
-          fontFamily: custom.fontFamily,
+          fontFamily: 'Menlo',
           fontSize: custom.fontSizeBody,
-          fontWeight: FontWeight.w300,
+          fontWeight: FontWeight.w400,
           fontFamilyFallback: const [
             'Menlo',
             'Consolas',
