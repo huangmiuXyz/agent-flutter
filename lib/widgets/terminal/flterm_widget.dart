@@ -50,6 +50,7 @@ class FltermTerminalWidget extends HookConsumerWidget {
           palette: ref.watch(fltermPaletteProvider),
           fontFamily: custom.fontFamily,
           fontSize: custom.fontSizeBody,
+          fontWeight: FontWeight.w300,
           fontFamilyFallback: const [
             'Menlo',
             'Consolas',
