@@ -96,8 +96,8 @@ class TerminalManager extends _$TerminalManager {
       pty = Pty.start(
         _resolveShell(shell),
         arguments: _resolveArgs(shell, args),
-        columns: state.viewWidth,
-        rows: state.viewHeight,
+        columns: 80,
+        rows: 24,
         environment: Map<String, String>.from(Platform.environment),
       );
     } catch (e) {
@@ -155,14 +155,6 @@ class TerminalManager extends _$TerminalManager {
 
   void sendInput(String text) {
     _pty?.write(const Utf8Encoder().convert(text));
-  }
-
-  void suspend() {
-    _subscription?.pause();
-  }
-
-  void resume() {
-    _subscription?.resume();
   }
 
   @visibleForTesting

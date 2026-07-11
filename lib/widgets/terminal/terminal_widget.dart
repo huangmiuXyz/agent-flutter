@@ -32,16 +32,12 @@ class TerminalWidget extends HookConsumerWidget {
     }, []);
 
     useEffect(() {
-      final manager = ref.read(terminalManagerProvider(id).notifier);
       if (visible) {
-        manager.resume();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           try {
             FocusScope.of(context).requestFocus(focusNode.value);
           } catch (_) {}
         });
-      } else {
-        manager.suspend();
       }
       return null;
     }, [visible, id]);
