@@ -1,26 +1,13 @@
-import 'dart:io';
-
 import 'package:nanoid/nanoid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/shell_utils.dart';
 import 'package:agent/widgets/terminal/xterm_widget.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
-
-String tabLabel(String shell) {
-  final resolved = shell.isNotEmpty ? shell : resolveShell();
-  return resolved.split(RegExp(r'[\\/]')).last.replaceAll('.exe', '');
-}
-
-String resolveShell() {
-  if (Platform.isWindows) return 'pwsh.exe';
-  final envShell = Platform.environment['SHELL'];
-  if (envShell != null && envShell.isNotEmpty) return envShell;
-  return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
-}
 
 class TerminalTabs extends HookWidget {
   const TerminalTabs({super.key, this.active = true});
@@ -100,7 +87,7 @@ class TerminalTabs extends HookWidget {
                           children: [
                             for (var i = 0; i < tabs.value.length; i++)
                               _TabItem(
-                                label: tabLabel(tabs.value[i].shell),
+                                label: shellLabel(tabs.value[i].shell),
                                 active: activeIndex.value == i,
                                 isFirst: i == 0,
                                 onTap: () => activeIndex.value = i,

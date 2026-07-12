@@ -49,6 +49,9 @@ class XtermTerminalWidget extends HookConsumerWidget {
       fontFamily: fontWeightToFamily(custom.fontWeight) ?? 'JetBrainsMono',
     );
 
+    // Single reusable handler instance (stateless).
+    final deleteHandler = useMemoized(() => DeleteSelectionHandler());
+
     return ClipRect(
       child: TerminalView(
         session.terminal,
@@ -58,12 +61,10 @@ class XtermTerminalWidget extends HookConsumerWidget {
         theme: theme,
         textStyle: textStyle,
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
-            final handler = KeyHandlerFactory.forKey(event.logicalKey);
-            if (handler != null) {
-              if (handler.handle(session.terminal, session.controller)) {
-                return KeyEventResult.handled;
-              }
+          if (event is KeyDownEvent &&
+              deleteHandler.canHandle(event.logicalKey)) {
+            if (deleteHandler.handle(session.terminal, session.controller)) {
+              return KeyEventResult.handled;
             }
           }
           return KeyEventResult.ignored;

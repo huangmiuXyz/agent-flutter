@@ -1,17 +1,12 @@
 import 'package:flutter/services.dart';
 import 'package:xterm2/xterm.dart';
 
-abstract class KeyHandler {
-  bool canHandle(LogicalKeyboardKey key);
-  bool handle(Terminal terminal, TerminalController controller);
-}
-
-class DeleteSelectionHandler implements KeyHandler {
-  @override
+/// Handles Delete / Backspace when a selection is active:
+/// removes the selected characters and moves the cursor accordingly.
+class DeleteSelectionHandler {
   bool canHandle(LogicalKeyboardKey key) =>
       key == LogicalKeyboardKey.delete || key == LogicalKeyboardKey.backspace;
 
-  @override
   bool handle(Terminal terminal, TerminalController controller) {
     final sel = controller.selection;
     if (sel == null) return false;
@@ -58,43 +53,9 @@ class DeleteSelectionHandler implements KeyHandler {
   }
 }
 
-class KeyHandlerFactory {
-  static final List<KeyHandler> _handlers = [DeleteSelectionHandler()];
-
-  static KeyHandler? forKey(LogicalKeyboardKey key) {
-    for (final h in _handlers) {
-      if (h.canHandle(key)) return h;
-    }
-    return null;
-  }
-}
-
-class CursorMoveRequest {
-  const CursorMoveRequest(this.delta);
-
-  final int delta;
-
-  String get fallbackInput {
-    final sequence = delta > 0 ? '\x1b[C' : '\x1b[D';
-    final buffer = StringBuffer();
-    for (int i = 0; i < delta.abs(); i++) {
-      buffer.write(sequence);
-    }
-    return buffer.toString();
-  }
-}
-
-typedef CursorMoveCallback = void Function(CursorMoveRequest request);
-
-abstract class TapHandler {
-  void handle(
-    Terminal terminal,
-    CellOffset offset, {
-    CursorMoveCallback? onCursorMove,
-  });
-}
-
-class MoveCursorHandler implements TapHandler {
+/// Processes a tap on the terminal to move the cursor.
+class MoveCursorHandler {
+  /// Calculates the number of characters between the cursor and [offset].
   CursorMoveRequest? createRequest(Terminal terminal, CellOffset offset) {
     final cursorX = terminal.buffer.cursorX;
     final cursorY = terminal.buffer.absoluteCursorY;
@@ -121,7 +82,8 @@ class MoveCursorHandler implements TapHandler {
     return CursorMoveRequest(movingRight ? characterCount : -characterCount);
   }
 
-  @override
+  /// Moves the cursor by the computed delta.
+  /// Calls [onCursorMove] if provided, otherwise sends ANSI escape sequences.
   void handle(
     Terminal terminal,
     CellOffset offset, {
@@ -136,18 +98,35 @@ class MoveCursorHandler implements TapHandler {
       terminal.onOutput?.call(request.fallbackInput);
     }
   }
-}
 
-class TapHandlerFactory {
-  static final List<TapHandler> _handlers = [MoveCursorHandler()];
-
+  /// Direct convenience: compute and move in one step with a callback.
   static void handleTap(
     Terminal terminal,
     CellOffset offset, {
     CursorMoveCallback? onCursorMove,
   }) {
-    for (final handler in _handlers) {
-      handler.handle(terminal, offset, onCursorMove: onCursorMove);
-    }
+    final handler = MoveCursorHandler();
+    handler.handle(terminal, offset, onCursorMove: onCursorMove);
   }
 }
+
+/// Describes how many cells to move the cursor (positive = right).
+class CursorMoveRequest {
+  const CursorMoveRequest(this.delta);
+
+  /// Signed delta: positive moves right, negative moves left.
+  final int delta;
+
+  /// ANSI escape sequence fallback.
+  String get fallbackInput {
+    final sequence = delta > 0 ? '\x1b[C' : '\x1b[D';
+    final buffer = StringBuffer();
+    for (int i = 0; i < delta.abs(); i++) {
+      buffer.write(sequence);
+    }
+    return buffer.toString();
+  }
+}
+
+/// Callback type for cursor movement.
+typedef CursorMoveCallback = void Function(CursorMoveRequest request);
