@@ -118,9 +118,9 @@ class AppColors {
     borderSubtle: Color(0xFF49454F),
     overlay: Color(0x99000000),
     shadow: Color(0xFF000000),
-    menuBackground: Color(0xFF2F343E),
-    menuBorder: Color(0xFF464B57),
-    menuHover: Color(0xFF363C46),
+    menuBackground: Color(0xFF2D2D2D),
+    menuBorder: Color(0xFF404040),
+    menuHover: Color(0xFF333333),
     success: Color(0xFF4ADE80),
     warning: Color(0xFFFBBF24),
   );

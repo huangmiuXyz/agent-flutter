@@ -11,6 +11,7 @@ import 'package:agent/dev/button_demo.dart';
 import 'package:agent/dev/execute_panel.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
+import 'package:agent/dev/context_menu_demo.dart';
 import 'package:agent/dev/fps_monitor.dart';
 
 class _VSCodeSplitView extends HookWidget {
@@ -121,6 +122,12 @@ class DemoPage extends HookConsumerWidget {
                         active: selectedIndex.value == 2,
                         onTap: () => selectedIndex.value = 2,
                       ),
+                      AppListItem(
+                        icon: 'terminalSquare',
+                        label: 'Context Menu',
+                        active: selectedIndex.value == 3,
+                        onTap: () => selectedIndex.value = 3,
+                      ),
                     ],
                   ),
                   const Spacer(),
@@ -171,6 +178,7 @@ class DemoPage extends HookConsumerWidget {
                     ],
                   ),
                   const PerformanceMonitor(),
+                  const ContextMenuDemo(),
                 ],
               ),
             ),
