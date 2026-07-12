@@ -30,9 +30,7 @@ class AppButton extends HookWidget {
     this.hoverStyle = true,
     this.variant = ButtonVariant.primary,
     this.size = ButtonSize.md,
-  }) : assert(
-         variant == ButtonVariant.iconOnly ? icon != null : text != null,
-       ),
+  }) : assert(variant == ButtonVariant.iconOnly ? icon != null : text != null),
        _textNotNull = variant != ButtonVariant.iconOnly ? text ?? '' : '';
 
   @override
@@ -53,7 +51,9 @@ class AppButton extends HookWidget {
     final textColor = switch (variant) {
       ButtonVariant.primary => custom.onPrimary,
       ButtonVariant.text =>
-          hoverStyle && isHovered.value ? custom.primary : custom.onSurfaceVariant,
+        hoverStyle && isHovered.value
+            ? custom.primary
+            : custom.onSurfaceVariant,
       _ => null,
     };
 
@@ -75,26 +75,22 @@ class AppButton extends HookWidget {
         variant == ButtonVariant.iconOnly
             ? Size(height, height)
             : variant == ButtonVariant.text
-                ? Size.zero
-                : Size(0, height),
+            ? Size.zero
+            : Size(0, height),
       ),
       maximumSize: WidgetStateProperty.all(
         variant == ButtonVariant.iconOnly
             ? Size(height, height)
             : variant == ButtonVariant.text
-                ? Size.infinite
-                : Size(double.infinity, height),
+            ? Size.infinite
+            : Size(double.infinity, height),
       ),
     );
 
     final textButton = TextButton(
       onPressed: disabled ? null : onPressed,
       style: btnStyle.merge(sizeStyle).merge(style),
-      child: _buildChild(
-        custom,
-        iconSize,
-        textColor,
-      ),
+      child: _buildChild(custom, iconSize, textColor),
     );
 
     if (variant == ButtonVariant.iconOnly) {
@@ -129,7 +125,7 @@ class AppButton extends HookWidget {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AppIcon(icon!, size: iconSize),
+          AppIcon(icon!, size: iconSize, color: textColor),
           SizedBox(width: custom.spacingSm),
           AppText(_textNotNull, color: textColor),
         ],
