@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flterm/flterm.dart';
+import 'package:xterm/xterm.dart';
 
 import 'package:agent/theme/provider.dart';
 
@@ -42,14 +42,43 @@ const lightAnsi = [
   Color(0xFFEEEEEC),
 ];
 
-final fltermPaletteProvider = Provider<ColorPalette>((ref) {
+final xtermThemeProvider = Provider<TerminalTheme>((ref) {
   final config = ref.watch(themeProvider);
   final brightness = config.resolveBrightness();
   final effective = config.effectiveFor(brightness);
   final isDark = brightness == Brightness.dark;
-  return ColorPalette(
-    ansiColors: isDark ? darkAnsi : lightAnsi,
-    background: effective.surface,
+  final c = isDark ? darkAnsi : lightAnsi;
+  return TerminalTheme(
+    cursor: isDark ? const Color(0xFFC5C8C6) : const Color(0xFF2E3436),
+    selection: isDark
+        ? const Color(0x406DA9FF)
+        : const Color(0x403465A4),
     foreground: effective.onSurface,
+    background: effective.surface,
+    black: c[0],
+    red: c[1],
+    green: c[2],
+    yellow: c[3],
+    blue: c[4],
+    magenta: c[5],
+    cyan: c[6],
+    white: c[7],
+    brightBlack: c[8],
+    brightRed: c[9],
+    brightGreen: c[10],
+    brightYellow: c[11],
+    brightBlue: c[12],
+    brightMagenta: c[13],
+    brightCyan: c[14],
+    brightWhite: c[15],
+    searchHitBackground: isDark
+        ? const Color(0x80FBA922)
+        : const Color(0x80C4A000),
+    searchHitBackgroundCurrent: isDark
+        ? const Color(0xCCFBA922)
+        : const Color(0xCCC4A000),
+    searchHitForeground: isDark
+        ? const Color(0xFF1D1F21)
+        : const Color(0xFFFFFFFF),
   );
 });

@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flterm/flterm.dart';
 import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:xterm/xterm.dart';
 
-part 'flterm_provider.g.dart';
+part 'xterm_provider.g.dart';
 
 String _resolveShell(String shell) {
   if (shell.isNotEmpty) return shell;
@@ -29,21 +28,27 @@ List<String> _resolveArgs(String shell, List<String> args) {
   return ['/c', quoted];
 }
 
-class FltermRegistry {
+class XtermSession {
+  final Terminal terminal;
+  final TerminalController controller;
+  const XtermSession({required this.terminal, required this.controller});
+}
+
+class XtermRegistry {
   final Set<String> _ids = {};
   Set<String> get ids => Set.unmodifiable(_ids);
   void add(String id) => _ids.add(id);
   void remove(String id) => _ids.remove(id);
 }
 
-final fltermRegistryProvider = Provider<FltermRegistry>((ref) => FltermRegistry());
+final xtermRegistryProvider = Provider<XtermRegistry>((ref) => XtermRegistry());
 
 @riverpod
-class FltermManager extends _$FltermManager {
-  FltermRegistry? _registry;
+class XtermManager extends _$XtermManager {
+  XtermRegistry? _registry;
   String? _id;
   Pty? _pty;
-  StreamSubscription? _subscription;
+  StreamSubscription? _ptySub;
   StreamSubscription? _execSub;
   bool _started = false;
 
@@ -55,18 +60,20 @@ class FltermManager extends _$FltermManager {
   static const int _maxConsecutiveCrashes = 3;
 
   @override
-  TerminalController build(String id) {
+  XtermSession build(String id) {
     _id = id;
-    _registry = ref.read(fltermRegistryProvider);
+    _registry = ref.read(xtermRegistryProvider);
     _registry!.add(id);
-    final controller = TerminalController(
-      config: TerminalConfig(scrollbackLimit: 5000),
-    );
+
+    final terminal = Terminal(maxLines: 5000);
+    final controller = TerminalController();
+
     ref.onDispose(() {
       _registry?.remove(_id!);
       _dispose();
     });
-    return controller;
+
+    return XtermSession(terminal: terminal, controller: controller);
   }
 
   void startPty({String shell = '', List<String> args = const []}) {
@@ -76,54 +83,52 @@ class FltermManager extends _$FltermManager {
     _shell = shell;
     _args = args;
 
-    final controller = state;
+    final terminal = state.terminal;
 
     Pty pty;
     try {
       pty = Pty.start(
         _resolveShell(shell),
         arguments: _resolveArgs(shell, args),
-        columns: 80,
-        rows: 24,
+        columns: terminal.viewWidth,
+        rows: terminal.viewHeight,
         environment: Map<String, String>.from(Platform.environment),
       );
     } catch (e) {
       _started = false;
-      controller.write(utf8.encode('[error: failed to start PTY - $e]\r\n'));
+      terminal.write('[error: failed to start PTY - $e]\r\n');
       return;
     }
 
     _pty = pty;
 
-    controller.onOutput = (Uint8List bytes) {
+    terminal.onOutput = (String data) {
       if (!_started) return;
       try {
-        pty.write(bytes);
+        pty.write(utf8.encode(data));
       } catch (_) {}
     };
 
-    controller.onResize = (int cols, int rows) {
-      pty.resize(rows, cols);
+    terminal.onResize = (int w, int h, int pw, int ph) {
+      pty.resize(h, w);
     };
 
-    _subscription = pty.output
-        .cast<List<int>>()
-        .listen(
+    _ptySub = pty.output.cast<List<int>>().listen(
       (List<int> bytes) {
-        controller.write(Uint8List.fromList(bytes));
+        terminal.write(utf8.decode(bytes, allowMalformed: true));
       },
       onError: (error) {
-        controller.write(utf8.encode('[error: $error]\r\n'));
+        terminal.write('[error: $error]\r\n');
       },
       onDone: () {
-        _subscription = null;
+        _ptySub = null;
       },
     );
 
     pty.exitCode.then((code) {
       if (!ref.mounted) return;
       _started = false;
-      controller.write(utf8.encode('[exit $code]\r\n'));
+      terminal.write('[exit $code]\r\n');
       _cleanup();
       _scheduleRestart(code);
     });
@@ -139,13 +144,13 @@ class FltermManager extends _$FltermManager {
     _lastExitTime = now;
 
     if (_exitCount > _maxConsecutiveCrashes) {
-      state.write(utf8.encode(
-          '[terminal: too many consecutive exits ($_exitCount), press a key to retry]\r\n'));
-      final originalOnOutput = state.onOutput;
-      state.onOutput = (Uint8List bytes) {
+      state.terminal.write(
+          '[terminal: too many consecutive exits ($_exitCount), press a key to retry]\r\n');
+      final originalOnOutput = state.terminal.onOutput;
+      state.terminal.onOutput = (String data) {
         if (ref.mounted) {
           _exitCount = 0;
-          state.onOutput = originalOnOutput;
+          state.terminal.onOutput = originalOnOutput;
           startPty(shell: _shell, args: _args);
         }
       };
@@ -158,9 +163,7 @@ class FltermManager extends _$FltermManager {
   }
 
   void sendInput(String text) {
-    if (_pty != null) {
-      state.sendText(text);
-    }
+    state.terminal.textInput(text);
   }
 
   Future<String> execute(
@@ -188,7 +191,7 @@ class FltermManager extends _$FltermManager {
       },
     );
 
-    state.sendText('$command\r\necho $marker\r');
+    state.terminal.textInput('$command\recho $marker\r');
 
     if (timeout > Duration.zero) {
       Future.delayed(timeout, () {
@@ -205,16 +208,16 @@ class FltermManager extends _$FltermManager {
   }
 
   void _cleanup() {
-    _subscription?.cancel();
-    _subscription = null;
+    _ptySub?.cancel();
+    _ptySub = null;
     _pty?.kill();
     _pty = null;
     _started = false;
   }
 
   void _dispose() {
-    _subscription?.cancel();
-    _subscription = null;
+    _ptySub?.cancel();
+    _ptySub = null;
     _execSub?.cancel();
     _execSub = null;
     _pty?.kill();
