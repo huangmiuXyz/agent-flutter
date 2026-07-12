@@ -103,62 +103,35 @@ TerminalView._onTapUp()                          (terminal_view.dart:489)
   │ renderTerminal.getCellOffset(localPosition)
   ▼
 XtermTerminalWidget.onTapUp                       (xterm_widget.dart:71)
-  │ TapHandlerFactory.handleTap(session.terminal, offset)
+  │ XtermManager.handleTap(offset)
   ▼
-MoveCursorHandler.handle(terminal, offset)        (key_handler.dart:72)
-  │ 计算箭头按键次数，循环发送
+TapHandlerFactory / MoveCursorHandler
+  │ 计算目标相对偏移
   ▼
-terminal.keyInput(TerminalKey.arrowLeft/Right)    (terminal.dart:507)
-  │ 生成 ANSI 转义序列（←=\x1b[D, →=\x1b[C）
-  ▼
-terminal.onOutput → pty.write(bytes)              (xterm_provider.dart:112)
-  │
-  ▼
-PTY → Shell 内部光标移动
+Shell 集成可用且当前位于提示符？
+  ├─ 是：写入偏移请求，发送 Ctrl+X Ctrl+G
+  │      PowerShell/Bash/Zsh 行编辑器一次设置光标位置
+  └─ 否：生成重复的左右方向键序列作为兼容回退
 ```
 
 ### MoveCursorHandler 算法
 
-由于终端光标只能通过左/右箭头一维移动，跨行跳转需要绕行策略：
+点击位置先按二维终端坐标确定移动区间，再遍历区间内的 xterm 单元格：
 
-#### 同行跳转（`dy == 0`）
+- 普通字符的单元格 `codePoint != 0`，计为一个字符
+- 汉字等宽字符占两个单元格，但续格 `codePoint == 0`，因此只计一次
+- 空白占位单元格不计数
+- 向右移动得到正偏移，向左移动得到负偏移
 
-```
-  目标在右侧：发送 dx 次 → 键
-  目标在左侧：发送 |dx| 次 ← 键
-```
-
-#### 向上跳转（`dy < 0`）
-
-```
-  从当前列左移到行首：             cursorX + 1     次 ←
-  每向上穿越一行（行尾→行首绕行）：  w + 1           次 ←
-  在目标行左移到目标列：             w - offset.x    次 ←
-```
-
-示例：光标在 (5, 3)，目标在 (2, 1)，viewWidth=80
-
-```
-  (5,3) → 左移6次到行首(0,3)
-       → 左移81次到行尾(79,2) → 左移81次到行首(0,1)
-       → 左移78次到(2,1)
-  总计：6 + 81 + 78 = 165 次 ← 键
-```
-
-#### 向下跳转（`dy > 0`）
-
-```
-  从当前列右移到行尾：             w - cursorX      次 →
-  每向下穿越一行（行首→行尾绕行）：  w + 1            次 →
-  在目标行右移到目标列：             offset.x + 1     次 →
-```
+Shell 集成可用时，行编辑器一次应用字符偏移；否则发送相同数量的左右方向键作为兼容回退。点击宽字符的左半格会定位到字符前，点击右半格会定位到字符后。
 
 ### 设计要点
 
-1. **纯键盘模拟**：不依赖应用的鼠标支持模式，兼容 vim、nano、less 等不支持鼠标输入的应用程序
-2. **一维移动限制**：终端协议层只暴露左/右箭头，垂直移动通过行首/行尾绕行实现
-3. **像素精度**：`getCellOffset()` 基于固定宽度字符布局计算，不感知变宽字符（如 emoji）
-4. **可扩展性**：`TapHandlerFactory` 使用列表注册模式，新增行为只需添加 `TapHandler` 实现
+1. **行编辑器级定位**：PowerShell/PSReadLine、Bash/Readline、Zsh/ZLE 通过 Shell 集成一次更新内部光标，不产生逐字符移动过程
+2. **兼容回退**：不支持 Shell 集成或子程序正在运行时仍发送左右方向键，避免私有快捷键干扰 Vim、less 等程序
+3. **字符偏移**：跨行点击遍历 xterm 单元格并跳过宽字符续格，再由行编辑器限制在当前输入缓冲区范围内
+4. **宽字符**：汉字等双单元格字符按一个光标步长处理；组合 emoji 的显示宽度仍取决于 Shell 与终端的 Unicode 实现
+5. **可扩展性**：`TapHandlerFactory` 使用列表注册模式，新增行为只需添加 `TapHandler` 实现
 
 ---
 
@@ -271,14 +244,15 @@ class KeyHandlerFactory {
 |---|---|---|
 | `lib/widgets/terminal/xterm_widget.dart` | 71-73 | `onTapUp` 回调注册 |
 | `lib/widgets/terminal/xterm_widget.dart` | 60-69 | `onKeyEvent` 回调注册 |
-| `lib/widgets/terminal/key_handler.dart` | 72-117 | `MoveCursorHandler` 算法实现 |
-| `lib/widgets/terminal/key_handler.dart` | 119-128 | `TapHandlerFactory` 工厂 |
+| `lib/widgets/terminal/key_handler.dart` | 68-119 | 光标偏移请求与 `MoveCursorHandler` |
+| `lib/widgets/terminal/key_handler.dart` | 121-135 | `TapHandlerFactory` 工厂 |
 | `lib/widgets/terminal/key_handler.dart` | 9-53 | `DeleteSelectionHandler` |
 | `lib/widgets/terminal/key_handler.dart` | 55-66 | `KeyHandlerFactory` 工厂 |
-| `lib/widgets/terminal/xterm_provider.dart` | 48-381 | `XtermManager` PTY 管理 |
-| `lib/widgets/terminal/xterm_provider.dart` | 112-117 | 终端输出 → PTY 写入 |
-| `lib/widgets/terminal/xterm_provider.dart` | 119-121 | 终端 resize → PTY |
-| `lib/widgets/terminal/xterm_provider.dart` | 123-135 | PTY 输出 → 终端写入 |
+| `lib/widgets/terminal/xterm_provider.dart` | 50-473 | `XtermManager` PTY 与 Shell 集成管理 |
+| `lib/widgets/terminal/xterm_provider.dart` | 181-203 | 点击光标请求分发 |
+| `lib/widgets/terminal/xterm_provider.dart` | 115-120 | 终端输出 → PTY 写入 |
+| `lib/widgets/terminal/xterm_provider.dart` | 122-124 | 终端 resize → PTY |
+| `lib/widgets/terminal/xterm_provider.dart` | 126-138 | PTY 输出 → 终端写入 |
 | `.../xterm2/terminal_view.dart` | 489-497 | `_onTapUp` 事件分发 |
 | `.../xterm2/ui/render.dart` | 384-393 | `getCellOffset()` 坐标转换 |
 | `.../xterm2/ui/render.dart` | 375-381 | `getOffset()` 单元格→像素 |

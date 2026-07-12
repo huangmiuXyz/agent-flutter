@@ -69,7 +69,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
           return KeyEventResult.ignored;
         },
         onTapUp: (details, offset) {
-          TapHandlerFactory.handleTap(session.terminal, offset);
+          ref.read(xtermManagerProvider(id).notifier).handleTap(offset);
         },
       ),
     );

@@ -28,22 +28,28 @@ class DeleteSelectionHandler implements KeyHandler {
       for (int i = start; i < end; i++) {
         if (line.getCodePoint(i) != 0) {
           count++;
-          if (i + 1 > tail) tail = i + 1;
+          final characterEnd = i + line.getWidth(i);
+          if (characterEnd > tail) tail = characterEnd;
         }
       }
     }
 
     if (count <= 0 || tail <= 0) return true;
 
-    final offset = tail - terminal.buffer.cursorX;
-    if (offset > 0) {
-      for (int i = 0; i < offset; i++) {
-        terminal.keyInput(TerminalKey.arrowRight);
-      }
-    } else if (offset < 0) {
-      for (int i = 0; i < -offset; i++) {
-        terminal.keyInput(TerminalKey.arrowLeft);
-      }
+    final cursorX = terminal.buffer.cursorX;
+    final line = terminal.buffer.lines[cursorY];
+    final start = cursorX < tail ? cursorX : tail;
+    final end = cursorX < tail ? tail : cursorX;
+    int cursorSteps = 0;
+    for (int i = start; i < end; i++) {
+      if (line.getCodePoint(i) != 0) cursorSteps++;
+    }
+
+    final movingRight = tail > cursorX;
+    for (int i = 0; i < cursorSteps; i++) {
+      terminal.keyInput(
+        movingRight ? TerminalKey.arrowRight : TerminalKey.arrowLeft,
+      );
     }
     for (int i = 0; i < count; i++) {
       terminal.keyInput(TerminalKey.backspace);
@@ -53,9 +59,7 @@ class DeleteSelectionHandler implements KeyHandler {
 }
 
 class KeyHandlerFactory {
-  static final List<KeyHandler> _handlers = [
-    DeleteSelectionHandler(),
-  ];
+  static final List<KeyHandler> _handlers = [DeleteSelectionHandler()];
 
   static KeyHandler? forKey(LogicalKeyboardKey key) {
     for (final h in _handlers) {
@@ -65,70 +69,85 @@ class KeyHandlerFactory {
   }
 }
 
+class CursorMoveRequest {
+  const CursorMoveRequest(this.delta);
+
+  final int delta;
+
+  String get fallbackInput {
+    final sequence = delta > 0 ? '\x1b[C' : '\x1b[D';
+    final buffer = StringBuffer();
+    for (int i = 0; i < delta.abs(); i++) {
+      buffer.write(sequence);
+    }
+    return buffer.toString();
+  }
+}
+
+typedef CursorMoveCallback = void Function(CursorMoveRequest request);
+
 abstract class TapHandler {
-  void handle(Terminal terminal, CellOffset offset);
+  void handle(
+    Terminal terminal,
+    CellOffset offset, {
+    CursorMoveCallback? onCursorMove,
+  });
 }
 
 class MoveCursorHandler implements TapHandler {
-  @override
-  void handle(Terminal terminal, CellOffset offset) {
+  CursorMoveRequest? createRequest(Terminal terminal, CellOffset offset) {
     final cursorX = terminal.buffer.cursorX;
     final cursorY = terminal.buffer.absoluteCursorY;
-    final dy = offset.y - cursorY;
-    final dx = offset.x - cursorX;
+    final width = terminal.buffer.viewWidth;
+    final cursorPosition = cursorY * width + cursorX;
+    final targetPosition = offset.y * width + offset.x;
+    if (cursorPosition == targetPosition) return null;
 
-    final buf = StringBuffer();
+    final movingRight = targetPosition > cursorPosition;
+    final startY = movingRight ? cursorY : offset.y;
+    final endY = movingRight ? offset.y : cursorY;
+    int characterCount = 0;
 
-    if (dy == 0) {
-      if (dx > 0) {
-        for (int i = 0; i < dx; i++) {
-          buf.write('\x1b[C');
-        }
-      } else if (dx < 0) {
-        for (int i = 0; i < -dx; i++) {
-          buf.write('\x1b[D');
-        }
-      }
-    } else {
-      final w = terminal.buffer.viewWidth;
-      int count;
-      String seq;
-
-      if (dy < 0) {
-        count = cursorX + 1;
-        for (int i = 0; i < -dy - 1; i++) {
-          count += w + 1;
-        }
-        count += w - offset.x;
-        seq = '\x1b[D';
-      } else {
-        count = w - cursorX;
-        for (int i = 0; i < dy - 1; i++) {
-          count += w + 1;
-        }
-        count += offset.x + 1;
-        seq = '\x1b[C';
-      }
-
-      for (int i = 0; i < count; i++) {
-        buf.write(seq);
+    for (int y = startY; y <= endY; y++) {
+      final startX = y == startY ? (movingRight ? cursorX : offset.x) : 0;
+      final endX = y == endY ? (movingRight ? offset.x : cursorX) : width;
+      final line = terminal.buffer.lines[y];
+      for (int x = startX; x < endX; x++) {
+        if (line.getCodePoint(x) != 0) characterCount++;
       }
     }
 
-    if (buf.isNotEmpty) {
-      terminal.onOutput?.call(buf.toString());
+    if (characterCount == 0) return null;
+    return CursorMoveRequest(movingRight ? characterCount : -characterCount);
+  }
+
+  @override
+  void handle(
+    Terminal terminal,
+    CellOffset offset, {
+    CursorMoveCallback? onCursorMove,
+  }) {
+    final request = createRequest(terminal, offset);
+    if (request == null) return;
+
+    if (onCursorMove != null) {
+      onCursorMove(request);
+    } else {
+      terminal.onOutput?.call(request.fallbackInput);
     }
   }
 }
 
 class TapHandlerFactory {
-  static final List<TapHandler> _handlers = [
-    MoveCursorHandler(),
-  ];
+  static final List<TapHandler> _handlers = [MoveCursorHandler()];
 
-  static void handleTap(Terminal terminal, CellOffset offset) {
-    for (final h in _handlers) {
-      h.handle(terminal, offset);
+  static void handleTap(
+    Terminal terminal,
+    CellOffset offset, {
+    CursorMoveCallback? onCursorMove,
+  }) {
+    for (final handler in _handlers) {
+      handler.handle(terminal, offset, onCursorMove: onCursorMove);
     }
   }
 }

@@ -9,6 +9,8 @@ import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:xterm2/xterm.dart';
 
+import 'package:agent/widgets/terminal/key_handler.dart';
+
 part 'xterm_provider.g.dart';
 
 String _resolveShell(String shell) {
@@ -55,6 +57,8 @@ class XtermManager extends _$XtermManager {
   final _outputController = StreamController<String>.broadcast();
   final Set<StreamSubscription<String>> _execSubs = {};
   bool _started = false;
+  bool _shellInputActive = false;
+  String _shellMarkerTail = '';
 
   String _shell = '';
   List<String> _args = [];
@@ -62,6 +66,9 @@ class XtermManager extends _$XtermManager {
   DateTime? _lastExitTime;
   static const Duration _crashWindow = Duration(seconds: 5);
   static const int _maxConsecutiveCrashes = 3;
+  static const String _cursorMoveChord = '\x18\x07';
+  static const String _commandStartMarker = '\x1b]633;C';
+  static const String _commandEndMarker = '\x1b]633;D;';
 
   @override
   XtermSession build(String id) {
@@ -83,6 +90,8 @@ class XtermManager extends _$XtermManager {
   void startPty({String shell = '', List<String> args = const []}) {
     if (_started) return;
     _started = true;
+    _shellInputActive = false;
+    _shellMarkerTail = '';
 
     _shell = shell;
     _args = args;
@@ -111,6 +120,7 @@ class XtermManager extends _$XtermManager {
 
     terminal.onOutput = (String data) {
       if (!_started) return;
+      _trackUserInput(data);
       try {
         pty.write(utf8.encode(data));
       } catch (_) {}
@@ -123,6 +133,7 @@ class XtermManager extends _$XtermManager {
     _ptySub = pty.output.cast<List<int>>().listen(
       (List<int> bytes) {
         final text = utf8.decode(bytes, allowMalformed: true);
+        _trackShellOutput(text);
         terminal.write(text);
         _outputController.add(text);
       },
@@ -172,10 +183,65 @@ class XtermManager extends _$XtermManager {
   }
 
   void sendInput(String text) {
+    _trackUserInput(text);
     _pty?.write(const Utf8Encoder().convert(text));
   }
 
+  void _trackUserInput(String text) {
+    if (text.contains('\r') || text.contains('\n')) {
+      _shellInputActive = false;
+    }
+  }
+
+  void _trackShellOutput(String text) {
+    final combined = '$_shellMarkerTail$text';
+    final commandStart = combined.lastIndexOf(_commandStartMarker);
+    final commandEnd = combined.lastIndexOf(_commandEndMarker);
+    if (commandStart >= 0 || commandEnd >= 0) {
+      _shellInputActive = commandEnd > commandStart;
+    }
+
+    _shellMarkerTail = '';
+    for (int length = _commandEndMarker.length - 1; length > 0; length--) {
+      if (length > combined.length) continue;
+      final suffix = combined.substring(combined.length - length);
+      final isPartialStart = length < _commandStartMarker.length &&
+          _commandStartMarker.startsWith(suffix);
+      final isPartialEnd = length < _commandEndMarker.length &&
+          _commandEndMarker.startsWith(suffix);
+      if (isPartialStart || isPartialEnd) {
+        _shellMarkerTail = suffix;
+        break;
+      }
+    }
+  }
+
+  void handleTap(CellOffset offset) {
+    TapHandlerFactory.handleTap(
+      state.terminal,
+      offset,
+      onCursorMove: _sendCursorMove,
+    );
+  }
+
+  void _sendCursorMove(CursorMoveRequest request) {
+    final requestPath = _cursorRequestPath;
+    if (requestPath != null && _shellInputActive) {
+      try {
+        File(requestPath).writeAsStringSync('${request.delta}');
+        sendInput(_cursorMoveChord);
+        return;
+      } catch (error) {
+        debugPrint('[TERMINAL] cursor integration error: $error');
+        _cleanupCursorRequest();
+      }
+    }
+
+    state.terminal.onOutput?.call(request.fallbackInput);
+  }
+
   String? _integrationPath;
+  String? _cursorRequestPath;
 
   List<String> _prepareIntegration(String shell, Map<String, String> env) {
     final name = shell.split(RegExp(r'[\\/]')).last.toLowerCase();
@@ -197,6 +263,7 @@ class XtermManager extends _$XtermManager {
         '${Directory.systemTemp.path}/agent-pwsh-${_id ?? 'unknown'}.ps1',
       );
       _integrationPath = tmpFile.path;
+      final cursorPath = _createCursorRequestFile().replaceAll("'", "''");
 
       final esc = String.fromCharCode(0x1b);
       final bel = String.fromCharCode(0x07);
@@ -206,9 +273,23 @@ class XtermManager extends _$XtermManager {
   [Console]::Write("__ESC__]633;D;$exitCode__BEL__")
   "PS $($executionContext.SessionState.Path.CurrentLocation)> "
 }
+
+if (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
+  Set-PSReadLineKeyHandler -Chord 'Ctrl+x,Ctrl+g' -ScriptBlock {
+    try {
+      $delta = [int](Get-Content -LiteralPath '__CURSOR_PATH__' -Raw)
+      if ($delta -lt 0) {
+        [Microsoft.PowerShell.PSConsoleReadLine]::BackwardChar($null, -$delta)
+      } elseif ($delta -gt 0) {
+        [Microsoft.PowerShell.PSConsoleReadLine]::ForwardChar($null, $delta)
+      }
+    } catch {}
+  }
+}
 '''
               .replaceAll('__ESC__', esc)
-              .replaceAll('__BEL__', bel);
+              .replaceAll('__BEL__', bel)
+              .replaceAll('__CURSOR_PATH__', cursorPath);
       tmpFile.writeAsStringSync(content);
 
       final escapedPath = tmpFile.path.replaceAll("'", "''");
@@ -220,6 +301,7 @@ class XtermManager extends _$XtermManager {
         ". '$escapedPath'",
       ];
     } catch (e) {
+      _cleanupCursorRequest();
       debugPrint('[TERMINAL] PowerShell integration error: $e');
     }
     return _resolveArgs(shell, _args);
@@ -229,17 +311,32 @@ class XtermManager extends _$XtermManager {
     try {
       final tmpDir = Directory.systemTemp.createTempSync('agent-zsh-');
       _integrationPath = tmpDir.path;
+      final cursorPath = _createCursorRequestFile().replaceAll("'", "'\"'\"'");
 
-      final bs = String.fromCharCode(0x5c);
-      final dl = String.fromCharCode(0x24);
       final content =
-          'source ~/.zshrc 2>/dev/null\n'
-          "preexec() { printf '${bs}033]633;C${bs}007'; }\n"
-          "precmd() { printf '${bs}033]633;D;'${dl}?'${bs}007'; }\n";
+          r'''source ~/.zshrc 2>/dev/null
+
+__agent_cursor_move() {
+  local delta
+  IFS= read -r delta < '__CURSOR_PATH__' || return
+  [[ $delta == <-> || $delta == -<-> ]] || return
+  (( CURSOR += delta ))
+  (( CURSOR < 0 )) && CURSOR=0
+  (( CURSOR > ${#BUFFER} )) && CURSOR=${#BUFFER}
+}
+zle -N __agent_cursor_move
+bindkey -M emacs '^X^G' __agent_cursor_move 2>/dev/null
+bindkey -M viins '^X^G' __agent_cursor_move 2>/dev/null
+
+preexec() { printf '\033]633;C\007'; }
+precmd() { printf '\033]633;D;%s\007' $?; }
+'''
+              .replaceAll('__CURSOR_PATH__', cursorPath);
       File('${tmpDir.path}/.zshrc').writeAsStringSync(content);
 
       env['ZDOTDIR'] = tmpDir.path;
     } catch (e) {
+      _cleanupCursorRequest();
       debugPrint('[TERMINAL] zsh integration error: $e');
     }
     return _resolveArgs('', const []);
@@ -251,16 +348,47 @@ class XtermManager extends _$XtermManager {
         '${Directory.systemTemp.path}/agent-bash-${_id ?? 'unknown'}.sh',
       );
       _integrationPath = tmpFile.path;
+      final cursorPath = _createCursorRequestFile().replaceAll("'", "'\"'\"'");
 
-      final bs = String.fromCharCode(0x5c);
-      final dl = String.fromCharCode(0x24);
       final content =
-          'source ~/.bashrc 2>/dev/null\n'
-          "PROMPT_COMMAND='printf \"${bs}033]633;D;${dl}?${bs}007\"'\n";
+          r'''source ~/.bashrc 2>/dev/null
+
+__agent_readline_prefix() {
+  local LC_ALL=C
+  __agent_prefix=${READLINE_LINE:0:READLINE_POINT}
+}
+
+__agent_readline_byte_length() {
+  local LC_ALL=C
+  __agent_length=${#__agent_target}
+}
+
+__agent_cursor_move() {
+  local delta target character_length
+  IFS= read -r delta < '__CURSOR_PATH__' || return
+  [[ $delta =~ ^-?[0-9]+$ ]] || return
+
+  __agent_readline_prefix
+  target=$((${#__agent_prefix} + delta))
+  character_length=${#READLINE_LINE}
+  (( target < 0 )) && target=0
+  (( target > character_length )) && target=$character_length
+
+  __agent_target=${READLINE_LINE:0:target}
+  __agent_readline_byte_length
+  READLINE_POINT=$__agent_length
+}
+bind -m emacs-standard -x '"\C-x\C-g":__agent_cursor_move' 2>/dev/null
+bind -m vi-insertion -x '"\C-x\C-g":__agent_cursor_move' 2>/dev/null
+
+PROMPT_COMMAND='printf "\033]633;D;$?\007"'
+'''
+              .replaceAll('__CURSOR_PATH__', cursorPath);
       tmpFile.writeAsStringSync(content);
 
       return ['--rcfile', tmpFile.path];
     } catch (e) {
+      _cleanupCursorRequest();
       debugPrint('[TERMINAL] bash integration error: $e');
     }
     return _resolveArgs('', const []);
@@ -347,6 +475,8 @@ class XtermManager extends _$XtermManager {
     _pty?.kill();
     _pty = null;
     _started = false;
+    _shellInputActive = false;
+    _shellMarkerTail = '';
   }
 
   void _dispose() {
@@ -364,18 +494,40 @@ class XtermManager extends _$XtermManager {
     _cleanupIntegration();
   }
 
-  void _cleanupIntegration() {
-    final path = _integrationPath;
+  String _createCursorRequestFile() {
+    _cleanupCursorRequest();
+    final file = File(
+      '${Directory.systemTemp.path}/agent-cursor-${_id ?? 'unknown'}.txt',
+    );
+    file.writeAsStringSync('0');
+    _cursorRequestPath = file.path;
+    return file.path;
+  }
+
+  void _cleanupCursorRequest() {
+    final path = _cursorRequestPath;
     if (path == null) return;
     try {
-      final f = File(path);
-      if (f.existsSync()) {
-        f.deleteSync();
-      } else {
-        final d = Directory(path);
-        if (d.existsSync()) d.deleteSync(recursive: true);
-      }
+      final file = File(path);
+      if (file.existsSync()) file.deleteSync();
     } catch (_) {}
-    _integrationPath = null;
+    _cursorRequestPath = null;
+  }
+
+  void _cleanupIntegration() {
+    final path = _integrationPath;
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          file.deleteSync();
+        } else {
+          final directory = Directory(path);
+          if (directory.existsSync()) directory.deleteSync(recursive: true);
+        }
+      } catch (_) {}
+      _integrationPath = null;
+    }
+    _cleanupCursorRequest();
   }
 }
