@@ -111,7 +111,7 @@ void _applyManuallyFull(Directory pkgDir, File patchFile) {
       break;
     }
   }
-  if (targetPath == null || targetPath!.isEmpty) {
+  if (targetPath == null || targetPath.isEmpty) {
     stderr.writeln('Failed to parse target path from: ${patchFile.path}');
     return;
   }

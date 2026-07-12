@@ -8,6 +8,7 @@ import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
+import 'package:agent/dev/execute_panel.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/fps_monitor.dart';
@@ -16,33 +17,21 @@ class _VSCodeSplitView extends StatefulWidget {
   const _VSCodeSplitView({
     required this.left,
     required this.right,
-    this.initialSize = 256,
-    this.minSize = 180,
-    this.maxSize = 600,
   });
 
   final Widget left;
   final Widget right;
-  final double initialSize;
-  final double minSize;
-  final double maxSize;
 
   @override
   State<_VSCodeSplitView> createState() => _VSCodeSplitViewState();
 }
 
 class _VSCodeSplitViewState extends State<_VSCodeSplitView> {
-  late double _size;
+  double _size = 256;
   double _startX = 0;
   double _startSize = 0;
   bool _hovering = false;
   bool _dragging = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _size = widget.initialSize;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +59,7 @@ class _VSCodeSplitViewState extends State<_VSCodeSplitView> {
             onHorizontalDragUpdate: (d) {
               setState(() {
                 _size = (_startSize + d.globalPosition.dx - _startX)
-                    .clamp(widget.minSize, widget.maxSize);
+                    .clamp(180, 600);
               });
             },
             child: MouseRegion(
@@ -182,7 +171,15 @@ class DemoPage extends HookConsumerWidget {
                 index: selectedIndex.value,
                 children: [
                   const ButtonDemo(),
-                  TerminalTabs(active: selectedIndex.value == 1),
+                  Column(
+                    children: [
+                      Expanded(child: TerminalTabs(active: selectedIndex.value == 1)),
+                      SizedBox(
+                        height: 200,
+                        child: ExecutePanel(),
+                      ),
+                    ],
+                  ),
                   const PerformanceMonitor(),
                 ],
               ),

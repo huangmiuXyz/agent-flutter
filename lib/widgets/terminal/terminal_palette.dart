@@ -4,81 +4,121 @@ import 'package:xterm2/xterm.dart';
 
 import 'package:agent/theme/provider.dart';
 
-const darkAnsi = [
-  Color(0xFF1D1F21),
-  Color(0xFFCC342B),
-  Color(0xFF198844),
-  Color(0xFFFBA922),
-  Color(0xFF3971ED),
-  Color(0xFFA36AC7),
-  Color(0xFF3971ED),
-  Color(0xFFC5C8C6),
-  Color(0xFF969896),
-  Color(0xFFCC342B),
-  Color(0xFF198844),
-  Color(0xFFFBA922),
-  Color(0xFF3971ED),
-  Color(0xFFA36AC7),
-  Color(0xFF3971ED),
-  Color(0xFFFFFFFF),
-];
+extension on TerminalTheme {
+  TerminalTheme copyWith({
+    Color? cursor,
+    Color? selection,
+    Color? foreground,
+    Color? background,
+    Color? black,
+    Color? red,
+    Color? green,
+    Color? yellow,
+    Color? blue,
+    Color? magenta,
+    Color? cyan,
+    Color? white,
+    Color? brightBlack,
+    Color? brightRed,
+    Color? brightGreen,
+    Color? brightYellow,
+    Color? brightBlue,
+    Color? brightMagenta,
+    Color? brightCyan,
+    Color? brightWhite,
+    Color? searchHitBackground,
+    Color? searchHitBackgroundCurrent,
+    Color? searchHitForeground,
+  }) {
+    return TerminalTheme(
+      cursor: cursor ?? this.cursor,
+      selection: selection ?? this.selection,
+      foreground: foreground ?? this.foreground,
+      background: background ?? this.background,
+      black: black ?? this.black,
+      red: red ?? this.red,
+      green: green ?? this.green,
+      yellow: yellow ?? this.yellow,
+      blue: blue ?? this.blue,
+      magenta: magenta ?? this.magenta,
+      cyan: cyan ?? this.cyan,
+      white: white ?? this.white,
+      brightBlack: brightBlack ?? this.brightBlack,
+      brightRed: brightRed ?? this.brightRed,
+      brightGreen: brightGreen ?? this.brightGreen,
+      brightYellow: brightYellow ?? this.brightYellow,
+      brightBlue: brightBlue ?? this.brightBlue,
+      brightMagenta: brightMagenta ?? this.brightMagenta,
+      brightCyan: brightCyan ?? this.brightCyan,
+      brightWhite: brightWhite ?? this.brightWhite,
+      searchHitBackground:
+          searchHitBackground ?? this.searchHitBackground,
+      searchHitBackgroundCurrent:
+          searchHitBackgroundCurrent ?? this.searchHitBackgroundCurrent,
+      searchHitForeground:
+          searchHitForeground ?? this.searchHitForeground,
+    );
+  }
+}
 
-const lightAnsi = [
-  Color(0xFF2E3436),
-  Color(0xFFCC0000),
-  Color(0xFF4E9A06),
-  Color(0xFFC4A000),
-  Color(0xFF3465A4),
-  Color(0xFF75507B),
-  Color(0xFF06989A),
-  Color(0xFFD3D7CF),
-  Color(0xFF555753),
-  Color(0xFFEF2929),
-  Color(0xFF8AE234),
-  Color(0xFFFCE94F),
-  Color(0xFF729FCF),
-  Color(0xFFAD7FA8),
-  Color(0xFF34E2E2),
-  Color(0xFFEEEEEC),
-];
+final _darkTheme = TerminalTheme(
+  cursor: Color(0xFFC5C8C6),
+  selection: Color(0x406DA9FF),
+  foreground: Color(0xFFF5F5F7),
+  background: Color(0xFF131313),
+  black: Color(0xFF1D1F21),
+  red: Color(0xFFCC342B),
+  green: Color(0xFF198844),
+  yellow: Color(0xFFFBA922),
+  blue: Color(0xFF3971ED),
+  magenta: Color(0xFFA36AC7),
+  cyan: Color(0xFF3971ED),
+  white: Color(0xFFC5C8C6),
+  brightBlack: Color(0xFF969896),
+  brightRed: Color(0xFFCC342B),
+  brightGreen: Color(0xFF198844),
+  brightYellow: Color(0xFFFBA922),
+  brightBlue: Color(0xFF3971ED),
+  brightMagenta: Color(0xFFA36AC7),
+  brightCyan: Color(0xFF3971ED),
+  brightWhite: Color(0xFFFFFFFF),
+  searchHitBackground: Color(0x80FBA922),
+  searchHitBackgroundCurrent: Color(0xCCFBA922),
+  searchHitForeground: Color(0xFF1D1F21),
+);
+
+final _lightTheme = TerminalTheme(
+  cursor: Color(0xFF2E3436),
+  selection: Color(0x403465A4),
+  foreground: Color(0xFF000000),
+  background: Color(0xFFF9F9F9),
+  black: Color(0xFF2E3436),
+  red: Color(0xFFCC0000),
+  green: Color(0xFF4E9A06),
+  yellow: Color(0xFFC4A000),
+  blue: Color(0xFF3465A4),
+  magenta: Color(0xFF75507B),
+  cyan: Color(0xFF06989A),
+  white: Color(0xFFD3D7CF),
+  brightBlack: Color(0xFF555753),
+  brightRed: Color(0xFFEF2929),
+  brightGreen: Color(0xFF8AE234),
+  brightYellow: Color(0xFFFCE94F),
+  brightBlue: Color(0xFF729FCF),
+  brightMagenta: Color(0xFFAD7FA8),
+  brightCyan: Color(0xFF34E2E2),
+  brightWhite: Color(0xFFEEEEEC),
+  searchHitBackground: Color(0x80C4A000),
+  searchHitBackgroundCurrent: Color(0xCCC4A000),
+  searchHitForeground: Color(0xFFFFFFFF),
+);
 
 final xtermThemeProvider = Provider<TerminalTheme>((ref) {
   final config = ref.watch(themeProvider);
-  final brightness = config.resolveBrightness();
-  final effective = config.effectiveFor(brightness);
-  final isDark = brightness == Brightness.dark;
-  final c = isDark ? darkAnsi : lightAnsi;
-  return TerminalTheme(
-    cursor: isDark ? const Color(0xFFC5C8C6) : const Color(0xFF2E3436),
-    selection: isDark
-        ? const Color(0x406DA9FF)
-        : const Color(0x403465A4),
+  final isDark = config.resolveBrightness() == Brightness.dark;
+  final effective = config.effectiveFor(isDark ? Brightness.dark : Brightness.light);
+  return (isDark ? _darkTheme : _lightTheme).copyWith(
     foreground: effective.onSurface,
     background: effective.surface,
-    black: c[0],
-    red: c[1],
-    green: c[2],
-    yellow: c[3],
-    blue: c[4],
-    magenta: c[5],
-    cyan: c[6],
-    white: c[7],
-    brightBlack: c[8],
-    brightRed: c[9],
-    brightGreen: c[10],
-    brightYellow: c[11],
-    brightBlue: c[12],
-    brightMagenta: c[13],
-    brightCyan: c[14],
-    brightWhite: c[15],
-    searchHitBackground: isDark
-        ? const Color(0x80FBA922)
-        : const Color(0x80C4A000),
-    searchHitBackgroundCurrent: isDark
-        ? const Color(0xCCFBA922)
-        : const Color(0xCCC4A000),
-    searchHitForeground: isDark
-        ? const Color(0xFF1D1F21)
-        : const Color(0xFFFFFFFF),
   );
 });

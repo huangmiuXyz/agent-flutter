@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/terminal/key_handler.dart';
 import 'package:agent/widgets/terminal/xterm_provider.dart';
 import 'package:agent/widgets/terminal/terminal_palette.dart';
 
@@ -55,6 +57,20 @@ class XtermTerminalWidget extends HookConsumerWidget {
         autofocus: visible,
         theme: theme,
         textStyle: textStyle,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            final handler = KeyHandlerFactory.forKey(event.logicalKey);
+            if (handler != null) {
+              if (handler.handle(session.terminal, session.controller)) {
+                return KeyEventResult.handled;
+              }
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        onTapUp: (details, offset) {
+          TapHandlerFactory.handleTap(session.terminal, offset);
+        },
       ),
     );
   }
