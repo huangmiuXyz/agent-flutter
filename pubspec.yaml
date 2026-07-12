@@ -24,9 +24,6 @@ dependencies:
   flutter_pty_new: ^1.0.0
   nanoid: ^1.0.0
   ansi_strip: ^0.1.1+1
-  shared_preferences: ^2.5.5
-
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

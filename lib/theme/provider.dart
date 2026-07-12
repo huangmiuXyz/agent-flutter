@@ -1,45 +1,17 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'custom_theme.dart';
-import 'theme_repository.dart';
 import 'theme_settings.dart';
 
 export 'theme_settings.dart';
 
-final themeRepositoryProvider = Provider<ThemeRepository>((ref) {
-  throw StateError('ThemeRepository must be overridden at startup');
-});
-
 class ThemeNotifier extends Notifier<ThemeSettings> {
-  late final ThemeRepository _repository;
-  Future<void> _saveQueue = Future.value();
-
   @override
-  ThemeSettings build() {
-    _repository = ref.watch(themeRepositoryProvider);
-    return _repository.load();
-  }
+  ThemeSettings build() => const ThemeSettings();
 
   void _update(ThemeSettings next) {
     state = next;
-    _saveQueue = _saveQueue.then((_) async {
-      try {
-        await _repository.save(next);
-      } catch (error, stackTrace) {
-        FlutterError.reportError(
-          FlutterErrorDetails(
-            exception: error,
-            stack: stackTrace,
-            library: 'theme settings',
-            context: ErrorDescription('while saving theme settings'),
-          ),
-        );
-      }
-    });
-    unawaited(_saveQueue);
   }
 
   void toggle() {
