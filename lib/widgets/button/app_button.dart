@@ -42,11 +42,18 @@ class AppButton extends HookWidget {
       ButtonSize.md => custom.controlHeightMd,
       ButtonSize.lg => custom.controlHeightLg,
     };
+    final borderRadius = switch (size) {
+      ButtonSize.sm => custom.radiusXs,
+      ButtonSize.md => custom.radiusXs,
+      ButtonSize.lg => custom.radiusSm,
+    };
     final iconSize = switch (size) {
       ButtonSize.sm => custom.fontSizeCaption,
       ButtonSize.md => custom.fontSizeSubtitle,
       ButtonSize.lg => custom.fontSizeTitle,
     };
+    final usesContentHeight =
+        size == ButtonSize.sm && variant != ButtonVariant.iconOnly;
 
     final textColor = switch (variant) {
       ButtonVariant.primary => custom.onPrimary,
@@ -58,10 +65,10 @@ class AppButton extends HookWidget {
     };
 
     final btnStyle = switch (variant) {
-      ButtonVariant.primary => _primaryStyle(custom, height),
-      ButtonVariant.secondary => _secondaryStyle(custom, height),
-      ButtonVariant.text => _textStyle(custom),
-      ButtonVariant.iconOnly => _iconOnlyStyle(custom),
+      ButtonVariant.primary => _primaryStyle(custom, height, borderRadius),
+      ButtonVariant.secondary => _secondaryStyle(custom, height, borderRadius),
+      ButtonVariant.text => _textStyle(custom, borderRadius),
+      ButtonVariant.iconOnly => _iconOnlyStyle(custom, borderRadius),
     };
 
     final sizeStyle = ButtonStyle(
@@ -74,17 +81,20 @@ class AppButton extends HookWidget {
       minimumSize: WidgetStateProperty.all(
         variant == ButtonVariant.iconOnly
             ? Size(height, height)
-            : variant == ButtonVariant.text
+            : variant == ButtonVariant.text || usesContentHeight
             ? Size.zero
             : Size(0, height),
       ),
       maximumSize: WidgetStateProperty.all(
         variant == ButtonVariant.iconOnly
             ? Size(height, height)
-            : variant == ButtonVariant.text
+            : variant == ButtonVariant.text || usesContentHeight
             ? Size.infinite
             : Size(double.infinity, height),
       ),
+      tapTargetSize: usesContentHeight
+          ? MaterialTapTargetSize.shrinkWrap
+          : null,
     );
 
     final textButton = TextButton(
@@ -107,6 +117,9 @@ class AppButton extends HookWidget {
           child: textButton,
         ),
       );
+    }
+    if (usesContentHeight) {
+      return UnconstrainedBox(child: textButton);
     }
     return UnconstrainedBox(
       child: SizedBox(height: height, child: textButton),
@@ -134,7 +147,11 @@ class AppButton extends HookWidget {
     return AppText(_textNotNull, color: textColor);
   }
 
-  ButtonStyle _primaryStyle(CustomTheme custom, double height) {
+  ButtonStyle _primaryStyle(
+    CustomTheme custom,
+    double height,
+    BorderRadius borderRadius,
+  ) {
     if (!hoverStyle) {
       return ButtonStyle(
         backgroundColor: WidgetStateProperty.all(custom.primary),
@@ -143,7 +160,7 @@ class AppButton extends HookWidget {
           EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
         ),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: custom.radiusXs),
+          RoundedRectangleBorder(borderRadius: borderRadius),
         ),
         elevation: WidgetStateProperty.all(2),
       );
@@ -163,13 +180,17 @@ class AppButton extends HookWidget {
         EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
       ),
       shape: WidgetStateProperty.all(
-        RoundedRectangleBorder(borderRadius: custom.radiusXs),
+        RoundedRectangleBorder(borderRadius: borderRadius),
       ),
       elevation: WidgetStateProperty.all(2),
     );
   }
 
-  ButtonStyle _secondaryStyle(CustomTheme custom, double height) {
+  ButtonStyle _secondaryStyle(
+    CustomTheme custom,
+    double height,
+    BorderRadius borderRadius,
+  ) {
     if (!hoverStyle) {
       return ButtonStyle(
         backgroundColor: WidgetStateProperty.all(custom.surface),
@@ -179,7 +200,7 @@ class AppButton extends HookWidget {
         ),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
-            borderRadius: custom.radiusXs,
+            borderRadius: borderRadius,
             side: BorderSide(color: custom.outlineVariant),
           ),
         ),
@@ -200,7 +221,7 @@ class AppButton extends HookWidget {
       ),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
-          borderRadius: custom.radiusXs,
+          borderRadius: borderRadius,
           side: BorderSide(color: custom.outlineVariant),
         ),
       ),
@@ -208,7 +229,7 @@ class AppButton extends HookWidget {
     );
   }
 
-  ButtonStyle _textStyle(CustomTheme custom) {
+  ButtonStyle _textStyle(CustomTheme custom, BorderRadius borderRadius) {
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.all(Colors.transparent),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -219,20 +240,20 @@ class AppButton extends HookWidget {
         ),
       ),
       shape: WidgetStateProperty.all(
-        RoundedRectangleBorder(borderRadius: custom.radiusXs),
+        RoundedRectangleBorder(borderRadius: borderRadius),
       ),
       elevation: WidgetStateProperty.all(0),
     );
   }
 
-  ButtonStyle _iconOnlyStyle(CustomTheme custom) {
+  ButtonStyle _iconOnlyStyle(CustomTheme custom, BorderRadius borderRadius) {
     if (!hoverStyle) {
       return ButtonStyle(
         backgroundColor: WidgetStateProperty.all(Colors.transparent),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacingXs)),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: custom.radiusSm),
+          RoundedRectangleBorder(borderRadius: borderRadius),
         ),
         elevation: WidgetStateProperty.all(0),
       );
@@ -248,7 +269,7 @@ class AppButton extends HookWidget {
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacingXs)),
       shape: WidgetStateProperty.all(
-        RoundedRectangleBorder(borderRadius: custom.radiusSm),
+        RoundedRectangleBorder(borderRadius: borderRadius),
       ),
       elevation: WidgetStateProperty.all(0),
     );
