@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'package:xterm/xterm.dart';
+import 'package:xterm2/xterm.dart';
 
 part 'xterm_provider.g.dart';
 
