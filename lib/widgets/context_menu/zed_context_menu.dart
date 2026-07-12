@@ -446,8 +446,12 @@ class _SubmenuItemState extends State<_SubmenuItem> {
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final hoverBg = widget.custom.colors.menuHover;
-    final textColor = widget.custom.colors.textPrimary;
-    final mutedColor = widget.custom.colors.textSecondary;
+    final textColor = entry.enabled
+        ? widget.custom.colors.textPrimary
+        : widget.custom.colors.textDisabled;
+    final mutedColor = entry.enabled
+        ? widget.custom.colors.textSecondary
+        : widget.custom.colors.textDisabled;
 
     final labelStyle = TextStyle(
       fontSize: widget.custom.fontSizeCaption,
@@ -484,7 +488,7 @@ class _SubmenuItemState extends State<_SubmenuItem> {
 
     final inner = Container(
       decoration: BoxDecoration(
-        color: _hovered ? hoverBg : Colors.transparent,
+        color: _hovered && entry.enabled ? hoverBg : Colors.transparent,
         borderRadius: widget.custom.radiusXs,
       ),
       padding: EdgeInsets.symmetric(
@@ -496,11 +500,14 @@ class _SubmenuItemState extends State<_SubmenuItem> {
 
     return MouseRegion(
       onEnter: (_) {
+        if (!entry.enabled) return;
         setState(() => _hovered = true);
         _showSubmenu(context);
       },
       onExit: (_) => setState(() => _hovered = false),
-      cursor: SystemMouseCursors.click,
+      cursor: entry.enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
       child: inner,
     );
   }

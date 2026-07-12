@@ -60,9 +60,15 @@ class ThemeSettings {
             .where((mode) => mode.name == json['themeMode'])
             .firstOrNull ??
         ThemeMode.system,
-    presetId: json['presetId'] as String? ?? 'default',
-    iconThickness: (json['iconThickness'] as num?)?.toInt() ?? 300,
-    fontWeightValue: (json['fontWeight'] as num?)?.toInt() ?? 400,
+    presetId: json['presetId'] is String
+        ? json['presetId'] as String
+        : 'default',
+    iconThickness: json['iconThickness'] is num
+        ? (json['iconThickness'] as num).toInt()
+        : 300,
+    fontWeightValue: json['fontWeight'] is num
+        ? (json['fontWeight'] as num).toInt()
+        : 400,
     lightOverrides: _decodeOverrides(json['lightOverrides']),
     darkOverrides: _decodeOverrides(json['darkOverrides']),
   );

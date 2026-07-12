@@ -39,6 +39,30 @@ void main() {
 
       expect(decoded.lightOverrides, isEmpty);
     });
+
+    test('falls back safely for malformed persisted value types', () {
+      final decoded = ThemeSettings.fromJson({
+        'presetId': 42,
+        'iconThickness': 'heavy',
+        'fontWeight': false,
+      });
+
+      expect(decoded.presetId, 'default');
+      expect(decoded.iconThickness, 300);
+      expect(decoded.fontWeight, FontWeight.w400);
+    });
+
+    test('uses the font family matching an explicit style weight', () {
+      const typography = AppTypography(bodyWeight: FontWeight.w400);
+
+      final style = typography.styleForSize(
+        18,
+        Colors.black,
+        weight: FontWeight.w600,
+      );
+
+      expect(style.fontFamily, 'JetBrainsMonoSemiBold');
+    });
   });
 
   group('Theme provider', () {

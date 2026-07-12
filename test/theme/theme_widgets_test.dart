@@ -8,6 +8,7 @@ import 'package:agent/theme/provider.dart';
 import 'package:agent/theme/theme_repository.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
+import 'package:agent/widgets/list/app_list.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -57,5 +58,21 @@ void main() {
 
     final text = tester.widget<Text>(find.text('Disabled'));
     expect(text.style?.color, theme.colors.textDisabled);
+  });
+
+  testWidgets('non-interactive list rows keep normal foreground', (
+    tester,
+  ) async {
+    final theme = CustomTheme.light;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(extensions: [theme]),
+        home: const AppListItem(label: 'Information'),
+      ),
+    );
+
+    final text = tester.widget<Text>(find.text('Information'));
+    expect(text.style?.color, theme.colors.textPrimary);
   });
 }

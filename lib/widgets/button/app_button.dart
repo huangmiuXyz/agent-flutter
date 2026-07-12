@@ -186,14 +186,15 @@ class AppButton extends HookWidget {
     }
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered)) {
-          return custom.colors.accentHover;
+        if (states.contains(WidgetState.disabled)) {
+          return custom.colors.panelElevated;
         }
         if (states.contains(WidgetState.pressed)) {
           return custom.colors.selected;
         }
-        if (states.contains(WidgetState.disabled)) {
-          return custom.colors.panelElevated;
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return custom.colors.accentHover;
         }
         return custom.colors.accent;
       }),

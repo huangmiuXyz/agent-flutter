@@ -52,6 +52,7 @@ class AppListItem extends HookWidget {
   final String label;
   final String? trailing;
   final bool active;
+  final bool disabled;
   final VoidCallback? onTap;
 
   final double? itemHeight;
@@ -68,6 +69,7 @@ class AppListItem extends HookWidget {
     required this.label,
     this.trailing,
     this.active = false,
+    this.disabled = false,
     this.onTap,
     this.itemHeight,
     this.itemPadding,
@@ -83,7 +85,7 @@ class AppListItem extends HookWidget {
     final custom = CustomTheme.of(context);
     final isHovered = useState(false);
     final isPressed = useState(false);
-    final enabled = onTap != null;
+    final enabled = !disabled;
 
     final height = itemHeight ?? custom.controls.mediumHeight;
     final padding =
@@ -92,14 +94,12 @@ class AppListItem extends HookWidget {
     final iconSz = iconSize ?? custom.typography.titleSize;
     final gap = iconLabelGap ?? custom.spacing.sm;
 
-    final bgColor =
-        itemColor ??
-        switch ((active, isPressed.value, isHovered.value)) {
-          (true, _, _) => custom.colors.selected,
-          (_, true, _) => custom.colors.selected,
-          (_, _, true) when enabled => custom.colors.hover,
-          _ => Colors.transparent,
-        };
+    final bgColor = switch ((active, isPressed.value, isHovered.value)) {
+      (true, _, _) => itemColor ?? custom.colors.selected,
+      (_, true, _) when enabled => itemColor ?? custom.colors.selected,
+      (_, _, true) when enabled => itemColor ?? custom.colors.hover,
+      _ => Colors.transparent,
+    };
     final foreground = enabled
         ? (labelColor ?? custom.colors.textPrimary)
         : custom.colors.textDisabled;
@@ -110,7 +110,7 @@ class AppListItem extends HookWidget {
         color: bgColor,
         borderRadius: radius,
         child: InkWell(
-          onTap: onTap,
+          onTap: enabled ? onTap : null,
           borderRadius: radius,
           onHover: (value) => isHovered.value = value,
           onHighlightChanged: (value) => isPressed.value = value,

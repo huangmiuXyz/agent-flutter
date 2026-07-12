@@ -124,13 +124,15 @@ class AppTypography {
     bodyWeight: bodyWeight ?? this.bodyWeight,
   );
 
-  TextStyle styleForSize(double size, Color color, {FontWeight? weight}) =>
-      TextStyle(
-        color: color,
-        fontFamily: effectiveFontFamily,
-        fontSize: size,
-        fontWeight: weight ?? bodyWeight,
-      );
+  TextStyle styleForSize(double size, Color color, {FontWeight? weight}) {
+    final effectiveWeight = weight ?? bodyWeight;
+    return TextStyle(
+      color: color,
+      fontFamily: fontWeightToFamily(effectiveWeight) ?? fontFamily,
+      fontSize: size,
+      fontWeight: effectiveWeight,
+    );
+  }
 
   static AppTypography lerp(AppTypography a, AppTypography b, double t) =>
       AppTypography(

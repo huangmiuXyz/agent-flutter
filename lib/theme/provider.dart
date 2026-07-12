@@ -26,7 +26,18 @@ class ThemeNotifier extends Notifier<ThemeSettings> {
   void _update(ThemeSettings next) {
     state = next;
     _saveQueue = _saveQueue.then((_) async {
-      await _repository.save(next);
+      try {
+        await _repository.save(next);
+      } catch (error, stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'theme settings',
+            context: ErrorDescription('while saving theme settings'),
+          ),
+        );
+      }
     });
     unawaited(_saveQueue);
   }
