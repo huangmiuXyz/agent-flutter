@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'custom_theme.dart';
 import 'theme_settings.dart';
 
 export 'theme_settings.dart';
 
-class ThemeNotifier extends Notifier<ThemeSettings> {
+part 'provider.g.dart';
+
+@riverpod
+class ThemeNotifier extends _$ThemeNotifier {
   @override
   ThemeSettings build() => const ThemeSettings();
 
@@ -81,11 +84,18 @@ class ThemeNotifier extends Notifier<ThemeSettings> {
   }
 }
 
-final themeProvider = NotifierProvider<ThemeNotifier, ThemeSettings>(
-  ThemeNotifier.new,
-);
+@riverpod
+Brightness effectiveBrightness(Ref ref) {
+  final settings = ref.watch(themeProvider);
+  return switch (settings.themeMode) {
+    ThemeMode.system => ref.watch(platformBrightnessProvider),
+    ThemeMode.light => Brightness.light,
+    ThemeMode.dark => Brightness.dark,
+  };
+}
 
-class PlatformBrightnessNotifier extends Notifier<Brightness>
+@riverpod
+class PlatformBrightness extends _$PlatformBrightness
     with WidgetsBindingObserver {
   @override
   Brightness build() {
@@ -99,20 +109,6 @@ class PlatformBrightnessNotifier extends Notifier<Brightness>
     state = WidgetsBinding.instance.platformDispatcher.platformBrightness;
   }
 }
-
-final platformBrightnessProvider =
-    NotifierProvider<PlatformBrightnessNotifier, Brightness>(
-      PlatformBrightnessNotifier.new,
-    );
-
-final effectiveBrightnessProvider = Provider<Brightness>((ref) {
-  final settings = ref.watch(themeProvider);
-  return switch (settings.themeMode) {
-    ThemeMode.system => ref.watch(platformBrightnessProvider),
-    ThemeMode.light => Brightness.light,
-    ThemeMode.dark => Brightness.dark,
-  };
-});
 
 extension ThemeSettingsResolution on ThemeSettings {
   CustomTheme get effectiveLight => CustomTheme.resolve(

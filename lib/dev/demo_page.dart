@@ -13,65 +13,58 @@ import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/fps_monitor.dart';
 
-class _VSCodeSplitView extends StatefulWidget {
-  const _VSCodeSplitView({
-    required this.left,
-    required this.right,
-  });
+class _VSCodeSplitView extends HookWidget {
+  const _VSCodeSplitView({required this.left, required this.right});
 
   final Widget left;
   final Widget right;
 
   @override
-  State<_VSCodeSplitView> createState() => _VSCodeSplitViewState();
-}
-
-class _VSCodeSplitViewState extends State<_VSCodeSplitView> {
-  double _size = 256;
-  double _startX = 0;
-  double _startSize = 0;
-  bool _hovering = false;
-  bool _dragging = false;
-
-  @override
   Widget build(BuildContext context) {
+    final size = useState(256.0);
+    final startX = useState(0.0);
+    final startSize = useState(0.0);
+    final hovering = useState(false);
+    final dragging = useState(false);
+
     return Stack(
       children: [
         Row(
           children: [
-            SizedBox(width: _size, child: widget.left),
-            Expanded(child: widget.right),
+            SizedBox(width: size.value, child: left),
+            Expanded(child: right),
           ],
         ),
         Positioned(
-          left: _size - 5,
+          left: size.value - 5,
           top: 0,
           bottom: 0,
           width: 10,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onHorizontalDragStart: (d) {
-              _startX = d.globalPosition.dx;
-              _startSize = _size;
-              setState(() => _dragging = true);
+              startX.value = d.globalPosition.dx;
+              startSize.value = size.value;
+              dragging.value = true;
             },
-            onHorizontalDragEnd: (_) => setState(() => _dragging = false),
+            onHorizontalDragEnd: (_) => dragging.value = false,
             onHorizontalDragUpdate: (d) {
-              setState(() {
-                _size = (_startSize + d.globalPosition.dx - _startX)
-                    .clamp(180, 600);
-              });
+              size.value =
+                  (startSize.value + d.globalPosition.dx - startX.value).clamp(
+                    180,
+                    600,
+                  );
             },
             child: MouseRegion(
               cursor: SystemMouseCursors.resizeLeftRight,
-              onEnter: (_) => setState(() => _hovering = true),
-              onExit: (_) => setState(() => _hovering = false),
+              onEnter: (_) => hovering.value = true,
+              onExit: (_) => hovering.value = false,
               child: Center(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 100),
                   curve: Curves.easeOut,
                   width: 4,
-                  color: (_hovering || _dragging)
+                  color: (hovering.value || dragging.value)
                       ? const Color(0xFF007FD4)
                       : Colors.transparent,
                 ),
@@ -102,68 +95,66 @@ class DemoPage extends HookConsumerWidget {
               decoration: BoxDecoration(
                 color: custom.surfaceContainerLow,
                 border: Border(
-                  right: BorderSide(
-                    color: custom.surfaceContainerHighest,
-                  ),
+                  right: BorderSide(color: custom.surfaceContainerHighest),
                 ),
               ),
-              child: Column(children: [
-                AppList(
-                  width: double.infinity,
-                  children: [
-                    AppListItem(
-                      icon: 'square',
-                      label: 'Button',
-                      active: selectedIndex.value == 0,
-                      onTap: () => selectedIndex.value = 0,
-                    ),
-                    AppListItem(
-                      icon: 'terminal',
-                      label: 'Terminal',
-                      active: selectedIndex.value == 1,
-                      onTap: () => selectedIndex.value = 1,
-                    ),
-                    AppListItem(
-                      icon: 'activity',
-                      label: 'Performance',
-                      active: selectedIndex.value == 2,
-                      onTap: () => selectedIndex.value = 2,
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
+              child: Column(
+                children: [
+                  AppList(
+                    width: double.infinity,
                     children: [
-                      AppButton(
-                        icon: switch (config.themeMode) {
-                          ThemeMode.system => 'sun',
-                          ThemeMode.light => 'sun',
-                          ThemeMode.dark => 'moon',
-                        },
-                        variant: ButtonVariant.iconOnly,
-                        text: switch (config.themeMode) {
-                          ThemeMode.system => '主题: 系统',
-                          ThemeMode.light => '主题: 亮色',
-                          ThemeMode.dark => '主题: 暗色',
-                        },
-                        onPressed: () {
-                          final next = switch (config.themeMode) {
-                            ThemeMode.system => ThemeMode.light,
-                            ThemeMode.light => ThemeMode.dark,
-                            ThemeMode.dark => ThemeMode.system,
-                          };
-                          ref
-                              .read(themeProvider.notifier)
-                              .setThemeMode(next);
-                        },
+                      AppListItem(
+                        icon: 'square',
+                        label: 'Button',
+                        active: selectedIndex.value == 0,
+                        onTap: () => selectedIndex.value = 0,
+                      ),
+                      AppListItem(
+                        icon: 'terminal',
+                        label: 'Terminal',
+                        active: selectedIndex.value == 1,
+                        onTap: () => selectedIndex.value = 1,
+                      ),
+                      AppListItem(
+                        icon: 'activity',
+                        label: 'Performance',
+                        active: selectedIndex.value == 2,
+                        onTap: () => selectedIndex.value = 2,
                       ),
                     ],
                   ),
-                ),
-              ]),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        AppButton(
+                          icon: switch (config.themeMode) {
+                            ThemeMode.system => 'sun',
+                            ThemeMode.light => 'sun',
+                            ThemeMode.dark => 'moon',
+                          },
+                          variant: ButtonVariant.iconOnly,
+                          text: switch (config.themeMode) {
+                            ThemeMode.system => '主题: 系统',
+                            ThemeMode.light => '主题: 亮色',
+                            ThemeMode.dark => '主题: 暗色',
+                          },
+                          onPressed: () {
+                            final next = switch (config.themeMode) {
+                              ThemeMode.system => ThemeMode.light,
+                              ThemeMode.light => ThemeMode.dark,
+                              ThemeMode.dark => ThemeMode.system,
+                            };
+                            ref.read(themeProvider.notifier).setThemeMode(next);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             right: ColoredBox(
               color: custom.surface,
@@ -173,11 +164,10 @@ class DemoPage extends HookConsumerWidget {
                   const ButtonDemo(),
                   Column(
                     children: [
-                      Expanded(child: TerminalTabs(active: selectedIndex.value == 1)),
-                      SizedBox(
-                        height: 200,
-                        child: ExecutePanel(),
+                      Expanded(
+                        child: TerminalTabs(active: selectedIndex.value == 1),
                       ),
+                      SizedBox(height: 200, child: ExecutePanel()),
                     ],
                   ),
                   const PerformanceMonitor(),
@@ -197,8 +187,7 @@ class DemoPage extends HookConsumerWidget {
             onPressed: () => showEditor.value = !showEditor.value,
             backgroundColor: custom.primary,
             foregroundColor: custom.onPrimary,
-            child: Icon(Icons.palette,
-                size: custom.fontSizeSubtitle),
+            child: Icon(Icons.palette, size: custom.fontSizeSubtitle),
           ),
         ),
         // Backdrop
@@ -226,16 +215,16 @@ class DemoPage extends HookConsumerWidget {
                       children: [
                         const Spacer(),
                         IconButton(
-                          icon: Icon(Icons.close,
-                              size: custom.fontSizeTitle,
-                              color: custom.onSurfaceVariant),
+                          icon: Icon(
+                            Icons.close,
+                            size: custom.fontSizeTitle,
+                            color: custom.onSurfaceVariant,
+                          ),
                           onPressed: () => showEditor.value = false,
                         ),
                       ],
                     ),
-                    Expanded(
-                      child: ColorThemeEditor(),
-                    ),
+                    Expanded(child: ColorThemeEditor()),
                   ],
                 ),
               ),

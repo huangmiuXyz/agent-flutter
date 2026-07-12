@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
@@ -79,7 +80,7 @@ class ZedContextMenu {
 // Internal wrapper — barrier + positioning
 // ─────────────────────────────────────────────────────────────
 
-class _ZedContextMenuWrapper extends StatefulWidget {
+class _ZedContextMenuWrapper extends HookWidget {
   final Offset position;
   final double? minWidth;
   final double? maxHeight;
@@ -95,90 +96,69 @@ class _ZedContextMenuWrapper extends StatefulWidget {
   });
 
   @override
-  State<_ZedContextMenuWrapper> createState() => _ZedContextMenuWrapperState();
-}
-
-class _ZedContextMenuWrapperState extends State<_ZedContextMenuWrapper> {
-  final GlobalKey _menuKey = GlobalKey();
-  Offset _position = Offset.zero;
-  bool _ready = false;
-
-  static const double _margin = 12.0;
-
-  @override
-  void initState() {
-    super.initState();
-    // 先离屏渲染测量尺寸，然后定位到正确位置（消除闪现）
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _measureAndPosition();
-    });
-  }
-
-  void _measureAndPosition() {
-    final renderBox = _menuKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.hasSize) return;
-
-    final size = renderBox.size;
-    final viewport = View.of(context);
-    final screenSize = viewport.physicalSize / viewport.devicePixelRatio;
-    final mouseX = widget.position.dx;
-    final mouseY = widget.position.dy;
-
-    // ── 水平方向 ──
-    // 默认：菜单左边缘 = 鼠标 X
-    var dx = mouseX;
-    // 如果菜单超出右边界 → 翻转：菜单右边缘 = 鼠标 X（菜单在鼠标左侧弹出）
-    if (mouseX + size.width > screenSize.width - _margin) {
-      dx = mouseX - size.width;
-    }
-    // 溢出保护：贴左
-    if (dx < _margin) {
-      dx = _margin;
-    }
-
-    // ── 垂直方向 ──
-    // 默认：菜单顶边缘 = 鼠标 Y
-    var dy = mouseY;
-    // 如果菜单超出下边界 → 翻转：菜单底边缘 = 鼠标 Y（菜单在鼠标上方弹出）
-    if (mouseY + size.height > screenSize.height - _margin) {
-      dy = mouseY - size.height;
-    }
-    // 溢出保护：贴上
-    if (dy < _margin) {
-      dy = _margin;
-    }
-
-    setState(() {
-      _position = Offset(dx, dy);
-      _ready = true;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    const double margin = 12.0;
+    final menuKey = useMemoized(() => GlobalKey());
+    final pos = useState(Offset.zero);
+    final ready = useState(false);
+
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final renderBox =
+            menuKey.currentContext?.findRenderObject() as RenderBox?;
+        if (renderBox == null || !renderBox.hasSize) return;
+
+        final size = renderBox.size;
+        final viewport = View.of(context);
+        final screenSize = viewport.physicalSize / viewport.devicePixelRatio;
+        final mouseX = position.dx;
+        final mouseY = position.dy;
+
+        var dx = mouseX;
+        if (mouseX + size.width > screenSize.width - margin) {
+          dx = mouseX - size.width;
+        }
+        if (dx < margin) {
+          dx = margin;
+        }
+
+        var dy = mouseY;
+        if (mouseY + size.height > screenSize.height - margin) {
+          dy = mouseY - size.height;
+        }
+        if (dy < margin) {
+          dy = margin;
+        }
+
+        pos.value = Offset(dx, dy);
+        ready.value = true;
+      });
+      return null;
+    }, []);
+
     final panel = _ZedContextMenuPanel(
-      key: _menuKey,
-      entries: widget.entries,
-      minWidth: widget.minWidth,
-      maxHeight: widget.maxHeight,
-      onDismiss: widget.onDismiss,
+      key: menuKey,
+      entries: entries,
+      minWidth: minWidth,
+      maxHeight: maxHeight,
+      onDismiss: onDismiss,
     );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: widget.onDismiss,
-      onScaleStart: (_) => widget.onDismiss(),
+      onTap: onDismiss,
+      onScaleStart: (_) => onDismiss(),
       child: Stack(
         children: [
           const Positioned.fill(child: SizedBox.expand()),
-          // _ready 前：离屏渲染用于测量（不可见，不可交互）
-          // _ready 后：定位到计算后的正确位置
+          // ready 前：离屏渲染用于测量（不可见，不可交互）
+          // ready 后：定位到计算后的正确位置
           Positioned(
-            left: _ready ? _position.dx : 0,
-            top: _ready ? _position.dy : -10000,
+            left: ready.value ? pos.value.dx : 0,
+            top: ready.value ? pos.value.dy : -10000,
             child: Material(
               type: MaterialType.transparency,
-              child: IgnorePointer(ignoring: !_ready, child: panel),
+              child: IgnorePointer(ignoring: !ready.value, child: panel),
             ),
           ),
         ],
@@ -275,7 +255,7 @@ class _ZedContextMenuPanel extends StatelessWidget {
 //   Shortcut spacing: spacingSm
 // ─────────────────────────────────────────────────────────────
 
-class _MenuItem extends StatefulWidget {
+class _MenuItem extends HookWidget {
   final ZedContextMenuEntry entry;
   final CustomTheme custom;
   final VoidCallback onDismiss;
@@ -287,32 +267,25 @@ class _MenuItem extends StatefulWidget {
   });
 
   @override
-  State<_MenuItem> createState() => _MenuItemState();
-}
-
-class _MenuItemState extends State<_MenuItem> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final entry = widget.entry;
-    final hoverBg = widget.custom.colors.menuHover;
+    final hovered = useState(false);
+    final hoverBg = custom.colors.menuHover;
     final textColor = entry.enabled
-        ? widget.custom.colors.textPrimary
-        : widget.custom.colors.textDisabled;
-    final mutedColor = widget.custom.colors.textSecondary;
+        ? custom.colors.textPrimary
+        : custom.colors.textDisabled;
+    final mutedColor = custom.colors.textSecondary;
     final iconColor = entry.enabled ? textColor : mutedColor;
 
     final labelStyle = TextStyle(
-      fontSize: widget.custom.fontSizeCaption,
+      fontSize: custom.fontSizeCaption,
       color: textColor,
-      fontFamily: widget.custom.fontFamily,
+      fontFamily: custom.fontFamily,
       fontWeight: FontWeight.w400,
     );
     final shortcutStyle = TextStyle(
-      fontSize: widget.custom.fontSizeCaption,
+      fontSize: custom.fontSizeCaption,
       color: mutedColor,
-      fontFamily: widget.custom.fontFamily,
+      fontFamily: custom.fontFamily,
     );
 
     // ── Build children imperatively to avoid Dart collection-if parser issues ──
@@ -348,19 +321,19 @@ class _MenuItemState extends State<_MenuItem> {
 
     // Shortcut spacing
     if (entry.shortcut != null) {
-      rowChildren.add(SizedBox(width: widget.custom.spacingSm));
+      rowChildren.add(SizedBox(width: custom.spacingSm));
       rowChildren.add(Text(entry.shortcut!, style: shortcutStyle));
     }
 
     // ── Hover container ──
     final inner = Container(
       decoration: BoxDecoration(
-        color: (_hovered && entry.enabled) ? hoverBg : Colors.transparent,
-        borderRadius: widget.custom.radiusXs,
+        color: (hovered.value && entry.enabled) ? hoverBg : Colors.transparent,
+        borderRadius: custom.radiusXs,
       ),
       padding: EdgeInsets.symmetric(
-        horizontal: widget.custom.spacingSm,
-        vertical: widget.custom.spacingXs,
+        horizontal: custom.spacingSm,
+        vertical: custom.spacingXs,
       ),
       child: Row(children: rowChildren),
     );
@@ -370,15 +343,15 @@ class _MenuItemState extends State<_MenuItem> {
       enabled: entry.enabled,
       label: entry.label,
       child: MouseRegion(
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
+        onEnter: (_) => hovered.value = true,
+        onExit: (_) => hovered.value = false,
         cursor: entry.enabled
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
         child: GestureDetector(
           onTap: entry.enabled
               ? () {
-                  widget.onDismiss();
+                  onDismiss();
                   entry.onTap?.call();
                 }
               : null,
@@ -393,7 +366,7 @@ class _MenuItemState extends State<_MenuItem> {
 // Submenu item — with chevron
 // ─────────────────────────────────────────────────────────────
 
-class _SubmenuItem extends StatefulWidget {
+class _SubmenuItem extends HookWidget {
   final ZedContextMenuEntry entry;
   final CustomTheme custom;
   final VoidCallback onDismiss;
@@ -405,58 +378,50 @@ class _SubmenuItem extends StatefulWidget {
   });
 
   @override
-  State<_SubmenuItem> createState() => _SubmenuItemState();
-}
-
-class _SubmenuItemState extends State<_SubmenuItem> {
-  bool _hovered = false;
-  OverlayEntry? _submenuEntry;
-
-  @override
-  void dispose() {
-    _submenuEntry?.remove();
-    super.dispose();
-  }
-
-  void _showSubmenu(BuildContext context) {
-    _submenuEntry?.remove();
-    final renderBox = context.findRenderObject() as RenderBox;
-    final position = renderBox.localToGlobal(Offset.zero);
-    final overlay = Overlay.of(context, rootOverlay: true);
-
-    _submenuEntry = OverlayEntry(
-      builder: (_) => _ZedContextMenuWrapper(
-        position: Offset(
-          position.dx + renderBox.size.width - 4,
-          position.dy - 4,
-        ),
-        entries: widget.entry.submenu!,
-        minWidth: widget.custom.controlHeightMd * 6,
-        onDismiss: () {
-          _submenuEntry?.remove();
-          _submenuEntry = null;
-          widget.onDismiss();
-        },
-      ),
-    );
-    overlay.insert(_submenuEntry!);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final entry = widget.entry;
-    final hoverBg = widget.custom.colors.menuHover;
+    final hovered = useState(false);
+    final submenuEntry = useRef<OverlayEntry?>(null);
+
+    useEffect(() {
+      return () => submenuEntry.value?.remove();
+    }, []);
+
+    void showSubmenu(BuildContext context) {
+      submenuEntry.value?.remove();
+      final renderBox = context.findRenderObject() as RenderBox;
+      final position = renderBox.localToGlobal(Offset.zero);
+      final overlay = Overlay.of(context, rootOverlay: true);
+
+      submenuEntry.value = OverlayEntry(
+        builder: (_) => _ZedContextMenuWrapper(
+          position: Offset(
+            position.dx + renderBox.size.width - 4,
+            position.dy - 4,
+          ),
+          entries: entry.submenu!,
+          minWidth: custom.controlHeightMd * 6,
+          onDismiss: () {
+            submenuEntry.value?.remove();
+            submenuEntry.value = null;
+            onDismiss();
+          },
+        ),
+      );
+      overlay.insert(submenuEntry.value!);
+    }
+
+    final hoverBg = custom.colors.menuHover;
     final textColor = entry.enabled
-        ? widget.custom.colors.textPrimary
-        : widget.custom.colors.textDisabled;
+        ? custom.colors.textPrimary
+        : custom.colors.textDisabled;
     final mutedColor = entry.enabled
-        ? widget.custom.colors.textSecondary
-        : widget.custom.colors.textDisabled;
+        ? custom.colors.textSecondary
+        : custom.colors.textDisabled;
 
     final labelStyle = TextStyle(
-      fontSize: widget.custom.fontSizeCaption,
+      fontSize: custom.fontSizeCaption,
       color: textColor,
-      fontFamily: widget.custom.fontFamily,
+      fontFamily: custom.fontFamily,
       fontWeight: FontWeight.w400,
     );
 
@@ -481,19 +446,19 @@ class _SubmenuItemState extends State<_SubmenuItem> {
       ),
     );
 
-    rowChildren.add(SizedBox(width: widget.custom.spacingSm));
+    rowChildren.add(SizedBox(width: custom.spacingSm));
     rowChildren.add(
       Icon(LucideIcons.chevronRight, size: 10, color: mutedColor),
     );
 
     final inner = Container(
       decoration: BoxDecoration(
-        color: _hovered && entry.enabled ? hoverBg : Colors.transparent,
-        borderRadius: widget.custom.radiusXs,
+        color: hovered.value && entry.enabled ? hoverBg : Colors.transparent,
+        borderRadius: custom.radiusXs,
       ),
       padding: EdgeInsets.symmetric(
-        horizontal: widget.custom.spacingSm,
-        vertical: widget.custom.spacingXs,
+        horizontal: custom.spacingSm,
+        vertical: custom.spacingXs,
       ),
       child: Row(children: rowChildren),
     );
@@ -501,10 +466,10 @@ class _SubmenuItemState extends State<_SubmenuItem> {
     return MouseRegion(
       onEnter: (_) {
         if (!entry.enabled) return;
-        setState(() => _hovered = true);
-        _showSubmenu(context);
+        hovered.value = true;
+        showSubmenu(context);
       },
-      onExit: (_) => setState(() => _hovered = false),
+      onExit: (_) => hovered.value = false,
       cursor: entry.enabled
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
@@ -527,7 +492,7 @@ class _SubmenuItemState extends State<_SubmenuItem> {
 ///   child: MyWidget(),
 /// )
 /// ```
-class ZedContextMenuHost extends StatefulWidget {
+class ZedContextMenuHost extends StatelessWidget {
   final Widget child;
   final List<ZedContextMenuEntry> Function(BuildContext) entries;
 
@@ -538,34 +503,27 @@ class ZedContextMenuHost extends StatefulWidget {
   });
 
   @override
-  State<ZedContextMenuHost> createState() => _ZedContextMenuHostState();
-}
-
-class _ZedContextMenuHostState extends State<ZedContextMenuHost> {
-  void _onSecondaryTapDown(TapDownDetails details) {
-    final entries = widget.entries(context);
-    if (entries.isEmpty) return;
-    ZedContextMenu.show(
-      context,
-      position: details.globalPosition,
-      entries: entries,
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onSecondaryTapDown: _onSecondaryTapDown,
-      onLongPressStart: (details) {
-        final entries = widget.entries(context);
-        if (entries.isEmpty) return;
+      onSecondaryTapDown: (details) {
+        final items = entries(context);
+        if (items.isEmpty) return;
         ZedContextMenu.show(
           context,
           position: details.globalPosition,
-          entries: entries,
+          entries: items,
         );
       },
-      child: widget.child,
+      onLongPressStart: (details) {
+        final items = entries(context);
+        if (items.isEmpty) return;
+        ZedContextMenu.show(
+          context,
+          position: details.globalPosition,
+          entries: items,
+        );
+      },
+      child: child,
     );
   }
 }
