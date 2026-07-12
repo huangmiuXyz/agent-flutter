@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'package:agent/theme/provider.dart';
@@ -51,12 +51,10 @@ extension on TerminalTheme {
       brightMagenta: brightMagenta ?? this.brightMagenta,
       brightCyan: brightCyan ?? this.brightCyan,
       brightWhite: brightWhite ?? this.brightWhite,
-      searchHitBackground:
-          searchHitBackground ?? this.searchHitBackground,
+      searchHitBackground: searchHitBackground ?? this.searchHitBackground,
       searchHitBackgroundCurrent:
           searchHitBackgroundCurrent ?? this.searchHitBackgroundCurrent,
-      searchHitForeground:
-          searchHitForeground ?? this.searchHitForeground,
+      searchHitForeground: searchHitForeground ?? this.searchHitForeground,
     );
   }
 }
@@ -114,11 +112,11 @@ final _lightTheme = TerminalTheme(
 );
 
 final xtermThemeProvider = Provider<TerminalTheme>((ref) {
-  final config = ref.watch(themeProvider);
-  final isDark = config.resolveBrightness() == Brightness.dark;
-  final effective = config.effectiveFor(isDark ? Brightness.dark : Brightness.light);
-  return (isDark ? _darkTheme : _lightTheme).copyWith(
-    foreground: effective.onSurface,
-    background: effective.surface,
+  final settings = ref.watch(themeProvider);
+  final brightness = ref.watch(effectiveBrightnessProvider);
+  final effective = settings.effectiveFor(brightness);
+  return (brightness == Brightness.dark ? _darkTheme : _lightTheme).copyWith(
+    foreground: effective.colors.textPrimary,
+    background: effective.colors.background,
   );
 });

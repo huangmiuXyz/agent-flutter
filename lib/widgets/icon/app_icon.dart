@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
 
 const Map<String, Map<int, IconData>> _registry = {
@@ -32,7 +33,7 @@ class AppIcon extends ConsumerWidget {
     return Icon(
       icon,
       size: size,
-      color: color ?? Theme.of(context).colorScheme.onSurface,
+      color: color ?? CustomTheme.of(context).colors.textPrimary,
     );
   }
 }

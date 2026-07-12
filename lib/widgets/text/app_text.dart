@@ -26,22 +26,33 @@ class AppText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
+    final theme = CustomTheme.of(context);
+    final typography = theme.typography;
+    final fontSize = switch (variant) {
+      AppTextVariant.caption => typography.captionSize,
+      AppTextVariant.body => typography.bodySize,
+      AppTextVariant.subtitle => typography.subtitleSize,
+      AppTextVariant.title => typography.titleSize,
+      AppTextVariant.h2 => typography.heading2Size,
+      AppTextVariant.h1 => typography.heading1Size,
+    };
+    final defaultWeight = switch (variant) {
+      AppTextVariant.caption || AppTextVariant.body => typography.bodyWeight,
+      AppTextVariant.subtitle => FontWeight.w500,
+      AppTextVariant.title ||
+      AppTextVariant.h2 ||
+      AppTextVariant.h1 => FontWeight.w600,
+    };
 
     return Text(
       data,
-      style: TextStyle(
-        fontSize: switch (variant) {
-          AppTextVariant.caption => custom.fontSizeCaption,
-          AppTextVariant.body => custom.fontSizeBody,
-          AppTextVariant.subtitle => custom.fontSizeSubtitle,
-          AppTextVariant.title => custom.fontSizeTitle,
-          AppTextVariant.h2 => custom.fontSizeH2,
-          AppTextVariant.h1 => custom.fontSizeH1,
-        },
-        fontFamily: fontWeightToFamily(custom.fontWeight) ?? custom.fontFamily,
-        fontWeight: custom.fontWeight,
-      ).merge(style).copyWith(color: color ?? custom.onSurface),
+      style: typography
+          .styleForSize(
+            fontSize,
+            color ?? theme.colors.textPrimary,
+            weight: defaultWeight,
+          )
+          .merge(style),
       textAlign: textAlign,
       overflow: overflow,
       maxLines: maxLines,

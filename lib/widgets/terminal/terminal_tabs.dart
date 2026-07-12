@@ -36,7 +36,7 @@ class TerminalTabs extends HookWidget {
       }
     }
 
-    final tabBarHeight = custom.controlHeightMd;
+    final tabBarHeight = custom.controls.mediumHeight;
 
     return Stack(
       children: [
@@ -44,10 +44,10 @@ class TerminalTabs extends HookWidget {
           children: [
             Container(
               height: tabBarHeight - 1.0,
-              color: custom.surfaceContainer,
+              color: custom.colors.panelElevated,
             ),
-            Container(height: 1.0, color: custom.surfaceContainerHighest),
-            SizedBox(height: custom.spacingXs),
+            Container(height: 1.0, color: custom.colors.selected),
+            SizedBox(height: custom.spacing.xs),
             Expanded(
               child: IndexedStack(
                 index: activeIndex.value,
@@ -143,22 +143,20 @@ class _TabItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: custom.controlHeightMd,
-        padding: EdgeInsets.symmetric(horizontal: custom.spacingSm),
+        height: custom.controls.mediumHeight,
+        padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? custom.surface : Colors.transparent,
+          color: active ? custom.colors.background : Colors.transparent,
           border: Border(
             left: BorderSide(
               color: active && !isFirst
-                  ? custom.surfaceContainerHighest
+                  ? custom.colors.selected
                   : Colors.transparent,
               width: 1.0,
             ),
             right: BorderSide(
-              color: active
-                  ? custom.surfaceContainerHighest
-                  : Colors.transparent,
+              color: active ? custom.colors.selected : Colors.transparent,
               width: 1.0,
             ),
           ),
@@ -169,17 +167,21 @@ class _TabItem extends StatelessWidget {
           children: [
             AppIcon(
               'terminalSquare',
-              size: custom.fontSizeCaption,
-              color: active ? custom.onSurface : custom.onSurfaceVariant,
+              size: custom.typography.captionSize,
+              color: active
+                  ? custom.colors.textPrimary
+                  : custom.colors.textSecondary,
             ),
-            SizedBox(width: custom.spacingXs),
+            SizedBox(width: custom.spacing.xs),
             AppText(
               label,
               variant: AppTextVariant.caption,
-              color: active ? custom.onSurface : custom.onSurfaceVariant,
+              color: active
+                  ? custom.colors.textPrimary
+                  : custom.colors.textSecondary,
             ),
             if (onClose != null) ...[
-              SizedBox(width: custom.spacingXs),
+              SizedBox(width: custom.spacing.xs),
               AppButton(
                 icon: 'x',
                 variant: ButtonVariant.iconOnly,

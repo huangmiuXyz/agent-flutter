@@ -1,38 +1,19 @@
 import 'package:flutter/material.dart';
 
-import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/theme/provider.dart';
+import 'custom_theme.dart';
+import 'provider.dart';
 
-ThemeData _buildTheme(
-  Brightness brightness,
-  CustomTheme defaultCustom,
-  CustomTheme? override,
-) {
-  final custom = override ?? defaultCustom;
-  return ThemeData(
-    brightness: brightness,
-    scaffoldBackgroundColor: custom.surface,
-    extensions: [custom],
-  );
-}
-
-final appLightTheme = _buildTheme(
-  Brightness.light,
-  CustomTheme.light,
-  null,
+ThemeData _buildTheme(CustomTheme custom) => ThemeData(
+  brightness: custom.brightness,
+  scaffoldBackgroundColor: custom.colors.background,
+  splashFactory: NoSplash.splashFactory,
+  highlightColor: Colors.transparent,
+  hoverColor: Colors.transparent,
+  extensions: [custom],
 );
 
-final appDarkTheme = _buildTheme(
-  Brightness.dark,
-  CustomTheme.dark,
-  null,
-);
+final appLightTheme = _buildTheme(CustomTheme.light);
+final appDarkTheme = _buildTheme(CustomTheme.dark);
 
-ThemeData resolveTheme(ThemeConfig config, Brightness brightness) {
-  final isDark = brightness == Brightness.dark;
-  return _buildTheme(
-    brightness,
-    isDark ? CustomTheme.dark : CustomTheme.light,
-    isDark ? config.darkCustomTheme : config.lightCustomTheme,
-  );
-}
+ThemeData resolveTheme(ThemeSettings settings, Brightness brightness) =>
+    _buildTheme(settings.effectiveFor(brightness));

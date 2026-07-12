@@ -45,8 +45,8 @@ class XtermTerminalWidget extends HookConsumerWidget {
 
     final theme = ref.watch(xtermThemeProvider);
     final textStyle = TerminalStyle(
-      fontSize: custom.fontSizeBody,
-      fontFamily: fontWeightToFamily(custom.fontWeight) ?? 'JetBrainsMono',
+      fontSize: custom.typography.bodySize,
+      fontFamily: custom.typography.effectiveFontFamily,
     );
 
     // Single reusable handler instance (stateless).

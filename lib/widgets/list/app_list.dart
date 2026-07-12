@@ -82,18 +82,27 @@ class AppListItem extends HookWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final isHovered = useState(false);
+    final isPressed = useState(false);
+    final enabled = onTap != null;
 
-    final height = itemHeight ?? custom.controlHeightMd;
-    final padding = itemPadding ??
-        EdgeInsets.symmetric(horizontal: custom.spacingSm);
-    final radius =
-        (itemRadius ?? custom.radiusSm) as BorderRadius;
-    final iconSz = iconSize ?? custom.fontSizeTitle;
-    final gap = iconLabelGap ?? custom.spacingSm;
+    final height = itemHeight ?? custom.controls.mediumHeight;
+    final padding =
+        itemPadding ?? EdgeInsets.symmetric(horizontal: custom.spacing.sm);
+    final radius = (itemRadius ?? custom.radii.sm) as BorderRadius;
+    final iconSz = iconSize ?? custom.typography.titleSize;
+    final gap = iconLabelGap ?? custom.spacing.sm;
 
-    final bgColor = active || isHovered.value
-        ? (itemColor ?? custom.surfaceContainerHighest)
-        : Colors.transparent;
+    final bgColor =
+        itemColor ??
+        switch ((active, isPressed.value, isHovered.value)) {
+          (true, _, _) => custom.colors.selected,
+          (_, true, _) => custom.colors.selected,
+          (_, _, true) when enabled => custom.colors.hover,
+          _ => Colors.transparent,
+        };
+    final foreground = enabled
+        ? (labelColor ?? custom.colors.textPrimary)
+        : custom.colors.textDisabled;
 
     return SizedBox(
       height: height,
@@ -103,30 +112,36 @@ class AppListItem extends HookWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: radius,
-          onHover: (v) => isHovered.value = v,
+          onHover: (value) => isHovered.value = value,
+          onHighlightChanged: (value) => isPressed.value = value,
           splashFactory: NoSplash.splashFactory,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          focusColor: Colors.transparent,
           child: Padding(
             padding: padding,
             child: Row(
               children: [
                 if (icon != null) ...[
-                  AppIcon(icon!, size: iconSz),
+                  AppIcon(icon!, size: iconSz, color: foreground),
                   SizedBox(width: gap),
                 ],
                 Expanded(
                   child: AppText(
                     label,
                     variant: AppTextVariant.body,
-                    color: labelColor ?? custom.onSurface,
+                    color: foreground,
                   ),
                 ),
                 if (trailing != null)
                   Padding(
-                    padding: EdgeInsets.only(left: custom.spacingSm),
+                    padding: EdgeInsets.only(left: custom.spacing.sm),
                     child: AppText(
                       trailing!,
                       variant: AppTextVariant.caption,
-                      color: custom.onSurfaceVariant,
+                      color: enabled
+                          ? custom.colors.textSecondary
+                          : custom.colors.textDisabled,
                     ),
                   ),
               ],

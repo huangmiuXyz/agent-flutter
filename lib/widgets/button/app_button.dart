@@ -55,14 +55,18 @@ class AppButton extends HookWidget {
     final usesContentHeight =
         size == ButtonSize.sm && variant != ButtonVariant.iconOnly;
 
-    final textColor = switch (variant) {
-      ButtonVariant.primary => custom.onPrimary,
-      ButtonVariant.text =>
-        hoverStyle && isHovered.value
-            ? custom.primary
-            : custom.onSurfaceVariant,
-      _ => null,
-    };
+    final isDisabled = disabled || onPressed == null;
+    final textColor = isDisabled
+        ? custom.colors.textDisabled
+        : switch (variant) {
+            ButtonVariant.primary => custom.colors.onAccent,
+            ButtonVariant.text =>
+              hoverStyle && isHovered.value
+                  ? custom.colors.accent
+                  : custom.colors.textSecondary,
+            ButtonVariant.secondary ||
+            ButtonVariant.iconOnly => custom.colors.textPrimary,
+          };
 
     final btnStyle = switch (variant) {
       ButtonVariant.primary => _primaryStyle(custom, height, borderRadius),
@@ -98,7 +102,7 @@ class AppButton extends HookWidget {
     );
 
     final textButton = TextButton(
-      onPressed: disabled ? null : onPressed,
+      onPressed: isDisabled ? null : onPressed,
       style: btnStyle.merge(sizeStyle).merge(style),
       child: _buildChild(custom, iconSize, textColor),
     );
@@ -130,7 +134,17 @@ class AppButton extends HookWidget {
     if (variant == ButtonVariant.iconOnly) {
       return Tooltip(
         message: text ?? '',
-        child: AppIcon(icon!, size: iconSize),
+        decoration: BoxDecoration(
+          color: custom.colors.menuBackground,
+          border: Border.all(color: custom.colors.menuBorder),
+          borderRadius: custom.radii.xs,
+          boxShadow: custom.shadows.small,
+        ),
+        textStyle: custom.typography.styleForSize(
+          custom.typography.captionSize,
+          custom.colors.textPrimary,
+        ),
+        child: AppIcon(icon!, size: iconSize, color: textColor),
       );
     }
     if (icon != null) {
@@ -154,7 +168,12 @@ class AppButton extends HookWidget {
   ) {
     if (!hoverStyle) {
       return ButtonStyle(
-        backgroundColor: WidgetStateProperty.all(custom.primary),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return custom.colors.panelElevated;
+          }
+          return custom.colors.accent;
+        }),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         padding: WidgetStateProperty.all(
           EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
@@ -168,12 +187,15 @@ class AppButton extends HookWidget {
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered)) {
-          return custom.primaryContainer;
+          return custom.colors.accentHover;
         }
         if (states.contains(WidgetState.pressed)) {
-          return custom.surfaceContainerHighest;
+          return custom.colors.selected;
         }
-        return custom.primary;
+        if (states.contains(WidgetState.disabled)) {
+          return custom.colors.panelElevated;
+        }
+        return custom.colors.accent;
       }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
@@ -193,7 +215,12 @@ class AppButton extends HookWidget {
   ) {
     if (!hoverStyle) {
       return ButtonStyle(
-        backgroundColor: WidgetStateProperty.all(custom.surface),
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return custom.colors.panel;
+          }
+          return custom.colors.background;
+        }),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         padding: WidgetStateProperty.all(
           EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
@@ -201,7 +228,7 @@ class AppButton extends HookWidget {
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
             borderRadius: borderRadius,
-            side: BorderSide(color: custom.outlineVariant),
+            side: BorderSide(color: custom.colors.borderSubtle),
           ),
         ),
         elevation: WidgetStateProperty.all(1),
@@ -209,11 +236,17 @@ class AppButton extends HookWidget {
     }
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered) ||
-            states.contains(WidgetState.pressed)) {
-          return custom.surfaceContainerLow;
+        if (states.contains(WidgetState.disabled)) {
+          return custom.colors.panel;
         }
-        return custom.surface;
+        if (states.contains(WidgetState.pressed)) {
+          return custom.colors.selected;
+        }
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return custom.colors.hover;
+        }
+        return custom.colors.background;
       }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
@@ -222,7 +255,7 @@ class AppButton extends HookWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
           borderRadius: borderRadius,
-          side: BorderSide(color: custom.outlineVariant),
+          side: BorderSide(color: custom.colors.borderSubtle),
         ),
       ),
       elevation: WidgetStateProperty.all(1),
@@ -262,7 +295,7 @@ class AppButton extends HookWidget {
       backgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.pressed)) {
-          return custom.surfaceContainer;
+          return custom.colors.hover;
         }
         return Colors.transparent;
       }),

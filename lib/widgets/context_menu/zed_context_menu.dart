@@ -208,17 +208,6 @@ class _ZedContextMenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final Color surfaceColor = isDark
-        ? const Color(0xFF2F343E)
-        : const Color(0xFFEBEBEC);
-    final Color borderColor = isDark
-        ? const Color(0xFF464B57)
-        : const Color(0xFFC9C9CA);
-    final Color shadowColor = isDark
-        ? Colors.black.withValues(alpha: 0.40)
-        : Colors.black.withValues(alpha: 0.15);
 
     return IntrinsicWidth(
       stepWidth: minWidth ?? 200,
@@ -229,23 +218,17 @@ class _ZedContextMenuPanel extends StatelessWidget {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: surfaceColor,
-            borderRadius: custom.radiusSm,
-            border: Border.all(color: borderColor, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            color: custom.colors.menuBackground,
+            borderRadius: custom.radii.sm,
+            border: Border.all(color: custom.colors.menuBorder, width: 1),
+            boxShadow: custom.shadows.large,
           ),
           child: SingleChildScrollView(
             padding: EdgeInsets.all(custom.spacingXs),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _buildItems(context, custom, isDark),
+              children: _buildItems(context, custom),
             ),
           ),
         ),
@@ -253,48 +236,31 @@ class _ZedContextMenuPanel extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildItems(
-    BuildContext context,
-    CustomTheme custom,
-    bool isDark,
-  ) {
+  List<Widget> _buildItems(BuildContext context, CustomTheme custom) {
     final children = <Widget>[];
     for (final entry in entries) {
       if (entry.label == '---') {
-        children.add(_buildSeparator(isDark, custom));
+        children.add(_buildSeparator(custom));
       } else if (entry.submenu != null && entry.submenu!.isNotEmpty) {
         children.add(
-          _SubmenuItem(
-            entry: entry,
-            isDark: isDark,
-            custom: custom,
-            onDismiss: onDismiss,
-          ),
+          _SubmenuItem(entry: entry, custom: custom, onDismiss: onDismiss),
         );
       } else {
         children.add(
-          _MenuItem(
-            entry: entry,
-            isDark: isDark,
-            custom: custom,
-            onDismiss: onDismiss,
-          ),
+          _MenuItem(entry: entry, custom: custom, onDismiss: onDismiss),
         );
       }
     }
     return children;
   }
 
-  Widget _buildSeparator(bool isDark, CustomTheme custom) {
-    final Color sepColor = isDark
-        ? const Color(0xFF363C46)
-        : const Color(0xFFDFDFE0);
+  Widget _buildSeparator(CustomTheme custom) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: custom.spacingXs),
       child: Container(
         height: 1,
         margin: EdgeInsets.symmetric(vertical: custom.spacingXs),
-        color: sepColor,
+        color: custom.colors.menuHover,
       ),
     );
   }
@@ -311,13 +277,11 @@ class _ZedContextMenuPanel extends StatelessWidget {
 
 class _MenuItem extends StatefulWidget {
   final ZedContextMenuEntry entry;
-  final bool isDark;
   final CustomTheme custom;
   final VoidCallback onDismiss;
 
   const _MenuItem({
     required this.entry,
-    required this.isDark,
     required this.custom,
     required this.onDismiss,
   });
@@ -332,15 +296,11 @@ class _MenuItemState extends State<_MenuItem> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final Color hoverBg = widget.isDark
-        ? const Color(0xFF363C46)
-        : const Color(0xFFDFDFE0);
-    final Color textColor = entry.enabled
-        ? (widget.isDark ? const Color(0xFFDCE0E5) : const Color(0xFF242529))
-        : (widget.isDark ? const Color(0xFF878A98) : const Color(0xFF7E8086));
-    final Color mutedColor = widget.isDark
-        ? const Color(0xFFA9AFBC)
-        : const Color(0xFF58585A);
+    final hoverBg = widget.custom.colors.menuHover;
+    final textColor = entry.enabled
+        ? widget.custom.colors.textPrimary
+        : widget.custom.colors.textDisabled;
+    final mutedColor = widget.custom.colors.textSecondary;
     final iconColor = entry.enabled ? textColor : mutedColor;
 
     final labelStyle = TextStyle(
@@ -435,13 +395,11 @@ class _MenuItemState extends State<_MenuItem> {
 
 class _SubmenuItem extends StatefulWidget {
   final ZedContextMenuEntry entry;
-  final bool isDark;
   final CustomTheme custom;
   final VoidCallback onDismiss;
 
   const _SubmenuItem({
     required this.entry,
-    required this.isDark,
     required this.custom,
     required this.onDismiss,
   });
@@ -487,15 +445,9 @@ class _SubmenuItemState extends State<_SubmenuItem> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final Color hoverBg = widget.isDark
-        ? const Color(0xFF363C46)
-        : const Color(0xFFDFDFE0);
-    final Color textColor = widget.isDark
-        ? const Color(0xFFDCE0E5)
-        : const Color(0xFF242529);
-    final Color mutedColor = widget.isDark
-        ? const Color(0xFFA9AFBC)
-        : const Color(0xFF58585A);
+    final hoverBg = widget.custom.colors.menuHover;
+    final textColor = widget.custom.colors.textPrimary;
+    final mutedColor = widget.custom.colors.textSecondary;
 
     final labelStyle = TextStyle(
       fontSize: widget.custom.fontSizeCaption,
