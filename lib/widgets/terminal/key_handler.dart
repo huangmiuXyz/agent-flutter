@@ -77,41 +77,46 @@ class MoveCursorHandler implements TapHandler {
     final dy = offset.y - cursorY;
     final dx = offset.x - cursorX;
 
+    final buf = StringBuffer();
+
     if (dy == 0) {
       if (dx > 0) {
         for (int i = 0; i < dx; i++) {
-          terminal.keyInput(TerminalKey.arrowRight);
+          buf.write('\x1b[C');
         }
       } else if (dx < 0) {
         for (int i = 0; i < -dx; i++) {
-          terminal.keyInput(TerminalKey.arrowLeft);
+          buf.write('\x1b[D');
         }
       }
-      return;
-    }
-
-    final w = terminal.buffer.viewWidth;
-    int arrows;
-    TerminalKey key;
-
-    if (dy < 0) {
-      arrows = cursorX + 1;
-      for (int i = 0; i < -dy - 1; i++) {
-        arrows += w + 1;
-      }
-      arrows += w - offset.x;
-      key = TerminalKey.arrowLeft;
     } else {
-      arrows = w - cursorX;
-      for (int i = 0; i < dy - 1; i++) {
-        arrows += w + 1;
+      final w = terminal.buffer.viewWidth;
+      int count;
+      String seq;
+
+      if (dy < 0) {
+        count = cursorX + 1;
+        for (int i = 0; i < -dy - 1; i++) {
+          count += w + 1;
+        }
+        count += w - offset.x;
+        seq = '\x1b[D';
+      } else {
+        count = w - cursorX;
+        for (int i = 0; i < dy - 1; i++) {
+          count += w + 1;
+        }
+        count += offset.x + 1;
+        seq = '\x1b[C';
       }
-      arrows += offset.x + 1;
-      key = TerminalKey.arrowRight;
+
+      for (int i = 0; i < count; i++) {
+        buf.write(seq);
+      }
     }
 
-    for (int i = 0; i < arrows; i++) {
-      terminal.keyInput(key);
+    if (buf.isNotEmpty) {
+      terminal.onOutput?.call(buf.toString());
     }
   }
 }
