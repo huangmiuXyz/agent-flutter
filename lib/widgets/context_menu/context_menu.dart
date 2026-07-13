@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
@@ -104,6 +105,7 @@ class _MenuOverlay extends HookWidget {
   final double? minWidth;
   final double? maxHeight;
   final VoidCallback onDismiss;
+  final void Function(bool)? onHoverChanged;
 
   const _MenuOverlay({
     required this.position,
@@ -111,6 +113,7 @@ class _MenuOverlay extends HookWidget {
     required this.onDismiss,
     this.minWidth,
     this.maxHeight,
+    this.onHoverChanged,
   });
 
   @override
@@ -157,12 +160,16 @@ class _MenuOverlay extends HookWidget {
             opacity: ready.value ? 1.0 : 0.0,
             child: Material(
               type: MaterialType.transparency,
-              child: _MenuPanel(
-                key: menuKey.value,
-                items: items,
-                minWidth: minWidth,
-                maxHeight: maxHeight,
-                onDismiss: onDismiss,
+              child: MouseRegion(
+                onEnter: (_) => onHoverChanged?.call(true),
+                onExit: (_) => onHoverChanged?.call(false),
+                child: _MenuPanel(
+                  key: menuKey.value,
+                  items: items,
+                  minWidth: minWidth,
+                  maxHeight: maxHeight,
+                  onDismiss: onDismiss,
+                ),
               ),
             ),
           ),
@@ -173,7 +180,7 @@ class _MenuOverlay extends HookWidget {
 }
 
 // -------------------- 菜单面板（容器） --------------------
-class _MenuPanel extends StatelessWidget {
+class _MenuPanel extends HookWidget {
   final List<MenuItem> items;
   final double? minWidth;
   final double? maxHeight;
@@ -190,6 +197,17 @@ class _MenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    // Track a single close callback for the currently open submenu.
+    // When a new item opens its submenu, it closes any previously open one.
+    final closeCurrentSubmenu = useRef<VoidCallback?>(null);
+
+    void closeOtherSubmenu() {
+      closeCurrentSubmenu.value?.call();
+    }
+
+    void registerCloseSubmenu(VoidCallback closeFn) {
+      closeCurrentSubmenu.value = closeFn;
+    }
 
     return AppCard(
       minWidth: minWidth ?? custom.controls.mediumHeight * 4,
@@ -216,6 +234,8 @@ class _MenuPanel extends StatelessWidget {
             item: item,
             custom: custom,
             onDismiss: onDismiss,
+            closeOtherSubmenu: closeOtherSubmenu,
+            registerCloseSubmenu: registerCloseSubmenu,
           );
         }).toList(),
       ),
@@ -228,11 +248,15 @@ class _MenuItemWidget extends HookWidget {
   final MenuItem item;
   final CustomTheme custom;
   final VoidCallback onDismiss;
+  final VoidCallback closeOtherSubmenu;
+  final void Function(VoidCallback) registerCloseSubmenu;
 
   const _MenuItemWidget({
     required this.item,
     required this.custom,
     required this.onDismiss,
+    required this.closeOtherSubmenu,
+    required this.registerCloseSubmenu,
   });
 
   @override
@@ -240,15 +264,39 @@ class _MenuItemWidget extends HookWidget {
     final hovered = useState(false);
     final submenuOverlay = useRef<OverlayEntry?>(null);
     final isSubmenu = item.submenu != null && item.submenu!.isNotEmpty;
+    final openTimer = useRef<Timer?>(null);
+    final closeTimer = useRef<Timer?>(null);
 
     useEffect(
-      () =>
-          () => submenuOverlay.value?.remove(),
+      () => () {
+        openTimer.value?.cancel();
+        closeTimer.value?.cancel();
+        submenuOverlay.value?.remove();
+      },
       [],
     );
 
+    void cancelTimers() {
+      openTimer.value?.cancel();
+      openTimer.value = null;
+      closeTimer.value?.cancel();
+      closeTimer.value = null;
+    }
+
+    void closeSubmenu() {
+      if (submenuOverlay.value != null) {
+        submenuOverlay.value?.remove();
+        submenuOverlay.value = null;
+        // Clear the ref in panel so stale callback won't linger.
+        registerCloseSubmenu(() {});
+      }
+    }
+
     void showSubmenu(BuildContext context) {
       if (!isSubmenu || !item.enabled) return;
+      cancelTimers();
+      // Close any previously open submenu first.
+      closeOtherSubmenu();
       submenuOverlay.value?.remove();
       final renderBox = context.findRenderObject() as RenderBox;
       final position = renderBox.localToGlobal(Offset.zero);
@@ -262,7 +310,11 @@ class _MenuItemWidget extends HookWidget {
           ),
           items: item.submenu!,
           minWidth: custom.controlHeightMd * 6,
+          onHoverChanged: (isHovered) {
+            if (isHovered) cancelTimers();
+          },
           onDismiss: () {
+            cancelTimers();
             submenuOverlay.value?.remove();
             submenuOverlay.value = null;
             onDismiss();
@@ -270,6 +322,24 @@ class _MenuItemWidget extends HookWidget {
         ),
       );
       overlay.insert(submenuOverlay.value!);
+
+      // Register callback to close this submenu when another item opens its own.
+      registerCloseSubmenu(() {
+        cancelTimers();
+        closeSubmenu();
+      });
+    }
+
+    void scheduleOpen(BuildContext context) {
+      if (!isSubmenu || !item.enabled) return;
+      cancelTimers();
+      // Delay before opening so that quickly brushing past adjacent items
+      // doesn't cause flicker — only open after the user lingers.
+      openTimer.value = Timer(const Duration(milliseconds: 300), () {
+        if (hovered.value) {
+          showSubmenu(context);
+        }
+      });
     }
 
     final hoverBg = custom.colors.menuHover;
@@ -325,9 +395,23 @@ class _MenuItemWidget extends HookWidget {
         onEnter: (_) {
           if (!item.enabled) return;
           hovered.value = true;
-          showSubmenu(context);
+          cancelTimers();
+          // Don't open submenu immediately — wait a short while to avoid
+          // flicker when scanning across adjacent items with submenus.
+          scheduleOpen(context);
         },
-        onExit: (_) => hovered.value = false,
+        onExit: (_) {
+          hovered.value = false;
+          cancelTimers();
+          if (isSubmenu && submenuOverlay.value != null) {
+            // Short delay before closing so mouse can slide into the submenu.
+            closeTimer.value = Timer(const Duration(milliseconds: 200), () {
+              if (!hovered.value && submenuOverlay.value != null) {
+                closeSubmenu();
+              }
+            });
+          }
+        },
         cursor: item.enabled
             ? SystemMouseCursors.click
             : SystemMouseCursors.basic,
