@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 
+/// Controls the visual density of [AppDivider].
+///
+/// * [AppDividerSize.normal] — standard density (default).
+/// * [AppDividerSize.small] — compact density for menus.
+enum AppDividerSize { normal, small }
+
 /// A theme-aware horizontal or vertical divider line.
 ///
 /// Used as a visual separator in menus, lists, cards, toolbars, and
@@ -56,8 +62,11 @@ class AppDivider extends StatelessWidget {
 
   /// The color of the divider line.
   ///
-  /// Defaults to [CustomTheme.colors.border].
+  /// Defaults to [CustomTheme.colors.separator].
   final Color? color;
+
+  /// Visual density. [AppDividerSize.small] reduces the [extent].
+  final AppDividerSize size;
 
   const AppDivider({
     super.key,
@@ -67,18 +76,24 @@ class AppDivider extends StatelessWidget {
     this.indent,
     this.endIndent,
     this.color,
+    this.size = AppDividerSize.normal,
   });
 
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final effectiveColor = color ?? custom.colors.border;
-    final effectiveIndent = indent ?? 0;
-    final effectiveEndIndent = endIndent ?? 0;
+    final effectiveColor = color ?? custom.colors.separator;
+    final effectiveIndent =
+        indent ?? (size == AppDividerSize.small ? custom.spacing.xs : 0);
+    final effectiveEndIndent =
+        endIndent ?? (size == AppDividerSize.small ? custom.spacing.xs : 0);
+    final effectiveExtent =
+        extent ??
+        (size == AppDividerSize.small ? custom.spacing.xs : custom.spacing.sm);
 
     if (axis == Axis.vertical) {
       return Container(
-        width: extent ?? custom.spacing.sm,
+        width: effectiveExtent,
         alignment: Alignment.center,
         child: Container(
           width: thickness,
@@ -92,7 +107,7 @@ class AppDivider extends StatelessWidget {
     }
 
     return Container(
-      height: extent ?? custom.spacing.sm,
+      height: effectiveExtent,
       alignment: Alignment.center,
       child: Container(
         height: thickness,

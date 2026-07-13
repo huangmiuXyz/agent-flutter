@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/list/app_list.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 
 // -------------------- 数据模型 --------------------
 class MenuItem {
@@ -219,14 +220,7 @@ class _MenuPanel extends HookWidget {
       [],
     );
 
-    Widget buildSeparator() => Padding(
-      padding: EdgeInsets.symmetric(horizontal: custom.spacing.xs),
-      child: Container(
-        height: 1,
-        color: custom.colors.menuHover,
-        margin: EdgeInsets.symmetric(vertical: custom.spacing.xs),
-      ),
-    );
+    Widget buildSeparator() => AppDivider(size: AppDividerSize.small);
 
     Widget buildMenuItem(MenuItem item) {
       final hasSubmenu = item.submenu != null && item.submenu!.isNotEmpty;

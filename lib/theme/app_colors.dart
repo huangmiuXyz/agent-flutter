@@ -16,6 +16,7 @@ enum AppColorRole {
   onDanger,
   border,
   borderSubtle,
+  separator,
   overlay,
   shadow,
   menuBackground,
@@ -45,6 +46,7 @@ class AppColors {
     required this.onDanger,
     required this.border,
     required this.borderSubtle,
+    required this.separator,
     required this.overlay,
     required this.shadow,
     required this.menuBackground,
@@ -71,6 +73,7 @@ class AppColors {
   final Color onDanger;
   final Color border;
   final Color borderSubtle;
+  final Color separator;
   final Color overlay;
   final Color shadow;
   final Color menuBackground;
@@ -97,6 +100,7 @@ class AppColors {
     onDanger: Color(0xFFFFFFFF),
     border: Color(0xFFD4D4D4),
     borderSubtle: Color(0xFFE6E6E6),
+    separator: Color(0xFFD8D8D8),
     overlay: Color(0x66000000),
     shadow: Color(0xFF000000),
     menuBackground: Color(0xFFEBEBEC),
@@ -124,6 +128,7 @@ class AppColors {
     onDanger: Color(0xFFFFFFFF),
     border: Color(0xFF404040),
     borderSubtle: Color(0xFF49454F),
+    separator: Color(0xFF484848),
     overlay: Color(0x99000000),
     shadow: Color(0xFF000000),
     menuBackground: Color(0xFF2D2D2D),
@@ -151,6 +156,7 @@ class AppColors {
     AppColorRole.onDanger => onDanger,
     AppColorRole.border => border,
     AppColorRole.borderSubtle => borderSubtle,
+    AppColorRole.separator => separator,
     AppColorRole.overlay => overlay,
     AppColorRole.shadow => shadow,
     AppColorRole.menuBackground => menuBackground,
@@ -178,6 +184,7 @@ class AppColors {
     onDanger: role == AppColorRole.onDanger ? color : onDanger,
     border: role == AppColorRole.border ? color : border,
     borderSubtle: role == AppColorRole.borderSubtle ? color : borderSubtle,
+    separator: role == AppColorRole.separator ? color : separator,
     overlay: role == AppColorRole.overlay ? color : overlay,
     shadow: role == AppColorRole.shadow ? color : shadow,
     menuBackground: role == AppColorRole.menuBackground
@@ -217,6 +224,7 @@ class AppColors {
     onDanger: Color.lerp(a.onDanger, b.onDanger, t)!,
     border: Color.lerp(a.border, b.border, t)!,
     borderSubtle: Color.lerp(a.borderSubtle, b.borderSubtle, t)!,
+    separator: Color.lerp(a.separator, b.separator, t)!,
     overlay: Color.lerp(a.overlay, b.overlay, t)!,
     shadow: Color.lerp(a.shadow, b.shadow, t)!,
     menuBackground: Color.lerp(a.menuBackground, b.menuBackground, t)!,

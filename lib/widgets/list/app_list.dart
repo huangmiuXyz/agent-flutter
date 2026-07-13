@@ -67,7 +67,7 @@ class AppList extends StatelessWidget {
         (size == AppListSize.small
             ? EdgeInsets.zero
             : EdgeInsets.all(custom.spacing.sm));
-    final effectiveGap = itemGap ?? 0;
+    final effectiveGap = itemGap ?? custom.spacing.xs;
 
     return _AppListInheritedSize(
       size: size,
@@ -80,6 +80,7 @@ class AppList extends StatelessWidget {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (int i = 0; i < children.length; i++) ...[
               if (i > 0) SizedBox(height: effectiveGap),
@@ -143,7 +144,7 @@ class AppListGroup extends StatelessWidget {
   /// Visual density. Inherits from parent [AppList] when not set.
   final AppListSize? size;
 
-  /// Whether to show an [AppDivider] above this group.
+  /// Whether to show a separator line above this group.
   final bool showDivider;
 
   const AppListGroup({
@@ -170,45 +171,18 @@ class AppListGroup extends StatelessWidget {
       size: effectiveSize,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Divider before this group
-          if (showDivider)
-            Padding(
-              padding: EdgeInsets.only(bottom: custom.spacing.xs),
-              child: AppDivider(
-                thickness: 1,
-                color: custom.colors.borderSubtle,
-              ),
-            ),
           // Custom header
           ?header,
           // Default header
           if (header == null && title != null)
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: custom.spacing.sm,
-                vertical: isSmall ? custom.spacing.xs : custom.spacing.sm,
-              ),
-              child: Row(
-                children: [
-                  if (icon != null) ...[
-                    AppIcon(
-                      icon!,
-                      size: custom.typography.captionSize,
-                      color: custom.colors.textSecondary,
-                    ),
-                    SizedBox(width: custom.spacing.xs),
-                  ],
-                  Expanded(
-                    child: AppText(
-                      title!,
-                      variant: AppTextVariant.caption,
-                      color: custom.colors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
+            _GroupHeader(
+              icon: icon,
+              title: title!,
+              showDivider: showDivider,
+              isSmall: isSmall,
+              custom: custom,
             ),
           // Group items
           Padding(
@@ -396,5 +370,78 @@ class AppListItem extends HookWidget {
       child = SizedBox(height: fixedHeight, child: child);
     }
     return child;
+  }
+}
+
+/// Internal header widget for [AppListGroup].
+///
+/// When [showDivider] is true, a 1px separator line is rendered at the top
+/// of the header's padding area, so the spacing above and below the title
+/// remains symmetric.
+class _GroupHeader extends StatelessWidget {
+  final String? icon;
+  final String title;
+  final bool showDivider;
+  final bool isSmall;
+  final CustomTheme custom;
+
+  const _GroupHeader({
+    required this.icon,
+    required this.title,
+    required this.showDivider,
+    required this.isSmall,
+    required this.custom,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final vertical = isSmall ? custom.spacing.xs : custom.spacing.sm;
+
+    final titleRow = Row(
+      children: [
+        if (icon != null) ...[
+          AppIcon(
+            icon!,
+            size: custom.typography.captionSize,
+            color: custom.colors.textSecondary,
+          ),
+          SizedBox(width: custom.spacing.xs),
+        ],
+        Expanded(
+          child: AppText(
+            title,
+            variant: AppTextVariant.caption,
+            color: custom.colors.textSecondary,
+          ),
+        ),
+      ],
+    );
+
+    if (!showDivider) {
+      return Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: custom.spacing.sm,
+          vertical: vertical,
+        ),
+        child: titleRow,
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Full-width divider
+        AppDivider(thickness: 1),
+        // Title with symmetric padding
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: custom.spacing.sm,
+            vertical: vertical,
+          ),
+          child: titleRow,
+        ),
+      ],
+    );
   }
 }
