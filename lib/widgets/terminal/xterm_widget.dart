@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/context_menu/context_menu.dart';
 import 'package:agent/widgets/terminal/key_handler.dart';
 import 'package:agent/widgets/terminal/xterm_provider.dart';
 import 'package:agent/widgets/terminal/terminal_palette.dart';
@@ -52,7 +54,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
     // Single reusable handler instance (stateless).
     final deleteHandler = useMemoized(() => DeleteSelectionHandler());
 
-    return ClipRect(
+    final terminalContent = ClipRect(
       child: TerminalView(
         session.terminal,
         controller: session.controller,
@@ -73,6 +75,59 @@ class XtermTerminalWidget extends HookConsumerWidget {
           ref.read(xtermManagerProvider(id).notifier).handleTap(offset);
         },
       ),
+    );
+
+    return MenuArea(
+      builder: (context) {
+        final manager = ref.read(xtermManagerProvider(id).notifier);
+        final hasSelection = session.controller.selection != null;
+        return [
+          MenuItem(
+            label: '复制',
+            icon: LucideIcons.copy,
+            shortcut: 'Ctrl+Shift+C',
+            enabled: hasSelection,
+            onTap: () => manager.copySelection(),
+          ),
+          MenuItem(
+            label: '剪切',
+            icon: LucideIcons.scissors,
+            shortcut: 'Ctrl+Shift+X',
+            enabled: hasSelection,
+            onTap: () => manager.cutSelection(),
+          ),
+          MenuItem(
+            label: '粘贴',
+            icon: LucideIcons.clipboardPaste,
+            shortcut: 'Ctrl+Shift+V',
+            onTap: () => manager.pasteText(),
+          ),
+          MenuItem(
+            label: '粘贴文字',
+            icon: LucideIcons.clipboardType,
+            onTap: () => manager.pasteText(),
+          ),
+          MenuItem(
+            label: '删除',
+            icon: LucideIcons.delete,
+            enabled: hasSelection,
+            onTap: () => manager.deleteSelection(),
+          ),
+          const MenuItem(label: '---'),
+          MenuItem(
+            label: '全选',
+            icon: LucideIcons.checkSquare2,
+            shortcut: 'Ctrl+Shift+A',
+            onTap: () => manager.selectAll(),
+          ),
+          MenuItem(
+            label: '清除',
+            icon: LucideIcons.eraser,
+            onTap: () => manager.clearTerminal(),
+          ),
+        ];
+      },
+      child: terminalContent,
     );
   }
 }

@@ -1,20 +1,18 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-
 import 'package:agent/theme/custom_theme.dart';
 
-// ─────────────────────────────────────────────────────────────
-// ContextMenu — a right-click context menu
-// ─────────────────────────────────────────────────────────────
-
-/// Describes a single item in the context menu.
+// -------------------- 数据模型 --------------------
 class MenuItem {
   final String label;
   final IconData? icon;
   final String? shortcut;
   final bool enabled;
-  final bool selected; // checkmark / toggle state
+  final bool selected;
   final List<MenuItem>? submenu;
   final VoidCallback? onTap;
 
@@ -29,67 +27,72 @@ class MenuItem {
   });
 }
 
-/// Shows a context menu at the given position.
-///
-/// ```dart
-/// ContextMenu.show(
-///   context,
-///   position: position,
-///   entries: [ ... ],
-/// );
-/// ```
+// -------------------- 全局菜单管理 --------------------
 class ContextMenu {
-  static OverlayEntry? _current;
+  static OverlayEntry? _overlayEntry;
 
-  /// Dismiss any visible context menu.
   static void dismiss() {
-    _current?.remove();
-    _current = null;
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
-  /// Show a context menu at [position] (global coordinates).
   static void show(
     BuildContext context, {
     required Offset position,
-    required List<MenuItem> entries,
+    required List<MenuItem> items,
     double? minWidth,
     double? maxHeight,
     VoidCallback? onDismiss,
   }) {
     dismiss();
-
     final overlay = Overlay.of(context, rootOverlay: true);
-    final entry = OverlayEntry(
+    _overlayEntry = OverlayEntry(
       builder: (_) => _MenuOverlay(
         position: position,
+        items: items,
         minWidth: minWidth,
         maxHeight: maxHeight,
-        entries: entries,
         onDismiss: () {
           dismiss();
           onDismiss?.call();
         },
       ),
     );
-    _current = entry;
-    overlay.insert(entry);
+    overlay.insert(_overlayEntry!);
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Internal wrapper — barrier + positioning
-// ─────────────────────────────────────────────────────────────
+// -------------------- 工具：位置修正 --------------------
+Offset _adjustMenuPosition({
+  required Offset mouse,
+  required Size menuSize,
+  required Size screenSize,
+  double margin = 12,
+}) {
+  double dx = mouse.dx;
+  double dy = mouse.dy;
+  if (mouse.dx + menuSize.width > screenSize.width - margin) {
+    dx = mouse.dx - menuSize.width;
+  }
+  if (dx < margin) dx = margin;
+  if (mouse.dy + menuSize.height > screenSize.height - margin) {
+    dy = mouse.dy - menuSize.height;
+  }
+  if (dy < margin) dy = margin;
+  return Offset(dx, dy);
+}
 
+// -------------------- 菜单覆盖层 --------------------
 class _MenuOverlay extends HookWidget {
   final Offset position;
+  final List<MenuItem> items;
   final double? minWidth;
   final double? maxHeight;
-  final List<MenuItem> entries;
   final VoidCallback onDismiss;
 
   const _MenuOverlay({
     required this.position,
-    required this.entries,
+    required this.items,
     required this.onDismiss,
     this.minWidth,
     this.maxHeight,
@@ -97,89 +100,73 @@ class _MenuOverlay extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double margin = 12.0;
-    final menuKey = useMemoized(() => GlobalKey());
-    final pos = useState(Offset.zero);
+    final menuKey = useState(GlobalKey());
+    final offset = useState(Offset.zero);
     final ready = useState(false);
 
     useEffect(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final renderBox =
-            menuKey.currentContext?.findRenderObject() as RenderBox?;
+            menuKey.value.currentContext?.findRenderObject() as RenderBox?;
         if (renderBox == null || !renderBox.hasSize) return;
-
         final size = renderBox.size;
         final viewport = View.of(context);
         final screenSize = viewport.physicalSize / viewport.devicePixelRatio;
-        final mouseX = position.dx;
-        final mouseY = position.dy;
-
-        var dx = mouseX;
-        if (mouseX + size.width > screenSize.width - margin) {
-          dx = mouseX - size.width;
-        }
-        if (dx < margin) {
-          dx = margin;
-        }
-
-        var dy = mouseY;
-        if (mouseY + size.height > screenSize.height - margin) {
-          dy = mouseY - size.height;
-        }
-        if (dy < margin) {
-          dy = margin;
-        }
-
-        pos.value = Offset(dx, dy);
+        offset.value = _adjustMenuPosition(
+          mouse: position,
+          menuSize: size,
+          screenSize: screenSize,
+        );
         ready.value = true;
       });
       return null;
     }, []);
 
-    final panel = _MenuPanel(
-      key: menuKey,
-      entries: entries,
-      minWidth: minWidth,
-      maxHeight: maxHeight,
-      onDismiss: onDismiss,
-    );
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onDismiss,
-      onScaleStart: (_) => onDismiss(),
-      child: Stack(
-        children: [
-          const Positioned.fill(child: SizedBox.expand()),
-          // ready 前：离屏渲染用于测量（不可见，不可交互）
-          // ready 后：定位到计算后的正确位置
-          Positioned(
-            left: ready.value ? pos.value.dx : 0,
-            top: ready.value ? pos.value.dy : -10000,
+    return Stack(
+      children: [
+        // 全屏 dismiss 背景
+        // translucent：自身注册 hit 触发 dismiss，但不吸收事件，
+        // 下层 entry（MenuArea 等）仍能收到右键事件
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => onDismiss(),
+            child: const SizedBox.expand(),
+          ),
+        ),
+        // 菜单面板（在上层，拦截自身区域的事件）
+        Positioned(
+          left: offset.value.dx,
+          top: offset.value.dy,
+          child: Opacity(
+            opacity: ready.value ? 1.0 : 0.0,
             child: Material(
               type: MaterialType.transparency,
-              child: IgnorePointer(ignoring: !ready.value, child: panel),
+              child: _MenuPanel(
+                key: menuKey.value,
+                items: items,
+                minWidth: minWidth,
+                maxHeight: maxHeight,
+                onDismiss: onDismiss,
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// The reusable panel widget
-// ─────────────────────────────────────────────────────────────
-
+// -------------------- 菜单面板（容器） --------------------
 class _MenuPanel extends StatelessWidget {
+  final List<MenuItem> items;
   final double? minWidth;
   final double? maxHeight;
-  final List<MenuItem> entries;
   final VoidCallback onDismiss;
 
   const _MenuPanel({
     super.key,
-    required this.entries,
+    required this.items,
     required this.onDismiss,
     this.minWidth,
     this.maxHeight,
@@ -188,12 +175,12 @@ class _MenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    final effectiveMinWidth = minWidth ?? custom.controlHeightMd * 4;
 
     return IntrinsicWidth(
-      stepWidth: minWidth ?? 200,
+      stepWidth: effectiveMinWidth,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minWidth: minWidth ?? 200,
           maxHeight: maxHeight ?? MediaQuery.of(context).size.height * 0.75,
         ),
         child: Container(
@@ -208,30 +195,21 @@ class _MenuPanel extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: _buildItems(context, custom),
+              children: items.map((item) {
+                if (item.label == '---') {
+                  return _buildSeparator(custom);
+                }
+                return _MenuItemWidget(
+                  item: item,
+                  custom: custom,
+                  onDismiss: onDismiss,
+                );
+              }).toList(),
             ),
           ),
         ),
       ),
     );
-  }
-
-  List<Widget> _buildItems(BuildContext context, CustomTheme custom) {
-    final children = <Widget>[];
-    for (final entry in entries) {
-      if (entry.label == '---') {
-        children.add(_buildSeparator(custom));
-      } else if (entry.submenu != null && entry.submenu!.isNotEmpty) {
-        children.add(
-          _SubmenuItem(entry: entry, custom: custom, onDismiss: onDismiss),
-        );
-      } else {
-        children.add(
-          _MenuItem(entry: entry, custom: custom, onDismiss: onDismiss),
-        );
-      }
-    }
-    return children;
   }
 
   Widget _buildSeparator(CustomTheme custom) {
@@ -246,22 +224,14 @@ class _MenuPanel extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Menu item — compact layout using CustomTheme tokens
-//
-//   Container padding: spacingXs
-//   Hover background uses radiusXs
-//   Content padding: spacingSm horizontal, spacingXs vertical
-//   Shortcut spacing: spacingSm
-// ─────────────────────────────────────────────────────────────
-
-class _MenuItem extends HookWidget {
-  final MenuItem entry;
+// -------------------- 菜单项（支持子菜单） --------------------
+class _MenuItemWidget extends HookWidget {
+  final MenuItem item;
   final CustomTheme custom;
   final VoidCallback onDismiss;
 
-  const _MenuItem({
-    required this.entry,
+  const _MenuItemWidget({
+    required this.item,
     required this.custom,
     required this.onDismiss,
   });
@@ -269,257 +239,158 @@ class _MenuItem extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final hovered = useState(false);
-    final hoverBg = custom.colors.menuHover;
-    final textColor = entry.enabled
-        ? custom.colors.textPrimary
-        : custom.colors.textDisabled;
-    final mutedColor = custom.colors.textSecondary;
-    final iconColor = entry.enabled ? textColor : mutedColor;
+    final submenuOverlay = useRef<OverlayEntry?>(null);
+    final isSubmenu = item.submenu != null && item.submenu!.isNotEmpty;
 
-    final labelStyle = TextStyle(
-      fontSize: custom.fontSizeCaption,
-      color: textColor,
-      fontFamily: custom.fontFamily,
-      fontWeight: FontWeight.w400,
+    useEffect(
+      () =>
+          () => submenuOverlay.value?.remove(),
+      [],
     );
-    final shortcutStyle = TextStyle(
-      fontSize: custom.fontSizeCaption,
-      color: mutedColor,
-      fontFamily: custom.fontFamily,
-    );
-
-    // ── Build children imperatively to avoid Dart collection-if parser issues ──
-    final rowChildren = <Widget>[];
-
-    // Icon or checkmark slot
-    if (entry.selected) {
-      rowChildren.add(
-        Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: Icon(LucideIcons.check, size: 12, color: iconColor),
-        ),
-      );
-    } else if (entry.icon != null) {
-      rowChildren.add(
-        Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: Icon(entry.icon, size: 12, color: iconColor),
-        ),
-      );
-    }
-
-    // Label (pushes shortcut to the right)
-    rowChildren.add(
-      Expanded(
-        child: Text(
-          entry.label,
-          style: labelStyle,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-
-    // Shortcut spacing
-    if (entry.shortcut != null) {
-      rowChildren.add(SizedBox(width: custom.spacingSm));
-      rowChildren.add(Text(entry.shortcut!, style: shortcutStyle));
-    }
-
-    // ── Hover container ──
-    final inner = Container(
-      decoration: BoxDecoration(
-        color: (hovered.value && entry.enabled) ? hoverBg : Colors.transparent,
-        borderRadius: custom.radiusXs,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: custom.spacingSm,
-        vertical: custom.spacingXs,
-      ),
-      child: Row(children: rowChildren),
-    );
-
-    return Semantics(
-      button: true,
-      enabled: entry.enabled,
-      label: entry.label,
-      child: MouseRegion(
-        onEnter: (_) => hovered.value = true,
-        onExit: (_) => hovered.value = false,
-        cursor: entry.enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: GestureDetector(
-          onTap: entry.enabled
-              ? () {
-                  onDismiss();
-                  entry.onTap?.call();
-                }
-              : null,
-          child: inner,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Submenu item — with chevron
-// ─────────────────────────────────────────────────────────────
-
-class _SubmenuItem extends HookWidget {
-  final MenuItem entry;
-  final CustomTheme custom;
-  final VoidCallback onDismiss;
-
-  const _SubmenuItem({
-    required this.entry,
-    required this.custom,
-    required this.onDismiss,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hovered = useState(false);
-    final submenuEntry = useRef<OverlayEntry?>(null);
-
-    useEffect(() {
-      return () => submenuEntry.value?.remove();
-    }, []);
 
     void showSubmenu(BuildContext context) {
-      submenuEntry.value?.remove();
+      if (!isSubmenu || !item.enabled) return;
+      submenuOverlay.value?.remove();
       final renderBox = context.findRenderObject() as RenderBox;
       final position = renderBox.localToGlobal(Offset.zero);
       final overlay = Overlay.of(context, rootOverlay: true);
 
-      submenuEntry.value = OverlayEntry(
+      submenuOverlay.value = OverlayEntry(
         builder: (_) => _MenuOverlay(
           position: Offset(
             position.dx + renderBox.size.width - 4,
             position.dy - 4,
           ),
-          entries: entry.submenu!,
+          items: item.submenu!,
           minWidth: custom.controlHeightMd * 6,
           onDismiss: () {
-            submenuEntry.value?.remove();
-            submenuEntry.value = null;
+            submenuOverlay.value?.remove();
+            submenuOverlay.value = null;
             onDismiss();
           },
         ),
       );
-      overlay.insert(submenuEntry.value!);
+      overlay.insert(submenuOverlay.value!);
     }
 
     final hoverBg = custom.colors.menuHover;
-    final textColor = entry.enabled
+    final textColor = item.enabled
         ? custom.colors.textPrimary
         : custom.colors.textDisabled;
-    final mutedColor = entry.enabled
+    final mutedColor = item.enabled
         ? custom.colors.textSecondary
         : custom.colors.textDisabled;
 
-    final labelStyle = TextStyle(
-      fontSize: custom.fontSizeCaption,
-      color: textColor,
-      fontFamily: custom.fontFamily,
-      fontWeight: FontWeight.w400,
-    );
-
-    final rowChildren = <Widget>[];
-
-    if (entry.icon != null) {
-      rowChildren.add(
+    final children = <Widget>[
+      if (item.selected)
+        Icon(LucideIcons.check, size: 12, color: textColor)
+      else if (item.icon != null)
         Padding(
           padding: const EdgeInsets.only(right: 6),
-          child: Icon(entry.icon, size: 12, color: textColor),
+          child: Icon(item.icon!, size: 12, color: textColor),
         ),
-      );
-    }
-
-    rowChildren.add(
       Expanded(
         child: Text(
-          entry.label,
-          style: labelStyle,
+          item.label,
+          style: TextStyle(
+            fontSize: custom.fontSizeCaption,
+            color: textColor,
+            fontFamily: custom.fontFamily,
+            fontWeight: FontWeight.w400,
+          ),
           overflow: TextOverflow.ellipsis,
         ),
       ),
-    );
+      if (item.shortcut != null) ...[
+        SizedBox(width: custom.spacingSm),
+        Text(
+          item.shortcut!,
+          style: TextStyle(
+            fontSize: custom.fontSizeCaption,
+            color: mutedColor,
+            fontFamily: custom.fontFamily,
+          ),
+        ),
+      ],
+      if (isSubmenu) ...[
+        SizedBox(width: custom.spacingSm),
+        Icon(LucideIcons.chevronRight, size: 10, color: mutedColor),
+      ],
+    ];
 
-    rowChildren.add(SizedBox(width: custom.spacingSm));
-    rowChildren.add(
-      Icon(LucideIcons.chevronRight, size: 10, color: mutedColor),
-    );
-
-    final inner = Container(
-      decoration: BoxDecoration(
-        color: hovered.value && entry.enabled ? hoverBg : Colors.transparent,
-        borderRadius: custom.radiusXs,
+    return Semantics(
+      button: true,
+      enabled: item.enabled,
+      label: item.label,
+      child: MouseRegion(
+        onEnter: (_) {
+          if (!item.enabled) return;
+          hovered.value = true;
+          showSubmenu(context);
+        },
+        onExit: (_) => hovered.value = false,
+        cursor: item.enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        child: GestureDetector(
+          onTap: item.enabled
+              ? () {
+                  onDismiss();
+                  item.onTap?.call();
+                }
+              : null,
+          child: Container(
+            decoration: BoxDecoration(
+              color: hovered.value && item.enabled
+                  ? hoverBg
+                  : Colors.transparent,
+              borderRadius: custom.radiusXs,
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: custom.spacingSm,
+              vertical: custom.spacingXs,
+            ),
+            child: Row(children: children),
+          ),
+        ),
       ),
-      padding: EdgeInsets.symmetric(
-        horizontal: custom.spacingSm,
-        vertical: custom.spacingXs,
-      ),
-      child: Row(children: rowChildren),
-    );
-
-    return MouseRegion(
-      onEnter: (_) {
-        if (!entry.enabled) return;
-        hovered.value = true;
-        showSubmenu(context);
-      },
-      onExit: (_) => hovered.value = false,
-      cursor: entry.enabled
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: inner,
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Convenience wrapper — right-click host
-// ─────────────────────────────────────────────────────────────
-
-/// Wraps a child widget and opens a [ContextMenu] on right-click.
-///
-/// ```dart
-/// MenuArea(
-///   entries: (ctx) => [
-///     const MenuItem(label: 'Copy', shortcut: '⌘C'),
-///   ],
-///   child: MyWidget(),
-/// )
-/// ```
+// -------------------- 便捷区域组件 --------------------
 class MenuArea extends StatelessWidget {
   final Widget child;
-  final List<MenuItem> Function(BuildContext) entries;
+  final List<MenuItem> Function(BuildContext) builder;
 
-  const MenuArea({super.key, required this.child, required this.entries});
+  const MenuArea({super.key, required this.child, required this.builder});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onSecondaryTapDown: (details) {
-        final items = entries(context);
+    // Use Listener for secondary click to bypass the gesture arena entirely.
+    // GestureDetector with deferToChild (default) can lose the right-click
+    // event when TerminalView's internal recognizers claim it first.
+    return Listener(
+      onPointerDown: (event) {
+        if (event.kind != PointerDeviceKind.mouse) return;
+        if (event.buttons != kSecondaryMouseButton) return;
+        final items = builder(context);
         if (items.isEmpty) return;
-        ContextMenu.show(
-          context,
-          position: details.globalPosition,
-          entries: items,
-        );
+        ContextMenu.show(context, position: event.position, items: items);
       },
-      onLongPressStart: (details) {
-        final items = entries(context);
-        if (items.isEmpty) return;
-        ContextMenu.show(
-          context,
-          position: details.globalPosition,
-          entries: items,
-        );
-      },
-      child: child,
+      behavior: HitTestBehavior.translucent,
+      child: GestureDetector(
+        onLongPressStart: (details) {
+          final items = builder(context);
+          if (items.isEmpty) return;
+          ContextMenu.show(
+            context,
+            position: details.globalPosition,
+            items: items,
+          );
+        },
+        child: child,
+      ),
     );
   }
 }

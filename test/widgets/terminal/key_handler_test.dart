@@ -23,6 +23,41 @@ void main() {
       expect(controller.selection, isNull);
       expect(output, ['\x1b[D', '\x7f']);
     });
+
+    test('deletes a multiline selection without deleting trailing text', () {
+      final terminal = Terminal();
+      final controller = TerminalController();
+      final output = <String>[];
+      terminal.resize(5, 24);
+      terminal.onOutput = output.add;
+      terminal.write('abcdefghijXY');
+      terminal.write('\x1b[A');
+      final middleLine = terminal.buffer.absoluteCursorY;
+      controller.setSelection(
+        terminal.buffer.createAnchor(2, middleLine - 1),
+        terminal.buffer.createAnchor(1, middleLine + 1),
+      );
+
+      final handled = DeleteSelectionHandler().handle(terminal, controller);
+
+      expect(handled, isTrue);
+      expect(controller.selection, isNull);
+      expect(output, [
+        '\x1b[C',
+        '\x1b[C',
+        '\x1b[C',
+        '\x1b[C',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+        '\x7f',
+      ]);
+    });
   });
 
   group('MoveCursorHandler', () {

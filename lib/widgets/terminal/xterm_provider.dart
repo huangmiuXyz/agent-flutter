@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:xterm2/xterm.dart';
@@ -95,6 +96,60 @@ class XtermManager extends _$XtermManager {
       return Future.error('Terminal not initialized');
     }
     return runner.execute(command, sendInput: sendInput, timeout: timeout);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Clipboard & Selection
+  // ---------------------------------------------------------------------------
+
+  /// Copies the current selection to the system clipboard.
+  Future<void> copySelection() async {
+    final selection = state.controller.selection;
+    if (selection == null) return;
+    final text = state.terminal.buffer.getText(selection);
+    if (text.isNotEmpty) {
+      await Clipboard.setData(ClipboardData(text: text));
+    }
+  }
+
+  /// Pastes text from the system clipboard into the terminal.
+  Future<void> pasteText() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      state.terminal.paste(text);
+      state.controller.clearSelection();
+    }
+  }
+
+  /// Selects all visible content in the terminal.
+  void selectAll() {
+    final buf = state.terminal.buffer;
+    state.controller.setSelection(
+      buf.createAnchor(0, buf.height - state.terminal.viewHeight),
+      buf.createAnchor(state.terminal.viewWidth, buf.height - 1),
+      mode: SelectionMode.line,
+    );
+  }
+
+  /// Clears the terminal screen by sending a form-feed (Ctrl+L).
+  void clearTerminal() {
+    state.terminal.onOutput?.call('\x0c');
+  }
+
+  /// Cuts the current selection: copies to clipboard then deletes.
+  Future<void> cutSelection() async {
+    await copySelection();
+    _deleteSelection();
+  }
+
+  /// Deletes the current selection without copying to clipboard.
+  void deleteSelection() {
+    _deleteSelection();
+  }
+
+  void _deleteSelection() {
+    DeleteSelectionHandler().handle(state.terminal, state.controller);
   }
 
   // ---------------------------------------------------------------------------

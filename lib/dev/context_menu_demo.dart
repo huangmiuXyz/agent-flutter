@@ -71,7 +71,7 @@ class ContextMenuDemo extends HookWidget {
           _SectionLabel(text: '编辑器上下文菜单', textColor: textColor),
           const SizedBox(height: 8),
           MenuArea(
-            entries: (ctx) => [
+            builder: (ctx) => [
               MenuItem(
                 label: 'Go to Definition',
                 shortcut: 'F12',
@@ -137,7 +137,7 @@ class ContextMenuDemo extends HookWidget {
           _SectionLabel(text: '勾选状态 & 子菜单', textColor: textColor),
           const SizedBox(height: 8),
           MenuArea(
-            entries: (ctx) => [
+            builder: (ctx) => [
               const MenuItem(
                 label: 'Word Wrap',
                 selected: true,
@@ -195,7 +195,7 @@ class ContextMenuDemo extends HookWidget {
           _SectionLabel(text: '项目面板上下文菜单', textColor: textColor),
           const SizedBox(height: 8),
           MenuArea(
-            entries: (ctx) => [
+            builder: (ctx) => [
               const MenuItem(label: 'New File', icon: LucideIcons.filePlus),
               const MenuItem(label: 'New Folder', icon: LucideIcons.folderPlus),
               const MenuItem(label: '---'),

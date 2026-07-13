@@ -12,39 +12,38 @@ class DeleteSelectionHandler {
     if (sel == null) return false;
     controller.clearSelection();
 
-    final cursorY = terminal.buffer.absoluteCursorY;
+    final selection = sel.normalized;
+    final buffer = terminal.buffer;
+
     int count = 0;
-    int tail = -1;
-    for (final seg in sel.normalized.toSegments()) {
-      if (seg.line != cursorY) continue;
-      final start = seg.start ?? 0;
-      final end = seg.end ?? terminal.buffer.viewWidth;
-      final line = terminal.buffer.lines[seg.line];
-      for (int i = start; i < end; i++) {
-        if (line.getCodePoint(i) != 0) {
-          count++;
-          final characterEnd = i + line.getWidth(i);
-          if (characterEnd > tail) tail = characterEnd;
-        }
-      }
-    }
-
-    if (count <= 0 || tail <= 0) return true;
-
-    final cursorX = terminal.buffer.cursorX;
-    final line = terminal.buffer.lines[cursorY];
-    final start = cursorX < tail ? cursorX : tail;
-    final end = cursorX < tail ? tail : cursorX;
-    int cursorSteps = 0;
-    for (int i = start; i < end; i++) {
-      if (line.getCodePoint(i) != 0) cursorSteps++;
-    }
-
-    final movingRight = tail > cursorX;
-    for (int i = 0; i < cursorSteps; i++) {
-      terminal.keyInput(
-        movingRight ? TerminalKey.arrowRight : TerminalKey.arrowLeft,
+    CellOffset? selectionEnd;
+    for (final segment in selection.toSegments()) {
+      if (segment.line < 0 || segment.line >= buffer.height) continue;
+      final line = buffer.lines[segment.line];
+      final start = (segment.start ?? 0).clamp(0, buffer.viewWidth);
+      final end = (segment.end ?? buffer.viewWidth).clamp(
+        start,
+        buffer.viewWidth,
       );
+      for (int x = start; x < end; x++) {
+        if (line.getCodePoint(x) != 0) count++;
+      }
+      selectionEnd = CellOffset(end, segment.line);
+    }
+
+    if (count <= 0 || selectionEnd == null) return true;
+
+    final moveRequest = MoveCursorHandler().createRequest(
+      terminal,
+      selectionEnd,
+    );
+    if (moveRequest != null) {
+      final key = moveRequest.delta > 0
+          ? TerminalKey.arrowRight
+          : TerminalKey.arrowLeft;
+      for (int i = 0; i < moveRequest.delta.abs(); i++) {
+        terminal.keyInput(key);
+      }
     }
     for (int i = 0; i < count; i++) {
       terminal.keyInput(TerminalKey.backspace);
