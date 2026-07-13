@@ -5,6 +5,8 @@ import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/card/app_card.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 
 // -------------------- 数据模型 --------------------
 class MenuItem {
@@ -15,7 +17,9 @@ class MenuItem {
   final bool selected;
   final List<MenuItem>? submenu;
   final VoidCallback? onTap;
+  final bool isSeparator;
 
+  /// Creates a regular menu item.
   const MenuItem({
     required this.label,
     this.icon,
@@ -24,7 +28,18 @@ class MenuItem {
     this.selected = false,
     this.submenu,
     this.onTap,
-  });
+  }) : isSeparator = false;
+
+  /// Creates a menu separator (dividing line).
+  const MenuItem.separator()
+    : label = '---',
+      icon = null,
+      shortcut = null,
+      enabled = false,
+      selected = false,
+      submenu = null,
+      onTap = null,
+      isSeparator = true;
 }
 
 // -------------------- 全局菜单管理 --------------------
@@ -175,50 +190,34 @@ class _MenuPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final effectiveMinWidth = minWidth ?? custom.controlHeightMd * 4;
 
-    return IntrinsicWidth(
-      stepWidth: effectiveMinWidth,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: maxHeight ?? MediaQuery.of(context).size.height * 0.75,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: custom.colors.menuBackground,
-            borderRadius: custom.radii.sm,
-            border: Border.all(color: custom.colors.menuBorder, width: 1),
-            boxShadow: custom.shadows.large,
-          ),
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(custom.spacingXs),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: items.map((item) {
-                if (item.label == '---') {
-                  return _buildSeparator(custom);
-                }
-                return _MenuItemWidget(
-                  item: item,
-                  custom: custom,
-                  onDismiss: onDismiss,
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSeparator(CustomTheme custom) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: custom.spacingXs),
-      child: Container(
-        height: 1,
-        margin: EdgeInsets.symmetric(vertical: custom.spacingXs),
-        color: custom.colors.menuHover,
+    return AppCard(
+      minWidth: minWidth ?? custom.controls.mediumHeight * 4,
+      maxHeight: maxHeight,
+      backgroundColor: custom.colors.menuBackground,
+      border: Border.all(color: custom.colors.menuBorder, width: 1),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: items.map((item) {
+          if (item.isSeparator) {
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: custom.spacing.xs),
+              child: AppDivider(
+                thickness: 1,
+                extent: custom.spacing.xs * 2 + 1,
+                indent: 0,
+                endIndent: 0,
+                color: custom.colors.menuHover,
+              ),
+            );
+          }
+          return _MenuItemWidget(
+            item: item,
+            custom: custom,
+            onDismiss: onDismiss,
+          );
+        }).toList(),
       ),
     );
   }

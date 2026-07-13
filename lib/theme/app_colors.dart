@@ -21,6 +21,8 @@ enum AppColorRole {
   menuBackground,
   menuBorder,
   menuHover,
+  cardBackground,
+  cardBorder,
   success,
   warning,
 }
@@ -48,6 +50,8 @@ class AppColors {
     required this.menuBackground,
     required this.menuBorder,
     required this.menuHover,
+    required this.cardBackground,
+    required this.cardBorder,
     required this.success,
     required this.warning,
   });
@@ -72,6 +76,8 @@ class AppColors {
   final Color menuBackground;
   final Color menuBorder;
   final Color menuHover;
+  final Color cardBackground;
+  final Color cardBorder;
   final Color success;
   final Color warning;
 
@@ -96,6 +102,8 @@ class AppColors {
     menuBackground: Color(0xFFEBEBEC),
     menuBorder: Color(0xFFC9C9CA),
     menuHover: Color(0xFFDFDFE0),
+    cardBackground: Color(0xFFFFFFFF),
+    cardBorder: Color(0xFFE6E6E6),
     success: Color(0xFF198844),
     warning: Color(0xFFC47F00),
   );
@@ -121,6 +129,8 @@ class AppColors {
     menuBackground: Color(0xFF2D2D2D),
     menuBorder: Color(0xFF404040),
     menuHover: Color(0xFF333333),
+    cardBackground: Color(0xFF363636),
+    cardBorder: Color(0xFF49454F),
     success: Color(0xFF4ADE80),
     warning: Color(0xFFFBBF24),
   );
@@ -146,6 +156,8 @@ class AppColors {
     AppColorRole.menuBackground => menuBackground,
     AppColorRole.menuBorder => menuBorder,
     AppColorRole.menuHover => menuHover,
+    AppColorRole.cardBackground => cardBackground,
+    AppColorRole.cardBorder => cardBorder,
     AppColorRole.success => success,
     AppColorRole.warning => warning,
   };
@@ -173,6 +185,10 @@ class AppColors {
         : menuBackground,
     menuBorder: role == AppColorRole.menuBorder ? color : menuBorder,
     menuHover: role == AppColorRole.menuHover ? color : menuHover,
+    cardBackground: role == AppColorRole.cardBackground
+        ? color
+        : cardBackground,
+    cardBorder: role == AppColorRole.cardBorder ? color : cardBorder,
     success: role == AppColorRole.success ? color : success,
     warning: role == AppColorRole.warning ? color : warning,
   );
@@ -206,6 +222,8 @@ class AppColors {
     menuBackground: Color.lerp(a.menuBackground, b.menuBackground, t)!,
     menuBorder: Color.lerp(a.menuBorder, b.menuBorder, t)!,
     menuHover: Color.lerp(a.menuHover, b.menuHover, t)!,
+    cardBackground: Color.lerp(a.cardBackground, b.cardBackground, t)!,
+    cardBorder: Color.lerp(a.cardBorder, b.cardBorder, t)!,
     success: Color.lerp(a.success, b.success, t)!,
     warning: Color.lerp(a.warning, b.warning, t)!,
   );

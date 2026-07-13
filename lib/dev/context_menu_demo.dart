@@ -90,7 +90,7 @@ class ContextMenuDemo extends HookWidget {
                 icon: LucideIcons.search,
                 onTap: () => feedback.value = 'Find All References',
               ),
-              const MenuItem(label: '---'),
+              const MenuItem.separator(),
               MenuItem(
                 label: 'Rename Symbol',
                 shortcut: 'F2',
@@ -109,7 +109,7 @@ class ContextMenuDemo extends HookWidget {
                 icon: LucideIcons.lightbulb,
                 onTap: () => feedback.value = 'Show Code Actions',
               ),
-              const MenuItem(label: '---'),
+              const MenuItem.separator(),
               MenuItem(
                 label: 'Cut',
                 shortcut: '\u2318X',
@@ -153,7 +153,7 @@ class ContextMenuDemo extends HookWidget {
                 selected: true,
                 icon: LucideIcons.hash,
               ),
-              const MenuItem(label: '---'),
+              const MenuItem.separator(),
               MenuItem(
                 label: 'Syntax Highlighting',
                 icon: LucideIcons.palette,
@@ -162,7 +162,7 @@ class ContextMenuDemo extends HookWidget {
                   const MenuItem(label: 'Rust', selected: false),
                   const MenuItem(label: 'Python', selected: false),
                   const MenuItem(label: 'TypeScript', selected: false),
-                  const MenuItem(label: '---'),
+                  const MenuItem.separator(),
                   const MenuItem(
                     label: 'Disable',
                     selected: false,
@@ -198,7 +198,7 @@ class ContextMenuDemo extends HookWidget {
             builder: (ctx) => [
               const MenuItem(label: 'New File', icon: LucideIcons.filePlus),
               const MenuItem(label: 'New Folder', icon: LucideIcons.folderPlus),
-              const MenuItem(label: '---'),
+              const MenuItem.separator(),
               const MenuItem(
                 label: 'Cut',
                 shortcut: '\u2318X',
@@ -206,14 +206,14 @@ class ContextMenuDemo extends HookWidget {
               ),
               const MenuItem(label: 'Copy', shortcut: '\u2318C'),
               const MenuItem(label: 'Paste', shortcut: '\u2318V'),
-              const MenuItem(label: '---'),
+              const MenuItem.separator(),
               const MenuItem(label: 'Rename', icon: LucideIcons.pencil),
               const MenuItem(
                 label: 'Delete',
                 icon: LucideIcons.trash2,
                 enabled: false,
               ),
-              const MenuItem(label: '---'),
+              const MenuItem.separator(),
               MenuItem(
                 label: 'Reveal in File Manager',
                 icon: LucideIcons.folderOpen,

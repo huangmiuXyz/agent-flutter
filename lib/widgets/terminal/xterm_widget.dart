@@ -113,7 +113,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
             enabled: hasSelection,
             onTap: () => manager.deleteSelection(),
           ),
-          const MenuItem(label: '---'),
+          const MenuItem.separator(),
           MenuItem(
             label: '全选',
             icon: LucideIcons.checkSquare2,
