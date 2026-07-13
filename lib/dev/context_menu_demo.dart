@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/context_menu/context_menu.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// A demo section that showcases the Zed-style context menu.
 class ContextMenuDemo extends HookWidget {
@@ -32,21 +33,12 @@ class ContextMenuDemo extends HookWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── Title ──
-          Text(
-            'Zed 右键菜单',
-            style: TextStyle(
-              fontSize: custom.typography.titleSize,
-              color: textColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          AppText('Zed 右键菜单', variant: AppTextVariant.title, color: textColor),
           const SizedBox(height: 4),
-          Text(
+          AppText(
             '右键或长按任意区域，体验 Zed IDE 风格的上下文菜单',
-            style: TextStyle(
-              fontSize: custom.typography.captionSize,
-              color: mutedColor,
-            ),
+            variant: AppTextVariant.caption,
+            color: mutedColor,
           ),
           const SizedBox(height: 20),
 
@@ -61,10 +53,7 @@ class ContextMenuDemo extends HookWidget {
                     : const Color(0xFFEBEBEC),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(
-                '选中: ${feedback.value}',
-                style: TextStyle(fontSize: 13, color: textColor),
-              ),
+              child: AppText('选中: ${feedback.value}', color: textColor),
             ),
 
           // ── 示例1: 编辑器右键菜单 ──
@@ -243,14 +232,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 14,
-        color: textColor,
-        fontWeight: FontWeight.w500,
-      ),
-    );
+    return AppText(text, variant: AppTextVariant.body, color: textColor);
   }
 }
 
@@ -310,13 +292,9 @@ class _MockCodeEditor extends StatelessWidget {
               children: List.generate(lines.length, (i) {
                 return SizedBox(
                   height: 22,
-                  child: Text(
+                  child: AppText(
                     '${i + 1}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: lineNumColor,
-                      fontFamily: custom.typography.fontFamily,
-                    ),
+                    style: TextStyle(fontSize: 12, color: lineNumColor),
                   ),
                 );
               }),
@@ -332,12 +310,11 @@ class _MockCodeEditor extends StatelessWidget {
                 children: lines.map((line) {
                   return SizedBox(
                     height: 22,
-                    child: Text(
+                    child: AppText(
                       line,
                       style: TextStyle(
                         fontSize: 13,
                         color: textColor,
-                        fontFamily: 'JetBrainsMono',
                         height: 1.2,
                       ),
                     ),
@@ -383,7 +360,7 @@ class _DemoCard extends StatelessWidget {
         children: [
           Icon(LucideIcons.mousePointer2, size: 16, color: textColor),
           const SizedBox(width: 8),
-          Text(message, style: TextStyle(fontSize: 13, color: textColor)),
+          AppText(message, color: textColor),
         ],
       ),
     );

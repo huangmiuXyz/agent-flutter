@@ -68,10 +68,8 @@ class ExecutePanel extends HookConsumerWidget {
                 Expanded(
                   child: CallbackShortcuts(
                     bindings: {
-                      SingleActivator(
-                        LogicalKeyboardKey.enter,
-                        control: true,
-                      ): execute,
+                      SingleActivator(LogicalKeyboardKey.enter, control: true):
+                          execute,
                     },
                     child: Focus(
                       child: TextField(
@@ -80,7 +78,6 @@ class ExecutePanel extends HookConsumerWidget {
                         maxLines: 4,
                         minLines: 1,
                         style: TextStyle(
-                          fontFamily: 'JetBrainsMono',
                           fontSize: custom.typography.captionSize,
                           color: custom.colors.textPrimary,
                         ),
@@ -98,7 +95,9 @@ class ExecutePanel extends HookConsumerWidget {
                           filled: true,
                           fillColor: custom.colors.panel,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(custom.radii.sm.topLeft.x),
+                            borderRadius: BorderRadius.circular(
+                              custom.radii.sm.topLeft.x,
+                            ),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -111,18 +110,14 @@ class ExecutePanel extends HookConsumerWidget {
                   icon: 'square',
                   text: 'Ctrl+C',
                   onPressed: sendSigint,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  style: ButtonStyle(visualDensity: VisualDensity.compact),
                 ),
                 SizedBox(width: custom.spacing.sm),
                 AppButton(
                   text: '执行',
                   disabled: running.value,
                   onPressed: execute,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  style: ButtonStyle(visualDensity: VisualDensity.compact),
                 ),
               ],
             ),
@@ -132,26 +127,23 @@ class ExecutePanel extends HookConsumerWidget {
               color: custom.colors.panel,
               padding: EdgeInsets.all(custom.spacing.sm),
               child: switch ((output.value, running.value)) {
-                (final out, false) when out.isEmpty =>
-                  Center(
-                    child: AppText(
-                      '输入命令后点击执行',
-                      variant: AppTextVariant.caption,
-                      color: custom.colors.textSecondary,
+                (final out, false) when out.isEmpty => Center(
+                  child: AppText(
+                    '输入命令后点击执行',
+                    variant: AppTextVariant.caption,
+                    color: custom.colors.textSecondary,
+                  ),
+                ),
+                (final out, final run) => SingleChildScrollView(
+                  child: SelectableText(
+                    run ? '运行中... $out' : out,
+                    style: TextStyle(
+                      fontSize: custom.typography.captionSize,
+                      color: custom.colors.textPrimary,
+                      height: 1.4,
                     ),
                   ),
-                (final out, final run) =>
-                  SingleChildScrollView(
-                    child: SelectableText(
-                      run ? '运行中... $out' : out,
-                      style: TextStyle(
-                        fontFamily: 'JetBrainsMono',
-                        fontSize: custom.typography.captionSize,
-                        color: custom.colors.textPrimary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
+                ),
               },
             ),
           ),

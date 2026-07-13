@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:agent/widgets/text/app_text.dart';
+
 /// 一次异常记录的帧数据
 class _FrameSample {
   final DateTime time;
@@ -110,8 +112,8 @@ class FpsMonitor extends HookWidget {
             onPressed: () => open.value = !open.value,
             backgroundColor: color,
             foregroundColor: Colors.black87,
-            child: Text(
-              '${fps.value.toStringAsFixed(0)}',
+            child: AppText(
+              fps.value.toStringAsFixed(0),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
@@ -160,7 +162,7 @@ class FpsMonitor extends HookWidget {
                       padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
                       child: Row(
                         children: [
-                          const Text(
+                          const AppText(
                             '性能监视',
                             style: TextStyle(
                               fontSize: 13,
@@ -177,7 +179,7 @@ class FpsMonitor extends HookWidget {
                               size: 14,
                               color: Colors.white38,
                             ),
-                            label: const Text(
+                            label: const AppText(
                               '复制日志',
                               style: TextStyle(
                                 fontSize: 11,
@@ -238,7 +240,7 @@ class FpsMonitor extends HookWidget {
                     // 异常记录
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
+                      child: AppText(
                         history.hasAnomaly ? '掉帧记录' : '暂无异常',
                         style: TextStyle(
                           fontSize: 11,
@@ -266,11 +268,10 @@ class FpsMonitor extends HookWidget {
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 2,
                                   ),
-                                  child: Text(
+                                  child: AppText(
                                     s.formatted,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontFamily: 'monospace',
                                       color: isBad
                                           ? const Color(0xFFF87171)
                                           : Colors.white54,
@@ -280,7 +281,7 @@ class FpsMonitor extends HookWidget {
                               },
                             )
                           : const Center(
-                              child: Text(
+                              child: AppText(
                                 '性能正常',
                                 style: TextStyle(
                                   fontSize: 12,
@@ -302,18 +303,17 @@ class FpsMonitor extends HookWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        AppText(
           label,
           style: const TextStyle(fontSize: 10, color: Colors.white38),
         ),
         const SizedBox(height: 2),
-        Text(
+        AppText(
           value,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: color,
-            fontFamily: 'monospace',
           ),
         ),
       ],

@@ -2,7 +2,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-const String defaultFontFamily = 'JetBrainsMono';
+const String? defaultFontFamily = null;
 
 @immutable
 class AppSpacing {
@@ -91,7 +91,7 @@ class AppTypography {
     this.bodyWeight = FontWeight.w400,
   });
 
-  final String fontFamily;
+  final String? fontFamily;
   final double captionSize;
   final double bodySize;
   final double subtitleSize;
@@ -100,7 +100,7 @@ class AppTypography {
   final double heading1Size;
   final FontWeight bodyWeight;
 
-  String get effectiveFontFamily => fontFamily;
+  String? get effectiveFontFamily => fontFamily;
 
   AppTypography copyWith({FontWeight? bodyWeight}) => AppTypography(
     fontFamily: fontFamily,
