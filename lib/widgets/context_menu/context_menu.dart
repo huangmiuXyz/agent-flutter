@@ -5,20 +5,20 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:agent/theme/custom_theme.dart';
 
 // ─────────────────────────────────────────────────────────────
-// ZedContextMenu — a right-click context menu in Zed IDE style
+// ContextMenu — a right-click context menu
 // ─────────────────────────────────────────────────────────────
 
 /// Describes a single item in the context menu.
-class ZedContextMenuEntry {
+class MenuItem {
   final String label;
   final IconData? icon;
   final String? shortcut;
   final bool enabled;
   final bool selected; // checkmark / toggle state
-  final List<ZedContextMenuEntry>? submenu;
+  final List<MenuItem>? submenu;
   final VoidCallback? onTap;
 
-  const ZedContextMenuEntry({
+  const MenuItem({
     required this.label,
     this.icon,
     this.shortcut,
@@ -29,19 +29,19 @@ class ZedContextMenuEntry {
   });
 }
 
-/// Shows a Zed-style context menu at the given position.
+/// Shows a context menu at the given position.
 ///
 /// ```dart
-/// ZedContextMenu.show(
+/// ContextMenu.show(
 ///   context,
 ///   position: position,
 ///   entries: [ ... ],
 /// );
 /// ```
-class ZedContextMenu {
+class ContextMenu {
   static OverlayEntry? _current;
 
-  /// Dismiss any visible Zed context menu.
+  /// Dismiss any visible context menu.
   static void dismiss() {
     _current?.remove();
     _current = null;
@@ -51,7 +51,7 @@ class ZedContextMenu {
   static void show(
     BuildContext context, {
     required Offset position,
-    required List<ZedContextMenuEntry> entries,
+    required List<MenuItem> entries,
     double? minWidth,
     double? maxHeight,
     VoidCallback? onDismiss,
@@ -60,7 +60,7 @@ class ZedContextMenu {
 
     final overlay = Overlay.of(context, rootOverlay: true);
     final entry = OverlayEntry(
-      builder: (_) => _ZedContextMenuWrapper(
+      builder: (_) => _MenuOverlay(
         position: position,
         minWidth: minWidth,
         maxHeight: maxHeight,
@@ -80,14 +80,14 @@ class ZedContextMenu {
 // Internal wrapper — barrier + positioning
 // ─────────────────────────────────────────────────────────────
 
-class _ZedContextMenuWrapper extends HookWidget {
+class _MenuOverlay extends HookWidget {
   final Offset position;
   final double? minWidth;
   final double? maxHeight;
-  final List<ZedContextMenuEntry> entries;
+  final List<MenuItem> entries;
   final VoidCallback onDismiss;
 
-  const _ZedContextMenuWrapper({
+  const _MenuOverlay({
     required this.position,
     required this.entries,
     required this.onDismiss,
@@ -136,7 +136,7 @@ class _ZedContextMenuWrapper extends HookWidget {
       return null;
     }, []);
 
-    final panel = _ZedContextMenuPanel(
+    final panel = _MenuPanel(
       key: menuKey,
       entries: entries,
       minWidth: minWidth,
@@ -171,13 +171,13 @@ class _ZedContextMenuWrapper extends HookWidget {
 // The reusable panel widget
 // ─────────────────────────────────────────────────────────────
 
-class _ZedContextMenuPanel extends StatelessWidget {
-  final List<ZedContextMenuEntry> entries;
+class _MenuPanel extends StatelessWidget {
   final double? minWidth;
   final double? maxHeight;
+  final List<MenuItem> entries;
   final VoidCallback onDismiss;
 
-  const _ZedContextMenuPanel({
+  const _MenuPanel({
     super.key,
     required this.entries,
     required this.onDismiss,
@@ -256,7 +256,7 @@ class _ZedContextMenuPanel extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────
 
 class _MenuItem extends HookWidget {
-  final ZedContextMenuEntry entry;
+  final MenuItem entry;
   final CustomTheme custom;
   final VoidCallback onDismiss;
 
@@ -367,7 +367,7 @@ class _MenuItem extends HookWidget {
 // ─────────────────────────────────────────────────────────────
 
 class _SubmenuItem extends HookWidget {
-  final ZedContextMenuEntry entry;
+  final MenuItem entry;
   final CustomTheme custom;
   final VoidCallback onDismiss;
 
@@ -393,7 +393,7 @@ class _SubmenuItem extends HookWidget {
       final overlay = Overlay.of(context, rootOverlay: true);
 
       submenuEntry.value = OverlayEntry(
-        builder: (_) => _ZedContextMenuWrapper(
+        builder: (_) => _MenuOverlay(
           position: Offset(
             position.dx + renderBox.size.width - 4,
             position.dy - 4,
@@ -482,25 +482,21 @@ class _SubmenuItem extends HookWidget {
 // Convenience wrapper — right-click host
 // ─────────────────────────────────────────────────────────────
 
-/// Wraps a child widget and opens a [ZedContextMenu] on right-click.
+/// Wraps a child widget and opens a [ContextMenu] on right-click.
 ///
 /// ```dart
-/// ZedContextMenuHost(
+/// MenuArea(
 ///   entries: (ctx) => [
-///     const ZedContextMenuEntry(label: 'Copy', shortcut: '⌘C'),
+///     const MenuItem(label: 'Copy', shortcut: '⌘C'),
 ///   ],
 ///   child: MyWidget(),
 /// )
 /// ```
-class ZedContextMenuHost extends StatelessWidget {
+class MenuArea extends StatelessWidget {
   final Widget child;
-  final List<ZedContextMenuEntry> Function(BuildContext) entries;
+  final List<MenuItem> Function(BuildContext) entries;
 
-  const ZedContextMenuHost({
-    super.key,
-    required this.child,
-    required this.entries,
-  });
+  const MenuArea({super.key, required this.child, required this.entries});
 
   @override
   Widget build(BuildContext context) {
@@ -508,7 +504,7 @@ class ZedContextMenuHost extends StatelessWidget {
       onSecondaryTapDown: (details) {
         final items = entries(context);
         if (items.isEmpty) return;
-        ZedContextMenu.show(
+        ContextMenu.show(
           context,
           position: details.globalPosition,
           entries: items,
@@ -517,7 +513,7 @@ class ZedContextMenuHost extends StatelessWidget {
       onLongPressStart: (details) {
         final items = entries(context);
         if (items.isEmpty) return;
-        ZedContextMenu.show(
+        ContextMenu.show(
           context,
           position: details.globalPosition,
           entries: items,

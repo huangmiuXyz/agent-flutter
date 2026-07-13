@@ -3,7 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/context_menu/zed_context_menu.dart';
+import 'package:agent/widgets/context_menu/context_menu.dart';
 
 /// A demo section that showcases the Zed-style context menu.
 class ContextMenuDemo extends HookWidget {
@@ -70,62 +70,58 @@ class ContextMenuDemo extends HookWidget {
           // ── 示例1: 编辑器右键菜单 ──
           _SectionLabel(text: '编辑器上下文菜单', textColor: textColor),
           const SizedBox(height: 8),
-          ZedContextMenuHost(
+          MenuArea(
             entries: (ctx) => [
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Go to Definition',
                 shortcut: 'F12',
                 icon: LucideIcons.arrowRight,
                 onTap: () => feedback.value = 'Go to Definition',
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Go to Declaration',
                 shortcut: '\u2325F12',
                 icon: LucideIcons.arrowUpRight,
                 onTap: () => feedback.value = 'Go to Declaration',
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Find All References',
                 shortcut: '\u21E7F12',
                 icon: LucideIcons.search,
                 onTap: () => feedback.value = 'Find All References',
               ),
-              const ZedContextMenuEntry(label: '---'),
-              ZedContextMenuEntry(
+              const MenuItem(label: '---'),
+              MenuItem(
                 label: 'Rename Symbol',
                 shortcut: 'F2',
                 icon: LucideIcons.pencil,
                 onTap: () => feedback.value = 'Rename Symbol',
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Format Buffer',
                 shortcut: '\u21E7\u2325F',
                 icon: LucideIcons.indentIncrease,
                 onTap: () => feedback.value = 'Format Buffer',
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Show Code Actions',
                 shortcut: '\u2318.',
                 icon: LucideIcons.lightbulb,
                 onTap: () => feedback.value = 'Show Code Actions',
               ),
-              const ZedContextMenuEntry(label: '---'),
-              ZedContextMenuEntry(
+              const MenuItem(label: '---'),
+              MenuItem(
                 label: 'Cut',
                 shortcut: '\u2318X',
                 icon: LucideIcons.scissors,
                 onTap: () => feedback.value = 'Cut',
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Copy',
                 shortcut: '\u2318C',
                 onTap: () => feedback.value = 'Copy',
               ),
-              ZedContextMenuEntry(
-                label: 'Paste',
-                shortcut: '\u2318V',
-                enabled: false,
-              ),
+              MenuItem(label: 'Paste', shortcut: '\u2318V', enabled: false),
             ],
             child: _MockCodeEditor(
               isDark: isDark,
@@ -140,53 +136,47 @@ class ContextMenuDemo extends HookWidget {
           // ── 示例2: 勾选与子菜单 ──
           _SectionLabel(text: '勾选状态 & 子菜单', textColor: textColor),
           const SizedBox(height: 8),
-          ZedContextMenuHost(
+          MenuArea(
             entries: (ctx) => [
-              const ZedContextMenuEntry(
+              const MenuItem(
                 label: 'Word Wrap',
                 selected: true,
                 icon: LucideIcons.wrapText,
               ),
-              const ZedContextMenuEntry(
+              const MenuItem(
                 label: 'Show Indent Guides',
                 selected: false,
                 icon: LucideIcons.alignJustify,
               ),
-              const ZedContextMenuEntry(
+              const MenuItem(
                 label: 'Show Line Numbers',
                 selected: true,
                 icon: LucideIcons.hash,
               ),
-              const ZedContextMenuEntry(label: '---'),
-              ZedContextMenuEntry(
+              const MenuItem(label: '---'),
+              MenuItem(
                 label: 'Syntax Highlighting',
                 icon: LucideIcons.palette,
                 submenu: [
-                  const ZedContextMenuEntry(label: 'Automatic', selected: true),
-                  const ZedContextMenuEntry(label: 'Rust', selected: false),
-                  const ZedContextMenuEntry(label: 'Python', selected: false),
-                  const ZedContextMenuEntry(
-                    label: 'TypeScript',
-                    selected: false,
-                  ),
-                  const ZedContextMenuEntry(label: '---'),
-                  const ZedContextMenuEntry(
+                  const MenuItem(label: 'Automatic', selected: true),
+                  const MenuItem(label: 'Rust', selected: false),
+                  const MenuItem(label: 'Python', selected: false),
+                  const MenuItem(label: 'TypeScript', selected: false),
+                  const MenuItem(label: '---'),
+                  const MenuItem(
                     label: 'Disable',
                     selected: false,
                     enabled: false,
                   ),
                 ],
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Encoding',
                 icon: LucideIcons.fileCode,
                 submenu: [
-                  const ZedContextMenuEntry(label: 'UTF-8', selected: true),
-                  const ZedContextMenuEntry(label: 'UTF-16', selected: false),
-                  const ZedContextMenuEntry(
-                    label: 'ISO-8859-1',
-                    selected: false,
-                  ),
+                  const MenuItem(label: 'UTF-8', selected: true),
+                  const MenuItem(label: 'UTF-16', selected: false),
+                  const MenuItem(label: 'ISO-8859-1', selected: false),
                 ],
               ),
             ],
@@ -204,41 +194,32 @@ class ContextMenuDemo extends HookWidget {
           // ── 示例3: 项目管理器 ──
           _SectionLabel(text: '项目面板上下文菜单', textColor: textColor),
           const SizedBox(height: 8),
-          ZedContextMenuHost(
+          MenuArea(
             entries: (ctx) => [
-              const ZedContextMenuEntry(
-                label: 'New File',
-                icon: LucideIcons.filePlus,
-              ),
-              const ZedContextMenuEntry(
-                label: 'New Folder',
-                icon: LucideIcons.folderPlus,
-              ),
-              const ZedContextMenuEntry(label: '---'),
-              const ZedContextMenuEntry(
+              const MenuItem(label: 'New File', icon: LucideIcons.filePlus),
+              const MenuItem(label: 'New Folder', icon: LucideIcons.folderPlus),
+              const MenuItem(label: '---'),
+              const MenuItem(
                 label: 'Cut',
                 shortcut: '\u2318X',
                 icon: LucideIcons.scissors,
               ),
-              const ZedContextMenuEntry(label: 'Copy', shortcut: '\u2318C'),
-              const ZedContextMenuEntry(label: 'Paste', shortcut: '\u2318V'),
-              const ZedContextMenuEntry(label: '---'),
-              const ZedContextMenuEntry(
-                label: 'Rename',
-                icon: LucideIcons.pencil,
-              ),
-              const ZedContextMenuEntry(
+              const MenuItem(label: 'Copy', shortcut: '\u2318C'),
+              const MenuItem(label: 'Paste', shortcut: '\u2318V'),
+              const MenuItem(label: '---'),
+              const MenuItem(label: 'Rename', icon: LucideIcons.pencil),
+              const MenuItem(
                 label: 'Delete',
                 icon: LucideIcons.trash2,
                 enabled: false,
               ),
-              const ZedContextMenuEntry(label: '---'),
-              ZedContextMenuEntry(
+              const MenuItem(label: '---'),
+              MenuItem(
                 label: 'Reveal in File Manager',
                 icon: LucideIcons.folderOpen,
                 onTap: () => feedback.value = 'Reveal in File Manager',
               ),
-              ZedContextMenuEntry(
+              MenuItem(
                 label: 'Open in Terminal',
                 icon: LucideIcons.terminal,
                 onTap: () => feedback.value = 'Open in Terminal',
