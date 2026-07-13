@@ -45,9 +45,10 @@ class XtermTerminalWidget extends HookConsumerWidget {
     }, [visible, id]);
 
     final theme = ref.watch(xtermThemeProvider);
+    // 终端必须使用等宽字体
     final textStyle = TerminalStyle(
       fontSize: custom.typography.bodySize,
-      fontFamily: custom.typography.effectiveFontFamily ?? 'monospace',
+      fontFamily: 'JetBrainsMono',
     );
 
     // Single reusable handler instance (stateless).

@@ -15,70 +15,7 @@ import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/context_menu_demo.dart';
 import 'package:agent/dev/fps_monitor.dart';
 import 'package:agent/dev/grouped_list_demo.dart';
-
-class _VSCodeSplitView extends HookWidget {
-  const _VSCodeSplitView({required this.left, required this.right});
-
-  final Widget left;
-  final Widget right;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = useState(256.0);
-    final startX = useState(0.0);
-    final startSize = useState(0.0);
-    final hovering = useState(false);
-    final dragging = useState(false);
-
-    return Stack(
-      children: [
-        Row(
-          children: [
-            SizedBox(width: size.value, child: left),
-            Expanded(child: right),
-          ],
-        ),
-        Positioned(
-          left: size.value - 5,
-          top: 0,
-          bottom: 0,
-          width: 10,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: (d) {
-              startX.value = d.globalPosition.dx;
-              startSize.value = size.value;
-              dragging.value = true;
-            },
-            onHorizontalDragEnd: (_) => dragging.value = false,
-            onHorizontalDragUpdate: (d) {
-              size.value =
-                  (startSize.value + d.globalPosition.dx - startX.value).clamp(
-                    180,
-                    600,
-                  );
-            },
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeLeftRight,
-              onEnter: (_) => hovering.value = true,
-              onExit: (_) => hovering.value = false,
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  curve: Curves.easeOut,
-                  width: 4,
-                  color: (hovering.value || dragging.value)
-                      ? const Color(0xFF007FD4)
-                      : Colors.transparent,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+import 'package:agent/widgets/resizebox/resizebox.dart';
 
 class DemoPage extends HookConsumerWidget {
   const DemoPage({super.key});
@@ -93,8 +30,8 @@ class DemoPage extends HookConsumerWidget {
     return Stack(
       children: [
         Positioned.fill(
-          child: _VSCodeSplitView(
-            left: Container(
+          child: ResizeBox(
+            child: Container(
               decoration: BoxDecoration(
                 color: custom.colors.panel,
                 border: Border(
@@ -171,7 +108,7 @@ class DemoPage extends HookConsumerWidget {
                 ],
               ),
             ),
-            right: ColoredBox(
+            other: ColoredBox(
               color: custom.colors.background,
               child: IndexedStack(
                 index: selectedIndex.value,
