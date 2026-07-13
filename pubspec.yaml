@@ -34,35 +34,7 @@ dev_dependencies:
   freezed: ^3.0.0
 
 flutter:
-  uses-material-design: true
   fonts:
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf
-          weight: 700
-    - family: JetBrainsMonoThin
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Thin.ttf
-    - family: JetBrainsMonoExtraLight
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-ExtraLight.ttf
-    - family: JetBrainsMonoLight
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Light.ttf
-    - family: JetBrainsMonoRegular
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
-    - family: JetBrainsMonoMedium
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Medium.ttf
-    - family: JetBrainsMonoSemiBold
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-SemiBold.ttf
-    - family: JetBrainsMonoBold
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf
-    - family: JetBrainsMonoExtraBold
-      fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-ExtraBold.ttf

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -118,7 +119,7 @@ class PerformanceMonitor extends HookConsumerWidget {
 
         // FPS
         _MetricCard(
-          icon: Icons.speed,
+          icon: LucideIcons.gauge,
           label: 'FPS',
           value: fps.value.toStringAsFixed(1),
           unit: 'fps',
@@ -129,7 +130,7 @@ class PerformanceMonitor extends HookConsumerWidget {
 
         // Frame time
         _MetricCard(
-          icon: Icons.timer_outlined,
+          icon: LucideIcons.timer,
           label: '帧耗时',
           value: frameTime.value.toStringAsFixed(1),
           unit: 'ms',
@@ -141,7 +142,7 @@ class PerformanceMonitor extends HookConsumerWidget {
         // Memory usage (only when available)
         if (memUsed.value > 0)
           _MetricCard(
-            icon: Icons.memory,
+            icon: LucideIcons.hardDrive,
             label: '内存使用',
             value: '${memUsed.value}',
             unit: 'MB',

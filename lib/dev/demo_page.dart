@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
@@ -195,7 +196,10 @@ class DemoPage extends HookConsumerWidget {
             onPressed: () => showEditor.value = !showEditor.value,
             backgroundColor: custom.colors.accent,
             foregroundColor: custom.colors.onAccent,
-            child: Icon(Icons.palette, size: custom.typography.subtitleSize),
+            child: Icon(
+              LucideIcons.palette,
+              size: custom.typography.subtitleSize,
+            ),
           ),
         ),
         // Backdrop
@@ -224,7 +228,7 @@ class DemoPage extends HookConsumerWidget {
                         const Spacer(),
                         IconButton(
                           icon: Icon(
-                            Icons.close,
+                            LucideIcons.x,
                             size: custom.typography.titleSize,
                             color: custom.colors.textSecondary,
                           ),

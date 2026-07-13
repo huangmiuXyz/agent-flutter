@@ -2,17 +2,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-String? fontWeightToFamily(FontWeight weight) => switch (weight) {
-  FontWeight.w100 => 'JetBrainsMonoThin',
-  FontWeight.w200 => 'JetBrainsMonoExtraLight',
-  FontWeight.w300 => 'JetBrainsMonoLight',
-  FontWeight.w400 => 'JetBrainsMonoRegular',
-  FontWeight.w500 => 'JetBrainsMonoMedium',
-  FontWeight.w600 => 'JetBrainsMonoSemiBold',
-  FontWeight.w700 => 'JetBrainsMonoBold',
-  FontWeight.w800 => 'JetBrainsMonoExtraBold',
-  _ => null,
-};
+const String defaultFontFamily = 'JetBrainsMono';
 
 @immutable
 class AppSpacing {
@@ -91,7 +81,7 @@ class AppControls {
 @immutable
 class AppTypography {
   const AppTypography({
-    this.fontFamily = 'JetBrainsMono',
+    this.fontFamily = defaultFontFamily,
     this.captionSize = 12,
     this.bodySize = 14,
     this.subtitleSize = 16,
@@ -110,8 +100,7 @@ class AppTypography {
   final double heading1Size;
   final FontWeight bodyWeight;
 
-  String get effectiveFontFamily =>
-      fontWeightToFamily(bodyWeight) ?? fontFamily;
+  String get effectiveFontFamily => fontFamily;
 
   AppTypography copyWith({FontWeight? bodyWeight}) => AppTypography(
     fontFamily: fontFamily,
@@ -128,7 +117,7 @@ class AppTypography {
     final effectiveWeight = weight ?? bodyWeight;
     return TextStyle(
       color: color,
-      fontFamily: fontWeightToFamily(effectiveWeight) ?? fontFamily,
+      fontFamily: fontFamily,
       fontSize: size,
       fontWeight: effectiveWeight,
     );

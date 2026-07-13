@@ -152,7 +152,7 @@ class AppIcon extends ConsumerWidget {
     final icon =
         _registry[name]?[thickness] ??
         _registry[name]?[0] ??
-        Icons.error_outline;
+        LucideIcons.helpCircle;
     return Icon(
       icon,
       size: size,
