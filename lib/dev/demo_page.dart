@@ -14,6 +14,7 @@ import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/context_menu_demo.dart';
 import 'package:agent/dev/fps_monitor.dart';
+import 'package:agent/dev/grouped_list_demo.dart';
 
 class _VSCodeSplitView extends HookWidget {
   const _VSCodeSplitView({required this.left, required this.right});
@@ -129,6 +130,12 @@ class DemoPage extends HookConsumerWidget {
                         active: selectedIndex.value == 3,
                         onTap: () => selectedIndex.value = 3,
                       ),
+                      AppListItem(
+                        icon: 'layers',
+                        label: 'Grouped List',
+                        active: selectedIndex.value == 4,
+                        onTap: () => selectedIndex.value = 4,
+                      ),
                     ],
                   ),
                   const Spacer(),
@@ -180,6 +187,7 @@ class DemoPage extends HookConsumerWidget {
                   ),
                   const PerformanceMonitor(),
                   const ContextMenuDemo(),
+                  const GroupedListDemo(),
                 ],
               ),
             ),

@@ -4,9 +4,37 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 
 // Re-export so callers can pass AppTextVariant without importing app_text.dart.
 export 'package:agent/widgets/text/app_text.dart' show AppTextVariant;
+
+/// Controls the visual density of [AppList], [AppListGroup], and [AppListItem].
+///
+/// * [AppListSize.normal] — standard sidebar/list density (default).
+/// * [AppListSize.small] — compact density matching context menus.
+enum AppListSize { normal, small }
+
+/// Inherited widget that propagates [AppListSize] down the widget tree.
+class _AppListInheritedSize extends InheritedWidget {
+  final AppListSize size;
+
+  const _AppListInheritedSize({required this.size, required super.child});
+
+  static AppListSize? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_AppListInheritedSize>()
+        ?.size;
+  }
+
+  @override
+  bool updateShouldNotify(_AppListInheritedSize oldWidget) =>
+      oldWidget.size != size;
+}
+
+// ---------------------------------------------------------------------------
+// AppList
+// ---------------------------------------------------------------------------
 
 class AppList extends StatelessWidget {
   final double? width;
@@ -16,6 +44,9 @@ class AppList extends StatelessWidget {
   final Color? containerColor;
   final List<Widget> children;
 
+  /// Visual density. Defaults to [AppListSize.normal].
+  final AppListSize size;
+
   const AppList({
     super.key,
     this.width,
@@ -23,6 +54,7 @@ class AppList extends StatelessWidget {
     this.itemGap,
     this.containerRadius,
     this.containerColor,
+    this.size = AppListSize.normal,
     required this.children,
   });
 
@@ -30,25 +62,176 @@ class AppList extends StatelessWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
-    return Container(
-      width: width,
-      padding: containerPadding ?? EdgeInsets.all(custom.spacing.sm),
-      decoration: BoxDecoration(
-        color: containerColor ?? Colors.transparent,
-        borderRadius: (containerRadius ?? custom.radii.sm) as BorderRadius,
+    final effectivePadding =
+        containerPadding ??
+        (size == AppListSize.small
+            ? EdgeInsets.zero
+            : EdgeInsets.all(custom.spacing.sm));
+    final effectiveGap = itemGap ?? 0;
+
+    return _AppListInheritedSize(
+      size: size,
+      child: Container(
+        width: width,
+        padding: effectivePadding,
+        decoration: BoxDecoration(
+          color: containerColor ?? Colors.transparent,
+          borderRadius: (containerRadius ?? custom.radii.sm) as BorderRadius,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int i = 0; i < children.length; i++) ...[
+              if (i > 0) SizedBox(height: effectiveGap),
+              children[i],
+            ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AppListGroup
+// ---------------------------------------------------------------------------
+
+/// A section group for use inside [AppList].
+///
+/// Renders an optional header (with [icon] and [title] text styled as a
+/// section label) followed by a vertical column of [children] (typically
+/// [AppListItem]s). Multiple [AppListGroup]s can be placed side-by-side
+/// inside an [AppList] to produce a grouped/sectioned sidebar.
+///
+/// When [size] is not specified, inherits from the nearest ancestor
+/// [AppList] or parent [AppListGroup].
+///
+/// Example:
+/// ```dart
+/// AppList(
+///   children: [
+///     AppListGroup(
+///       title: 'Section 1',
+///       icon: 'star',
+///       children: [
+///         AppListItem(icon: 'home', label: 'Home'),
+///         AppListItem(icon: 'settings', label: 'Settings'),
+///       ],
+///     ),
+///   ],
+/// )
+/// ```
+class AppListGroup extends StatelessWidget {
+  /// Optional icon name for the group header (resolved via [AppIcon]).
+  final String? icon;
+
+  /// Title text for the group header.
+  final String? title;
+
+  /// Custom header widget. When provided, [icon] and [title] are ignored.
+  final Widget? header;
+
+  /// Extra padding around the group children (not including the header).
+  final EdgeInsetsGeometry? padding;
+
+  /// Gap between items inside this group.
+  final double? itemGap;
+
+  /// The items inside this group (typically [AppListItem]s).
+  final List<Widget> children;
+
+  /// Visual density. Inherits from parent [AppList] when not set.
+  final AppListSize? size;
+
+  /// Whether to show an [AppDivider] above this group.
+  final bool showDivider;
+
+  const AppListGroup({
+    super.key,
+    this.icon,
+    this.title,
+    this.header,
+    this.padding,
+    this.itemGap,
+    this.size,
+    this.showDivider = false,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    final effectiveSize =
+        size ?? _AppListInheritedSize.maybeOf(context) ?? AppListSize.normal;
+    final isSmall = effectiveSize == AppListSize.small;
+    final effectiveItemGap = itemGap ?? custom.spacing.xs;
+
+    return _AppListInheritedSize(
+      size: effectiveSize,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (int i = 0; i < children.length; i++) ...[
-            if (i > 0) SizedBox(height: itemGap ?? custom.spacing.xs),
-            children[i],
-          ],
+          // Divider before this group
+          if (showDivider)
+            Padding(
+              padding: EdgeInsets.only(bottom: custom.spacing.xs),
+              child: AppDivider(
+                thickness: 1,
+                color: custom.colors.borderSubtle,
+              ),
+            ),
+          // Custom header
+          ?header,
+          // Default header
+          if (header == null && title != null)
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: custom.spacing.sm,
+                vertical: isSmall ? custom.spacing.xs : custom.spacing.sm,
+              ),
+              child: Row(
+                children: [
+                  if (icon != null) ...[
+                    AppIcon(
+                      icon!,
+                      size: custom.typography.captionSize,
+                      color: custom.colors.textSecondary,
+                    ),
+                    SizedBox(width: custom.spacing.xs),
+                  ],
+                  Expanded(
+                    child: AppText(
+                      title!,
+                      variant: AppTextVariant.caption,
+                      color: custom.colors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Group items
+          Padding(
+            padding: padding ?? EdgeInsets.zero,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (int i = 0; i < children.length; i++) ...[
+                  if (i > 0) SizedBox(height: effectiveItemGap),
+                  children[i],
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// AppListItem
+// ---------------------------------------------------------------------------
 
 class AppListItem extends HookWidget {
   final String? icon;
@@ -69,15 +252,18 @@ class AppListItem extends HookWidget {
   /// Optional widget placed after [trailing] text (e.g. submenu chevron).
   final Widget? trailingWidget;
 
-  /// Override the label text variant. Defaults to [AppTextVariant.body].
+  /// Override the label text variant.
   final AppTextVariant? labelVariant;
 
   /// When true, the item height is determined by its content (padding + text)
   /// instead of a fixed [itemHeight] or the default [CustomTheme.controls.mediumHeight].
-  final bool intrinsicHeight;
+  final bool? intrinsicHeight;
 
   /// Called when hover state changes. Provides the item's RenderBox.
   final void Function(bool isHovered, RenderBox renderBox)? onHover;
+
+  /// Visual density. Inherits from parent [AppList] or [AppListGroup] when not set.
+  final AppListSize? size;
 
   const AppListItem({
     super.key,
@@ -96,21 +282,35 @@ class AppListItem extends HookWidget {
     this.iconLabelGap,
     this.trailingWidget,
     this.labelVariant,
-    this.intrinsicHeight = false,
+    this.intrinsicHeight,
     this.onHover,
+    this.size,
   });
 
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    final effectiveSize =
+        size ?? _AppListInheritedSize.maybeOf(context) ?? AppListSize.normal;
+    final isSmall = effectiveSize == AppListSize.small;
     final isHovered = useState(false);
     final isPressed = useState(false);
     final enabled = !disabled;
 
     final padding =
-        itemPadding ?? EdgeInsets.symmetric(horizontal: custom.spacing.sm);
-    final radius = (itemRadius ?? custom.radii.sm) as BorderRadius;
-    final iconSz = iconSize ?? custom.typography.titleSize;
+        itemPadding ??
+        (isSmall
+            ? EdgeInsets.symmetric(
+                horizontal: custom.spacing.sm,
+                vertical: custom.spacing.xs,
+              )
+            : EdgeInsets.symmetric(horizontal: custom.spacing.sm));
+    final radius =
+        (itemRadius ?? (isSmall ? custom.radii.xs : custom.radii.sm))
+            as BorderRadius;
+    final iconSz =
+        iconSize ??
+        (isSmall ? custom.typography.captionSize : custom.typography.bodySize);
     final gap = iconLabelGap ?? custom.spacing.sm;
 
     final bgColor = switch ((active, isPressed.value, isHovered.value)) {
@@ -123,7 +323,12 @@ class AppListItem extends HookWidget {
         ? (labelColor ?? custom.colors.textPrimary)
         : custom.colors.textDisabled;
 
-    final fixedHeight = intrinsicHeight
+    final effectiveIntrinsicHeight = intrinsicHeight ?? isSmall;
+    final effectiveLabelVariant =
+        labelVariant ??
+        (isSmall ? AppTextVariant.caption : AppTextVariant.body);
+
+    final fixedHeight = effectiveIntrinsicHeight
         ? null
         : (itemHeight ?? custom.controls.mediumHeight);
 
@@ -160,7 +365,7 @@ class AppListItem extends HookWidget {
                 Expanded(
                   child: AppText(
                     label,
-                    variant: labelVariant ?? AppTextVariant.body,
+                    variant: effectiveLabelVariant,
                     color: foreground,
                   ),
                 ),

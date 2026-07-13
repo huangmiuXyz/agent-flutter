@@ -38,6 +38,12 @@ const Map<String, IconData> _registry = {
   'delete': LucideIcons.delete,
   'checkSquare2': LucideIcons.checkSquare2,
   'eraser': LucideIcons.eraser,
+  'star': LucideIcons.star,
+  'home': LucideIcons.home,
+  'bell': LucideIcons.bell,
+  'file': LucideIcons.file,
+  'folder': LucideIcons.folder,
+  'layers': LucideIcons.layers,
 };
 
 class AppIcon extends ConsumerWidget {

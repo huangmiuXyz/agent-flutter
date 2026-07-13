@@ -236,8 +236,6 @@ class _MenuPanel extends HookWidget {
         label: item.label,
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
-        intrinsicHeight: true,
-        labelVariant: AppTextVariant.caption,
         trailingWidget: hasSubmenu
             ? const Icon(LucideIcons.chevronRight, size: 10)
             : null,
@@ -298,13 +296,6 @@ class _MenuPanel extends HookWidget {
                 item.onTap?.call();
               }
             : null,
-        itemPadding: EdgeInsets.symmetric(
-          horizontal: custom.spacing.sm,
-          vertical: custom.spacing.xs,
-        ),
-        itemRadius: custom.radii.xs as BorderRadiusGeometry,
-        iconSize: custom.typography.captionSize,
-        iconLabelGap: 6,
       );
     }
 
@@ -314,8 +305,7 @@ class _MenuPanel extends HookWidget {
       backgroundColor: custom.colors.menuBackground,
       border: Border.all(color: custom.colors.menuBorder, width: 1),
       child: AppList(
-        containerPadding: EdgeInsets.zero,
-        itemGap: 0,
+        size: AppListSize.small,
         children: [
           for (final item in items)
             if (item.isSeparator) buildSeparator() else buildMenuItem(item),
