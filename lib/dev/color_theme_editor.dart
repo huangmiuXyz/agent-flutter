@@ -125,21 +125,6 @@ class ColorThemeEditor extends HookConsumerWidget {
           _colorGroup(context, group.key, group.value, ref, effective),
           SizedBox(height: effective.spacing.sm),
         ],
-        SizedBox(height: effective.spacing.sm),
-        AppText(
-          '图标粗细: ${settings.iconThickness}',
-          variant: AppTextVariant.caption,
-          color: colors.textSecondary,
-        ),
-        _themedSlider(
-          effective,
-          value: settings.iconThickness.toDouble(),
-          min: 0,
-          max: 600,
-          divisions: 6,
-          onChanged: (value) =>
-              ref.read(themeProvider.notifier).setIconThickness(value.round()),
-        ),
         SizedBox(height: effective.spacing.md),
         AppText(
           '正文字重: w${settings.fontWeight.value}',

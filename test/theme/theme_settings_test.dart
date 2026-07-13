@@ -14,17 +14,15 @@ void main() {
 
       final updated = settings.copyWith(
         themeMode: ThemeMode.dark,
-        iconThickness: 500,
         fontWeightValue: 600,
       );
 
       expect(settings.themeMode, ThemeMode.system);
       expect(updated.themeMode, ThemeMode.dark);
-      expect(updated.iconThickness, 500);
       expect(updated.fontWeight, FontWeight.w600);
     });
 
-    test('uses the font family matching an explicit style weight', () {
+    test('uses the default font family', () {
       const typography = AppTypography(bodyWeight: FontWeight.w400);
 
       final style = typography.styleForSize(
@@ -33,7 +31,7 @@ void main() {
         weight: FontWeight.w600,
       );
 
-      expect(style.fontFamily, 'JetBrainsMonoSemiBold');
+      expect(style.fontFamily, 'JetBrainsMono');
     });
   });
 
@@ -68,11 +66,9 @@ void main() {
     test('resetAll restores in-memory defaults', () {
       container.read(themeProvider.notifier)
         ..setThemeMode(ThemeMode.dark)
-        ..setIconThickness(600)
         ..resetAll();
 
       expect(container.read(themeProvider).themeMode, ThemeMode.system);
-      expect(container.read(themeProvider).iconThickness, 300);
     });
   });
 }

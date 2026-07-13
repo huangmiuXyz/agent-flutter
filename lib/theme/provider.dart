@@ -26,9 +26,6 @@ class ThemeNotifier extends _$ThemeNotifier {
 
   void setThemeMode(ThemeMode mode) => _update(state.copyWith(themeMode: mode));
 
-  void setIconThickness(int value) =>
-      _update(state.copyWith(iconThickness: value.clamp(0, 600)));
-
   void setFontWeight(FontWeight weight) =>
       _update(state.copyWith(fontWeightValue: weight.value));
 

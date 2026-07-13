@@ -7,7 +7,6 @@ class ThemeSettings {
   const ThemeSettings({
     this.themeMode = ThemeMode.system,
     this.presetId = 'default',
-    this.iconThickness = 300,
     this.fontWeightValue = 400,
     this.lightOverrides = const {},
     this.darkOverrides = const {},
@@ -15,7 +14,6 @@ class ThemeSettings {
 
   final ThemeMode themeMode;
   final String presetId;
-  final int iconThickness;
   final int fontWeightValue;
   final Map<AppColorRole, int> lightOverrides;
   final Map<AppColorRole, int> darkOverrides;
@@ -31,14 +29,12 @@ class ThemeSettings {
   ThemeSettings copyWith({
     ThemeMode? themeMode,
     String? presetId,
-    int? iconThickness,
     int? fontWeightValue,
     Map<AppColorRole, int>? lightOverrides,
     Map<AppColorRole, int>? darkOverrides,
   }) => ThemeSettings(
     themeMode: themeMode ?? this.themeMode,
     presetId: presetId ?? this.presetId,
-    iconThickness: iconThickness ?? this.iconThickness,
     fontWeightValue: fontWeightValue ?? this.fontWeightValue,
     lightOverrides: lightOverrides ?? this.lightOverrides,
     darkOverrides: darkOverrides ?? this.darkOverrides,
