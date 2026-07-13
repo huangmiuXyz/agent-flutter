@@ -85,7 +85,7 @@ class ButtonDemo extends ConsumerWidget {
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: custom.onSurfaceVariant,
+          color: custom.colors.textSecondary,
           letterSpacing: 0.5,
         ));
   }

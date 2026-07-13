@@ -32,16 +32,16 @@ class AppList extends StatelessWidget {
 
     return Container(
       width: width,
-      padding: containerPadding ?? EdgeInsets.all(custom.spacingSm),
+      padding: containerPadding ?? EdgeInsets.all(custom.spacing.sm),
       decoration: BoxDecoration(
         color: containerColor ?? Colors.transparent,
-        borderRadius: (containerRadius ?? custom.radiusSm) as BorderRadius,
+        borderRadius: (containerRadius ?? custom.radii.sm) as BorderRadius,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (int i = 0; i < children.length; i++) ...[
-            if (i > 0) SizedBox(height: itemGap ?? custom.spacingXs),
+            if (i > 0) SizedBox(height: itemGap ?? custom.spacing.xs),
             children[i],
           ],
         ],

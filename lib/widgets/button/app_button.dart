@@ -38,19 +38,19 @@ class AppButton extends HookWidget {
     final custom = CustomTheme.of(context);
     final isHovered = useState(false);
     final height = switch (size) {
-      ButtonSize.sm => custom.controlHeightSm,
-      ButtonSize.md => custom.controlHeightMd,
-      ButtonSize.lg => custom.controlHeightLg,
+      ButtonSize.sm => custom.controls.smallHeight,
+      ButtonSize.md => custom.controls.mediumHeight,
+      ButtonSize.lg => custom.controls.largeHeight,
     };
     final borderRadius = switch (size) {
-      ButtonSize.sm => custom.radiusXs,
-      ButtonSize.md => custom.radiusXs,
-      ButtonSize.lg => custom.radiusSm,
+      ButtonSize.sm => custom.radii.xs,
+      ButtonSize.md => custom.radii.xs,
+      ButtonSize.lg => custom.radii.sm,
     };
     final iconSize = switch (size) {
-      ButtonSize.sm => custom.fontSizeCaption,
-      ButtonSize.md => custom.fontSizeSubtitle,
-      ButtonSize.lg => custom.fontSizeTitle,
+      ButtonSize.sm => custom.typography.captionSize,
+      ButtonSize.md => custom.typography.subtitleSize,
+      ButtonSize.lg => custom.typography.titleSize,
     };
     final usesContentHeight =
         size == ButtonSize.sm && variant != ButtonVariant.iconOnly;
@@ -153,7 +153,7 @@ class AppButton extends HookWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           AppIcon(icon!, size: iconSize, color: textColor),
-          SizedBox(width: custom.spacingSm),
+          SizedBox(width: custom.spacing.sm),
           AppText(_textNotNull, color: textColor),
         ],
       );
@@ -176,7 +176,7 @@ class AppButton extends HookWidget {
         }),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         padding: WidgetStateProperty.all(
-          EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
+          EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacing.md),
         ),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: borderRadius),
@@ -200,7 +200,7 @@ class AppButton extends HookWidget {
       }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
-        EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
+        EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacing.md),
       ),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: borderRadius),
@@ -224,7 +224,7 @@ class AppButton extends HookWidget {
         }),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         padding: WidgetStateProperty.all(
-          EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
+          EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacing.md),
         ),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
@@ -251,7 +251,7 @@ class AppButton extends HookWidget {
       }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
-        EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacingMd),
+        EdgeInsets.symmetric(vertical: 0, horizontal: custom.spacing.md),
       ),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
@@ -269,8 +269,8 @@ class AppButton extends HookWidget {
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       padding: WidgetStateProperty.all(
         EdgeInsets.symmetric(
-          horizontal: custom.spacingXs,
-          vertical: custom.spacingXs,
+          horizontal: custom.spacing.xs,
+          vertical: custom.spacing.xs,
         ),
       ),
       shape: WidgetStateProperty.all(
@@ -285,7 +285,7 @@ class AppButton extends HookWidget {
       return ButtonStyle(
         backgroundColor: WidgetStateProperty.all(Colors.transparent),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
-        padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacingXs)),
+        padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacing.xs)),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(borderRadius: borderRadius),
         ),
@@ -301,7 +301,7 @@ class AppButton extends HookWidget {
         return Colors.transparent;
       }),
       overlayColor: WidgetStateProperty.all(Colors.transparent),
-      padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacingXs)),
+      padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacing.xs)),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: borderRadius),
       ),

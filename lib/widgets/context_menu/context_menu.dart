@@ -258,7 +258,7 @@ class _MenuPanel extends HookWidget {
                             pos.dy - 4,
                           ),
                           items: item.submenu!,
-                          minWidth: custom.controlHeightMd * 6,
+                          minWidth: custom.controls.mediumHeight * 6,
                           onHoverChanged: (h) {
                             submenuHovered.value = h;
                             if (h) cancelTimers();
@@ -299,11 +299,11 @@ class _MenuPanel extends HookWidget {
               }
             : null,
         itemPadding: EdgeInsets.symmetric(
-          horizontal: custom.spacingSm,
-          vertical: custom.spacingXs,
+          horizontal: custom.spacing.sm,
+          vertical: custom.spacing.xs,
         ),
-        itemRadius: custom.radiusXs as BorderRadiusGeometry,
-        iconSize: custom.fontSizeCaption,
+        itemRadius: custom.radii.xs as BorderRadiusGeometry,
+        iconSize: custom.typography.captionSize,
         iconLabelGap: 6,
       );
     }

@@ -53,15 +53,15 @@ class ExecutePanel extends HookConsumerWidget {
     }
 
     return Container(
-      color: custom.surfaceContainer,
+      color: custom.colors.panelElevated,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(height: 1, color: custom.surfaceContainerHighest),
+          Container(height: 1, color: custom.colors.selected),
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: custom.spacingSm,
-              vertical: custom.spacingXs,
+              horizontal: custom.spacing.sm,
+              vertical: custom.spacing.xs,
             ),
             child: Row(
               children: [
@@ -81,24 +81,24 @@ class ExecutePanel extends HookConsumerWidget {
                         minLines: 1,
                         style: TextStyle(
                           fontFamily: 'JetBrainsMono',
-                          fontSize: custom.fontSizeCaption,
-                          color: custom.onSurface,
+                          fontSize: custom.typography.captionSize,
+                          color: custom.colors.textPrimary,
                         ),
                         decoration: InputDecoration(
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(
-                            horizontal: custom.spacingSm,
-                            vertical: custom.spacingXs,
+                            horizontal: custom.spacing.sm,
+                            vertical: custom.spacing.xs,
                           ),
                           hintText: '输入命令... (Ctrl+Enter 执行)',
                           hintStyle: TextStyle(
-                            color: custom.onSurfaceVariant,
-                            fontSize: custom.fontSizeCaption,
+                            color: custom.colors.textSecondary,
+                            fontSize: custom.typography.captionSize,
                           ),
                           filled: true,
-                          fillColor: custom.surfaceContainerLow,
+                          fillColor: custom.colors.panel,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(custom.radiusSm.topLeft.x),
+                            borderRadius: BorderRadius.circular(custom.radii.sm.topLeft.x),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -106,7 +106,7 @@ class ExecutePanel extends HookConsumerWidget {
                     ),
                   ),
                 ),
-                SizedBox(width: custom.spacingSm),
+                SizedBox(width: custom.spacing.sm),
                 AppButton(
                   icon: 'square',
                   text: 'Ctrl+C',
@@ -115,7 +115,7 @@ class ExecutePanel extends HookConsumerWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
-                SizedBox(width: custom.spacingSm),
+                SizedBox(width: custom.spacing.sm),
                 AppButton(
                   text: '执行',
                   disabled: running.value,
@@ -129,15 +129,15 @@ class ExecutePanel extends HookConsumerWidget {
           ),
           Expanded(
             child: Container(
-              color: custom.surfaceContainerLow,
-              padding: EdgeInsets.all(custom.spacingSm),
+              color: custom.colors.panel,
+              padding: EdgeInsets.all(custom.spacing.sm),
               child: switch ((output.value, running.value)) {
                 (final out, false) when out.isEmpty =>
                   Center(
                     child: AppText(
                       '输入命令后点击执行',
                       variant: AppTextVariant.caption,
-                      color: custom.onSurfaceVariant,
+                      color: custom.colors.textSecondary,
                     ),
                   ),
                 (final out, final run) =>
@@ -146,8 +146,8 @@ class ExecutePanel extends HookConsumerWidget {
                       run ? '运行中... $out' : out,
                       style: TextStyle(
                         fontFamily: 'JetBrainsMono',
-                        fontSize: custom.fontSizeCaption,
-                        color: custom.onSurface,
+                        fontSize: custom.typography.captionSize,
+                        color: custom.colors.textPrimary,
                         height: 1.4,
                       ),
                     ),

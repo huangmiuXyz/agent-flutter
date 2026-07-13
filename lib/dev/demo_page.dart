@@ -94,9 +94,9 @@ class DemoPage extends HookConsumerWidget {
           child: _VSCodeSplitView(
             left: Container(
               decoration: BoxDecoration(
-                color: custom.surfaceContainerLow,
+                color: custom.colors.panel,
                 border: Border(
-                  right: BorderSide(color: custom.surfaceContainerHighest),
+                  right: BorderSide(color: custom.colors.selected),
                 ),
               ),
               child: Column(
@@ -164,7 +164,7 @@ class DemoPage extends HookConsumerWidget {
               ),
             ),
             right: ColoredBox(
-              color: custom.surface,
+              color: custom.colors.background,
               child: IndexedStack(
                 index: selectedIndex.value,
                 children: [
@@ -193,9 +193,9 @@ class DemoPage extends HookConsumerWidget {
           child: FloatingActionButton(
             mini: true,
             onPressed: () => showEditor.value = !showEditor.value,
-            backgroundColor: custom.primary,
-            foregroundColor: custom.onPrimary,
-            child: Icon(Icons.palette, size: custom.fontSizeSubtitle),
+            backgroundColor: custom.colors.accent,
+            foregroundColor: custom.colors.onAccent,
+            child: Icon(Icons.palette, size: custom.typography.subtitleSize),
           ),
         ),
         // Backdrop
@@ -215,7 +215,7 @@ class DemoPage extends HookConsumerWidget {
             width: trayWidth.clamp(200, 400),
             child: Material(
               elevation: 16,
-              color: custom.surface,
+              color: custom.colors.background,
               child: SafeArea(
                 child: Column(
                   children: [
@@ -225,8 +225,8 @@ class DemoPage extends HookConsumerWidget {
                         IconButton(
                           icon: Icon(
                             Icons.close,
-                            size: custom.fontSizeTitle,
-                            color: custom.onSurfaceVariant,
+                            size: custom.typography.titleSize,
+                            color: custom.colors.textSecondary,
                           ),
                           onPressed: () => showEditor.value = false,
                         ),

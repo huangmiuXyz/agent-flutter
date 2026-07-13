@@ -35,7 +35,7 @@ class ContextMenuDemo extends HookWidget {
           Text(
             'Zed 右键菜单',
             style: TextStyle(
-              fontSize: custom.fontSizeTitle,
+              fontSize: custom.typography.titleSize,
               color: textColor,
               fontWeight: FontWeight.w600,
             ),
@@ -44,7 +44,7 @@ class ContextMenuDemo extends HookWidget {
           Text(
             '右键或长按任意区域，体验 Zed IDE 风格的上下文菜单',
             style: TextStyle(
-              fontSize: custom.fontSizeCaption,
+              fontSize: custom.typography.captionSize,
               color: mutedColor,
             ),
           ),
@@ -295,7 +295,7 @@ class _MockCodeEditor extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: borderColor),
-        borderRadius: custom.radiusSm,
+        borderRadius: custom.radii.sm,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,7 +315,7 @@ class _MockCodeEditor extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       color: lineNumColor,
-                      fontFamily: custom.fontFamily,
+                      fontFamily: custom.typography.fontFamily,
                     ),
                   ),
                 );
@@ -376,7 +376,7 @@ class _DemoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         border: Border.all(color: borderColor),
-        borderRadius: custom.radiusSm,
+        borderRadius: custom.radii.sm,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
