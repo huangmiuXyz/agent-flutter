@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'package:agent/theme/custom_theme.dart';
@@ -84,45 +83,45 @@ class XtermTerminalWidget extends HookConsumerWidget {
         return [
           MenuItem(
             label: '复制',
-            icon: LucideIcons.copy,
+            icon: 'copy',
             shortcut: 'Ctrl+Shift+C',
             enabled: hasSelection,
             onTap: () => manager.copySelection(),
           ),
           MenuItem(
             label: '剪切',
-            icon: LucideIcons.scissors,
+            icon: 'scissors',
             shortcut: 'Ctrl+Shift+X',
             enabled: hasSelection,
             onTap: () => manager.cutSelection(),
           ),
           MenuItem(
             label: '粘贴',
-            icon: LucideIcons.clipboardPaste,
+            icon: 'clipboardPaste',
             shortcut: 'Ctrl+Shift+V',
             onTap: () => manager.pasteText(),
           ),
           MenuItem(
             label: '粘贴文字',
-            icon: LucideIcons.clipboardType,
+            icon: 'clipboardType',
             onTap: () => manager.pasteText(),
           ),
           MenuItem(
             label: '删除',
-            icon: LucideIcons.delete,
+            icon: 'delete',
             enabled: hasSelection,
             onTap: () => manager.deleteSelection(),
           ),
           const MenuItem.separator(),
           MenuItem(
             label: '全选',
-            icon: LucideIcons.checkSquare2,
+            icon: 'checkSquare2',
             shortcut: 'Ctrl+Shift+A',
             onTap: () => manager.selectAll(),
           ),
           MenuItem(
             label: '清除',
-            icon: LucideIcons.eraser,
+            icon: 'eraser',
             onTap: () => manager.clearTerminal(),
           ),
         ];

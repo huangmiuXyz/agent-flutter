@@ -7,12 +7,12 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/card/app_card.dart';
-import 'package:agent/widgets/divider/app_divider.dart';
+import 'package:agent/widgets/list/app_list.dart';
 
 // -------------------- 数据模型 --------------------
 class MenuItem {
   final String label;
-  final IconData? icon;
+  final String? icon;
   final String? shortcut;
   final bool enabled;
   final bool selected;
@@ -143,8 +143,6 @@ class _MenuOverlay extends HookWidget {
     return Stack(
       children: [
         // 全屏 dismiss 背景
-        // translucent：自身注册 hit 触发 dismiss，但不吸收事件，
-        // 下层 entry（MenuArea 等）仍能收到右键事件
         Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
@@ -152,7 +150,6 @@ class _MenuOverlay extends HookWidget {
             child: const SizedBox.expand(),
           ),
         ),
-        // 菜单面板（在上层，拦截自身区域的事件）
         Positioned(
           left: offset.value.dx,
           top: offset.value.dy,
@@ -197,84 +194,10 @@ class _MenuPanel extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    // Track a single close callback for the currently open submenu.
-    // When a new item opens its submenu, it closes any previously open one.
-    final closeCurrentSubmenu = useRef<VoidCallback?>(null);
-
-    void closeOtherSubmenu() {
-      closeCurrentSubmenu.value?.call();
-    }
-
-    void registerCloseSubmenu(VoidCallback closeFn) {
-      closeCurrentSubmenu.value = closeFn;
-    }
-
-    return AppCard(
-      minWidth: minWidth ?? custom.controls.mediumHeight * 4,
-      maxHeight: maxHeight,
-      backgroundColor: custom.colors.menuBackground,
-      border: Border.all(color: custom.colors.menuBorder, width: 1),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: items.map((item) {
-          if (item.isSeparator) {
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: custom.spacing.xs),
-              child: AppDivider(
-                thickness: 1,
-                extent: custom.spacing.xs * 2 + 1,
-                indent: 0,
-                endIndent: 0,
-                color: custom.colors.menuHover,
-              ),
-            );
-          }
-          return _MenuItemWidget(
-            item: item,
-            custom: custom,
-            onDismiss: onDismiss,
-            closeOtherSubmenu: closeOtherSubmenu,
-            registerCloseSubmenu: registerCloseSubmenu,
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// -------------------- 菜单项（支持子菜单） --------------------
-class _MenuItemWidget extends HookWidget {
-  final MenuItem item;
-  final CustomTheme custom;
-  final VoidCallback onDismiss;
-  final VoidCallback closeOtherSubmenu;
-  final void Function(VoidCallback) registerCloseSubmenu;
-
-  const _MenuItemWidget({
-    required this.item,
-    required this.custom,
-    required this.onDismiss,
-    required this.closeOtherSubmenu,
-    required this.registerCloseSubmenu,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hovered = useState(false);
-    final submenuOverlay = useRef<OverlayEntry?>(null);
-    final isSubmenu = item.submenu != null && item.submenu!.isNotEmpty;
+    final currentSubmenu = useRef<OverlayEntry?>(null);
     final openTimer = useRef<Timer?>(null);
     final closeTimer = useRef<Timer?>(null);
-
-    useEffect(
-      () => () {
-        openTimer.value?.cancel();
-        closeTimer.value?.cancel();
-        submenuOverlay.value?.remove();
-      },
-      [],
-    );
+    final submenuHovered = useRef(false);
 
     void cancelTimers() {
       openTimer.value?.cancel();
@@ -284,158 +207,119 @@ class _MenuItemWidget extends HookWidget {
     }
 
     void closeSubmenu() {
-      if (submenuOverlay.value != null) {
-        submenuOverlay.value?.remove();
-        submenuOverlay.value = null;
-        // Clear the ref in panel so stale callback won't linger.
-        registerCloseSubmenu(() {});
-      }
+      currentSubmenu.value?.remove();
+      currentSubmenu.value = null;
     }
 
-    void showSubmenu(BuildContext context) {
-      if (!isSubmenu || !item.enabled) return;
-      cancelTimers();
-      // Close any previously open submenu first.
-      closeOtherSubmenu();
-      submenuOverlay.value?.remove();
-      final renderBox = context.findRenderObject() as RenderBox;
-      final position = renderBox.localToGlobal(Offset.zero);
-      final overlay = Overlay.of(context, rootOverlay: true);
-
-      submenuOverlay.value = OverlayEntry(
-        builder: (_) => _MenuOverlay(
-          position: Offset(
-            position.dx + renderBox.size.width - 4,
-            position.dy - 4,
-          ),
-          items: item.submenu!,
-          minWidth: custom.controlHeightMd * 6,
-          onHoverChanged: (isHovered) {
-            if (isHovered) cancelTimers();
-          },
-          onDismiss: () {
-            cancelTimers();
-            submenuOverlay.value?.remove();
-            submenuOverlay.value = null;
-            onDismiss();
-          },
-        ),
-      );
-      overlay.insert(submenuOverlay.value!);
-
-      // Register callback to close this submenu when another item opens its own.
-      registerCloseSubmenu(() {
+    useEffect(
+      () => () {
         cancelTimers();
         closeSubmenu();
-      });
-    }
+      },
+      [],
+    );
 
-    void scheduleOpen(BuildContext context) {
-      if (!isSubmenu || !item.enabled) return;
-      cancelTimers();
-      // Delay before opening so that quickly brushing past adjacent items
-      // doesn't cause flicker — only open after the user lingers.
-      openTimer.value = Timer(const Duration(milliseconds: 300), () {
-        if (hovered.value) {
-          showSubmenu(context);
-        }
-      });
-    }
-
-    final hoverBg = custom.colors.menuHover;
-    final textColor = item.enabled
-        ? custom.colors.textPrimary
-        : custom.colors.textDisabled;
-    final mutedColor = item.enabled
-        ? custom.colors.textSecondary
-        : custom.colors.textDisabled;
-
-    final children = <Widget>[
-      if (item.selected)
-        Icon(LucideIcons.check, size: 12, color: textColor)
-      else if (item.icon != null)
-        Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: Icon(item.icon!, size: 12, color: textColor),
-        ),
-      Expanded(
-        child: Text(
-          item.label,
-          style: TextStyle(
-            fontSize: custom.fontSizeCaption,
-            color: textColor,
-            fontFamily: custom.fontFamily,
-            fontWeight: FontWeight.w400,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
+    Widget buildSeparator() => Padding(
+      padding: EdgeInsets.symmetric(horizontal: custom.spacing.xs),
+      child: Container(
+        height: 1,
+        color: custom.colors.menuHover,
+        margin: EdgeInsets.symmetric(vertical: custom.spacing.xs),
       ),
-      if (item.shortcut != null) ...[
-        SizedBox(width: custom.spacingSm),
-        Text(
-          item.shortcut!,
-          style: TextStyle(
-            fontSize: custom.fontSizeCaption,
-            color: mutedColor,
-            fontFamily: custom.fontFamily,
-          ),
-        ),
-      ],
-      if (isSubmenu) ...[
-        SizedBox(width: custom.spacingSm),
-        Icon(LucideIcons.chevronRight, size: 10, color: mutedColor),
-      ],
-    ];
+    );
 
-    return Semantics(
-      button: true,
-      enabled: item.enabled,
-      label: item.label,
-      child: MouseRegion(
-        onEnter: (_) {
-          if (!item.enabled) return;
-          hovered.value = true;
-          cancelTimers();
-          // Don't open submenu immediately — wait a short while to avoid
-          // flicker when scanning across adjacent items with submenus.
-          scheduleOpen(context);
-        },
-        onExit: (_) {
-          hovered.value = false;
-          cancelTimers();
-          if (isSubmenu && submenuOverlay.value != null) {
-            // Short delay before closing so mouse can slide into the submenu.
-            closeTimer.value = Timer(const Duration(milliseconds: 200), () {
-              if (!hovered.value && submenuOverlay.value != null) {
-                closeSubmenu();
-              }
-            });
-          }
-        },
-        cursor: item.enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
-        child: GestureDetector(
-          onTap: item.enabled
-              ? () {
-                  onDismiss();
-                  item.onTap?.call();
+    Widget buildMenuItem(MenuItem item) {
+      final hasSubmenu = item.submenu != null && item.submenu!.isNotEmpty;
+
+      return AppListItem(
+        icon: item.icon,
+        label: item.label,
+        trailing: hasSubmenu ? null : item.shortcut,
+        disabled: !item.enabled,
+        intrinsicHeight: true,
+        labelVariant: AppTextVariant.caption,
+        trailingWidget: hasSubmenu
+            ? const Icon(LucideIcons.chevronRight, size: 10)
+            : null,
+        onHover: hasSubmenu
+            ? (isHovered, box) {
+                if (isHovered) {
+                  submenuHovered.value = false;
+                  cancelTimers();
+                  openTimer.value = Timer(
+                    const Duration(milliseconds: 300),
+                    () {
+                      closeSubmenu();
+                      final pos = box.localToGlobal(Offset.zero);
+                      currentSubmenu.value = OverlayEntry(
+                        builder: (_) => _MenuOverlay(
+                          position: Offset(
+                            pos.dx + box.size.width - 4,
+                            pos.dy - 4,
+                          ),
+                          items: item.submenu!,
+                          minWidth: custom.controlHeightMd * 6,
+                          onHoverChanged: (h) {
+                            submenuHovered.value = h;
+                            if (h) cancelTimers();
+                          },
+                          onDismiss: () {
+                            cancelTimers();
+                            closeSubmenu();
+                            onDismiss();
+                          },
+                        ),
+                      );
+                      Overlay.of(
+                        context,
+                        rootOverlay: true,
+                      ).insert(currentSubmenu.value!);
+                    },
+                  );
+                } else {
+                  cancelTimers();
+                  if (currentSubmenu.value != null) {
+                    closeTimer.value = Timer(
+                      const Duration(milliseconds: 200),
+                      () {
+                        if (!submenuHovered.value &&
+                            currentSubmenu.value != null) {
+                          closeSubmenu();
+                        }
+                      },
+                    );
+                  }
                 }
-              : null,
-          child: Container(
-            decoration: BoxDecoration(
-              color: hovered.value && item.enabled
-                  ? hoverBg
-                  : Colors.transparent,
-              borderRadius: custom.radiusXs,
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: custom.spacingSm,
-              vertical: custom.spacingXs,
-            ),
-            child: Row(children: children),
-          ),
+              }
+            : null,
+        onTap: item.onTap != null
+            ? () {
+                onDismiss();
+                item.onTap?.call();
+              }
+            : null,
+        itemPadding: EdgeInsets.symmetric(
+          horizontal: custom.spacingSm,
+          vertical: custom.spacingXs,
         ),
+        itemRadius: custom.radiusXs as BorderRadiusGeometry,
+        iconSize: custom.fontSizeCaption,
+        iconLabelGap: 6,
+      );
+    }
+
+    return AppCard(
+      minWidth: minWidth ?? custom.controls.mediumHeight * 4,
+      maxHeight: maxHeight,
+      backgroundColor: custom.colors.menuBackground,
+      border: Border.all(color: custom.colors.menuBorder, width: 1),
+      child: AppList(
+        containerPadding: EdgeInsets.zero,
+        itemGap: 0,
+        children: [
+          for (final item in items)
+            if (item.isSeparator) buildSeparator() else buildMenuItem(item),
+        ],
       ),
     );
   }
@@ -450,9 +334,6 @@ class MenuArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use Listener for secondary click to bypass the gesture arena entirely.
-    // GestureDetector with deferToChild (default) can lose the right-click
-    // event when TerminalView's internal recognizers claim it first.
     return Listener(
       onPointerDown: (event) {
         if (event.kind != PointerDeviceKind.mouse) return;

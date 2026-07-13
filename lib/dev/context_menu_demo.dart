@@ -75,45 +75,45 @@ class ContextMenuDemo extends HookWidget {
               MenuItem(
                 label: 'Go to Definition',
                 shortcut: 'F12',
-                icon: LucideIcons.arrowRight,
+                icon: 'arrowRight',
                 onTap: () => feedback.value = 'Go to Definition',
               ),
               MenuItem(
                 label: 'Go to Declaration',
                 shortcut: '\u2325F12',
-                icon: LucideIcons.arrowUpRight,
+                icon: 'arrowUpRight',
                 onTap: () => feedback.value = 'Go to Declaration',
               ),
               MenuItem(
                 label: 'Find All References',
                 shortcut: '\u21E7F12',
-                icon: LucideIcons.search,
+                icon: 'search',
                 onTap: () => feedback.value = 'Find All References',
               ),
               const MenuItem.separator(),
               MenuItem(
                 label: 'Rename Symbol',
                 shortcut: 'F2',
-                icon: LucideIcons.pencil,
+                icon: 'pencil',
                 onTap: () => feedback.value = 'Rename Symbol',
               ),
               MenuItem(
                 label: 'Format Buffer',
                 shortcut: '\u21E7\u2325F',
-                icon: LucideIcons.indentIncrease,
+                icon: 'indentIncrease',
                 onTap: () => feedback.value = 'Format Buffer',
               ),
               MenuItem(
                 label: 'Show Code Actions',
                 shortcut: '\u2318.',
-                icon: LucideIcons.lightbulb,
+                icon: 'lightbulb',
                 onTap: () => feedback.value = 'Show Code Actions',
               ),
               const MenuItem.separator(),
               MenuItem(
                 label: 'Cut',
                 shortcut: '\u2318X',
-                icon: LucideIcons.scissors,
+                icon: 'scissors',
                 onTap: () => feedback.value = 'Cut',
               ),
               MenuItem(
@@ -141,27 +141,26 @@ class ContextMenuDemo extends HookWidget {
               const MenuItem(
                 label: 'Word Wrap',
                 selected: true,
-                icon: LucideIcons.wrapText,
+                icon: 'wrapText',
               ),
               const MenuItem(
                 label: 'Show Indent Guides',
                 selected: false,
-                icon: LucideIcons.alignJustify,
+                icon: 'alignJustify',
               ),
               const MenuItem(
                 label: 'Show Line Numbers',
                 selected: true,
-                icon: LucideIcons.hash,
+                icon: 'hash',
               ),
               const MenuItem.separator(),
               MenuItem(
                 label: 'Syntax Highlighting',
-                icon: LucideIcons.palette,
+                icon: 'palette',
                 submenu: [
                   const MenuItem(label: 'Automatic', selected: true),
                   const MenuItem(label: 'Rust', selected: false),
                   const MenuItem(label: 'Python', selected: false),
-                  const MenuItem(label: 'TypeScript', selected: false),
                   const MenuItem.separator(),
                   const MenuItem(
                     label: 'Disable',
@@ -172,7 +171,7 @@ class ContextMenuDemo extends HookWidget {
               ),
               MenuItem(
                 label: 'Encoding',
-                icon: LucideIcons.fileCode,
+                icon: 'fileCode',
                 submenu: [
                   const MenuItem(label: 'UTF-8', selected: true),
                   const MenuItem(label: 'UTF-16', selected: false),
@@ -196,32 +195,28 @@ class ContextMenuDemo extends HookWidget {
           const SizedBox(height: 8),
           MenuArea(
             builder: (ctx) => [
-              const MenuItem(label: 'New File', icon: LucideIcons.filePlus),
-              const MenuItem(label: 'New Folder', icon: LucideIcons.folderPlus),
+              const MenuItem(label: 'New File', icon: 'filePlus'),
+              const MenuItem(label: 'New Folder', icon: 'folderPlus'),
               const MenuItem.separator(),
               const MenuItem(
                 label: 'Cut',
                 shortcut: '\u2318X',
-                icon: LucideIcons.scissors,
+                icon: 'scissors',
               ),
               const MenuItem(label: 'Copy', shortcut: '\u2318C'),
               const MenuItem(label: 'Paste', shortcut: '\u2318V'),
               const MenuItem.separator(),
-              const MenuItem(label: 'Rename', icon: LucideIcons.pencil),
-              const MenuItem(
-                label: 'Delete',
-                icon: LucideIcons.trash2,
-                enabled: false,
-              ),
+              const MenuItem(label: 'Rename', icon: 'pencil'),
+              const MenuItem(label: 'Delete', icon: 'trash2', enabled: false),
               const MenuItem.separator(),
               MenuItem(
                 label: 'Reveal in File Manager',
-                icon: LucideIcons.folderOpen,
+                icon: 'folderOpen',
                 onTap: () => feedback.value = 'Reveal in File Manager',
               ),
               MenuItem(
                 label: 'Open in Terminal',
-                icon: LucideIcons.terminal,
+                icon: 'terminal',
                 onTap: () => feedback.value = 'Open in Terminal',
               ),
             ],

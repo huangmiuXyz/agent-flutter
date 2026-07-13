@@ -5,13 +5,16 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
+// Re-export so callers can pass AppTextVariant without importing app_text.dart.
+export 'package:agent/widgets/text/app_text.dart' show AppTextVariant;
+
 class AppList extends StatelessWidget {
   final double? width;
   final EdgeInsetsGeometry? containerPadding;
   final double? itemGap;
   final BorderRadiusGeometry? containerRadius;
   final Color? containerColor;
-  final List<AppListItem> children;
+  final List<Widget> children;
 
   const AppList({
     super.key,
@@ -63,6 +66,19 @@ class AppListItem extends HookWidget {
   final double? iconSize;
   final double? iconLabelGap;
 
+  /// Optional widget placed after [trailing] text (e.g. submenu chevron).
+  final Widget? trailingWidget;
+
+  /// Override the label text variant. Defaults to [AppTextVariant.body].
+  final AppTextVariant? labelVariant;
+
+  /// When true, the item height is determined by its content (padding + text)
+  /// instead of a fixed [itemHeight] or the default [CustomTheme.controls.mediumHeight].
+  final bool intrinsicHeight;
+
+  /// Called when hover state changes. Provides the item's RenderBox.
+  final void Function(bool isHovered, RenderBox renderBox)? onHover;
+
   const AppListItem({
     super.key,
     this.icon,
@@ -78,6 +94,10 @@ class AppListItem extends HookWidget {
     this.labelColor,
     this.iconSize,
     this.iconLabelGap,
+    this.trailingWidget,
+    this.labelVariant,
+    this.intrinsicHeight = false,
+    this.onHover,
   });
 
   @override
@@ -87,7 +107,6 @@ class AppListItem extends HookWidget {
     final isPressed = useState(false);
     final enabled = !disabled;
 
-    final height = itemHeight ?? custom.controls.mediumHeight;
     final padding =
         itemPadding ?? EdgeInsets.symmetric(horizontal: custom.spacing.sm);
     final radius = (itemRadius ?? custom.radii.sm) as BorderRadius;
@@ -104,15 +123,27 @@ class AppListItem extends HookWidget {
         ? (labelColor ?? custom.colors.textPrimary)
         : custom.colors.textDisabled;
 
-    return SizedBox(
-      height: height,
+    final fixedHeight = intrinsicHeight
+        ? null
+        : (itemHeight ?? custom.controls.mediumHeight);
+
+    Widget child = MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: Material(
         color: bgColor,
         borderRadius: radius,
         child: InkWell(
           onTap: enabled ? onTap : null,
           borderRadius: radius,
-          onHover: (value) => isHovered.value = value,
+          onHover: (value) {
+            isHovered.value = value;
+            if (onHover != null) {
+              final box = context.findRenderObject() as RenderBox?;
+              if (box != null && box.hasSize) {
+                onHover!(value, box);
+              }
+            }
+          },
           onHighlightChanged: (value) => isPressed.value = value,
           splashFactory: NoSplash.splashFactory,
           hoverColor: Colors.transparent,
@@ -129,7 +160,7 @@ class AppListItem extends HookWidget {
                 Expanded(
                   child: AppText(
                     label,
-                    variant: AppTextVariant.body,
+                    variant: labelVariant ?? AppTextVariant.body,
                     color: foreground,
                   ),
                 ),
@@ -144,11 +175,21 @@ class AppListItem extends HookWidget {
                           : custom.colors.textDisabled,
                     ),
                   ),
+                if (trailingWidget != null)
+                  Padding(
+                    padding: EdgeInsets.only(left: custom.spacing.sm),
+                    child: trailingWidget,
+                  ),
               ],
             ),
           ),
         ),
       ),
     );
+
+    if (fixedHeight != null) {
+      child = SizedBox(height: fixedHeight, child: child);
+    }
+    return child;
   }
 }
