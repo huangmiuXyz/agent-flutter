@@ -211,11 +211,7 @@ class FpsMonitor extends HookWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         children: [
-                          _stat(
-                            'FPS',
-                            '${fps.value.toStringAsFixed(0)}',
-                            color,
-                          ),
+                          _stat('FPS', fps.value.toStringAsFixed(0), color),
                           const SizedBox(width: 24),
                           _stat(
                             'Build',

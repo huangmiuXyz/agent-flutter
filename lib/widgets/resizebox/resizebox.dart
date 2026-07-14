@@ -222,10 +222,10 @@ class ResizeBox extends HookWidget {
           ? custom.colors.accent.withValues(alpha: 0.5)
           : custom.colors.accent;
 
-      double? left = null;
-      double? right = null;
-      double? top = null;
-      double? bottom = null;
+      double? left;
+      double? right;
+      double? top;
+      double? bottom;
 
       // Handle position driven by raw drag target during drag (syncs to mouse
       // immediately), or by targetSize when not dragging.

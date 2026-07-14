@@ -15,6 +15,7 @@ import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/context_menu_demo.dart';
 import 'package:agent/dev/fps_monitor.dart';
 import 'package:agent/dev/grouped_list_demo.dart';
+import 'package:agent/dev/nested_resizebox_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 
 class DemoPage extends HookConsumerWidget {
@@ -31,6 +32,27 @@ class DemoPage extends HookConsumerWidget {
       children: [
         Positioned.fill(
           child: ResizeBox(
+            other: ColoredBox(
+              color: custom.colors.background,
+              child: IndexedStack(
+                index: selectedIndex.value,
+                children: [
+                  const ButtonDemo(),
+                  Column(
+                    children: [
+                      Expanded(
+                        child: TerminalTabs(active: selectedIndex.value == 1),
+                      ),
+                      SizedBox(height: 200, child: ExecutePanel()),
+                    ],
+                  ),
+                  const PerformanceMonitor(),
+                  const ContextMenuDemo(),
+                  const GroupedListDemo(),
+                  const NestedResizeBoxDemo(),
+                ],
+              ),
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: custom.colors.panel,
@@ -73,6 +95,12 @@ class DemoPage extends HookConsumerWidget {
                         active: selectedIndex.value == 4,
                         onTap: () => selectedIndex.value = 4,
                       ),
+                      AppListItem(
+                        icon: 'move',
+                        label: 'Nested Resize',
+                        active: selectedIndex.value == 5,
+                        onTap: () => selectedIndex.value = 5,
+                      ),
                     ],
                   ),
                   const Spacer(),
@@ -105,26 +133,6 @@ class DemoPage extends HookConsumerWidget {
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-            other: ColoredBox(
-              color: custom.colors.background,
-              child: IndexedStack(
-                index: selectedIndex.value,
-                children: [
-                  const ButtonDemo(),
-                  Column(
-                    children: [
-                      Expanded(
-                        child: TerminalTabs(active: selectedIndex.value == 1),
-                      ),
-                      SizedBox(height: 200, child: ExecutePanel()),
-                    ],
-                  ),
-                  const PerformanceMonitor(),
-                  const ContextMenuDemo(),
-                  const GroupedListDemo(),
                 ],
               ),
             ),
