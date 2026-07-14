@@ -5,15 +5,8 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
-/// Size variants for [AppField].
 enum FieldSize { sm, md, lg }
 
-/// A reusable text input widget styled with the app's custom theme tokens.
-///
-/// Supports three sizes via [size]:
-/// - [FieldSize.sm] — compact (24px height)
-/// - [FieldSize.md] — default (32px height)
-/// - [FieldSize.lg] — spacious (40px height)
 class AppField extends HookWidget {
   final String? placeholder;
   final String? label;
@@ -57,7 +50,7 @@ class AppField extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final physicalPixel = 1 / MediaQuery.devicePixelRatioOf(context);
+    final physicalPixel = 2 / MediaQuery.devicePixelRatioOf(context);
     final isHovered = useState(false);
     final isFocused = useState(false);
 
@@ -93,11 +86,8 @@ class AppField extends HookWidget {
     final isDisabled = !enabled;
     final isSingleLine = maxLines == 1;
 
-    final focusColor = hasError ? custom.colors.danger : custom.colors.accent;
     final borderColor = hasError
         ? custom.colors.danger
-        : isFocused.value
-        ? custom.colors.accent.withValues(alpha: 0.72)
         : isHovered.value
         ? custom.colors.border
         : custom.colors.borderSubtle;
@@ -172,19 +162,10 @@ class AppField extends HookWidget {
       constraints: isSingleLine
           ? BoxConstraints.tightFor(height: height)
           : BoxConstraints(minHeight: height),
-      decoration: BoxDecoration(
-        color: bgColor,
+      decoration: BoxDecoration(color: bgColor, borderRadius: borderRadius),
+      foregroundDecoration: BoxDecoration(
         borderRadius: borderRadius,
         border: Border.all(color: borderColor, width: physicalPixel),
-        boxShadow: enabled && isFocused.value
-            ? [
-                BoxShadow(
-                  color: focusColor.withValues(alpha: 0.12),
-                  blurRadius: 2,
-                  spreadRadius: physicalPixel,
-                ),
-              ]
-            : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: input,

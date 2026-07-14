@@ -104,14 +104,14 @@ class DemoPage extends HookConsumerWidget {
                       AppListItem(
                         icon: 'move',
                         label: 'ResizeBox',
-                        active: selectedIndex.value == 5,
-                        onTap: () => selectedIndex.value = 5,
+                        active: selectedIndex.value == 6,
+                        onTap: () => selectedIndex.value = 6,
                       ),
                       AppListItem(
                         icon: 'fileCode',
                         label: 'Markdown',
-                        active: selectedIndex.value == 6,
-                        onTap: () => selectedIndex.value = 6,
+                        active: selectedIndex.value == 7,
+                        onTap: () => selectedIndex.value = 7,
                       ),
                       AppListItem(
                         icon: 'pencil',
