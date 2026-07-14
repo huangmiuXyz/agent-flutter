@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -86,6 +88,7 @@ class ResizeBox extends HookWidget {
 
   static const double _handleHitSize = 10;
   static const double _handleVisualSize = 4;
+  static const Duration _collapsedHoverDelay = Duration(milliseconds: 300);
 
   @override
   Widget build(BuildContext context) {
@@ -98,6 +101,7 @@ class ResizeBox extends HookWidget {
     final isCollapsed = useState(false);
     final isHoveringHandle = useState(false);
     final isHoveringEdge = useState(false);
+    final hoverTimer = useRef<Timer?>(null);
 
     // --- drag tracking ---
     final isDragging = useState(false);
@@ -297,12 +301,25 @@ class ResizeBox extends HookWidget {
             cursor: isHorizontal
                 ? SystemMouseCursors.resizeLeftRight
                 : SystemMouseCursors.resizeUpDown,
-            onEnter: (_) => collapsed
-                ? isHoveringEdge.value = true
-                : isHoveringHandle.value = true,
-            onExit: (_) => collapsed
-                ? isHoveringEdge.value = false
-                : isHoveringHandle.value = false,
+            onEnter: (_) {
+              hoverTimer.value?.cancel();
+              hoverTimer.value = Timer(_collapsedHoverDelay, () {
+                if (collapsed) {
+                  isHoveringEdge.value = true;
+                } else {
+                  isHoveringHandle.value = true;
+                }
+              });
+            },
+            onExit: (_) {
+              hoverTimer.value?.cancel();
+              hoverTimer.value = null;
+              if (collapsed) {
+                isHoveringEdge.value = false;
+              } else {
+                isHoveringHandle.value = false;
+              }
+            },
             child: collapsed
                 ? Align(
                     alignment: switch (direction) {

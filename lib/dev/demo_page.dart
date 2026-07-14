@@ -15,7 +15,8 @@ import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/context_menu_demo.dart';
 import 'package:agent/dev/fps_monitor.dart';
 import 'package:agent/dev/grouped_list_demo.dart';
-import 'package:agent/dev/nested_resizebox_demo.dart';
+
+import 'package:agent/dev/resizebox_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 
 class DemoPage extends HookConsumerWidget {
@@ -49,7 +50,7 @@ class DemoPage extends HookConsumerWidget {
                   const PerformanceMonitor(),
                   const ContextMenuDemo(),
                   const GroupedListDemo(),
-                  const NestedResizeBoxDemo(),
+                  const ResizeBoxDemo(),
                 ],
               ),
             ),
@@ -91,13 +92,13 @@ class DemoPage extends HookConsumerWidget {
                       ),
                       AppListItem(
                         icon: 'layers',
-                        label: 'Grouped List',
+                        label: 'List',
                         active: selectedIndex.value == 4,
                         onTap: () => selectedIndex.value = 4,
                       ),
                       AppListItem(
                         icon: 'move',
-                        label: 'Nested Resize',
+                        label: 'ResizeBox',
                         active: selectedIndex.value == 5,
                         onTap: () => selectedIndex.value = 5,
                       ),
