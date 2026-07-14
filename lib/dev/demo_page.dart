@@ -162,7 +162,7 @@ class DemoPage extends HookConsumerWidget {
             child: AppIcon(
               'palette',
               size: custom.typography.subtitleSize,
-              color: custom.colors.textPrimary,
+              color: custom.colors.onAccent,
             ),
           ),
         ),
