@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// FPS tracker using [SchedulerBinding.addTimingsCallback] + periodic timer.
@@ -119,7 +119,7 @@ class PerformanceMonitor extends HookConsumerWidget {
 
         // FPS
         _MetricCard(
-          icon: LucideIcons.gauge,
+          icon: 'gauge',
           label: 'FPS',
           value: fps.value.toStringAsFixed(1),
           unit: 'fps',
@@ -130,7 +130,7 @@ class PerformanceMonitor extends HookConsumerWidget {
 
         // Frame time
         _MetricCard(
-          icon: LucideIcons.timer,
+          icon: 'timer',
           label: '帧耗时',
           value: frameTime.value.toStringAsFixed(1),
           unit: 'ms',
@@ -142,7 +142,7 @@ class PerformanceMonitor extends HookConsumerWidget {
         // Memory usage (only when available)
         if (memUsed.value > 0)
           _MetricCard(
-            icon: LucideIcons.hardDrive,
+            icon: 'hardDrive',
             label: '内存使用',
             value: '${memUsed.value}',
             unit: 'MB',
@@ -217,7 +217,7 @@ int _currentRssMb() {
 // ── Widgets ────────────────────────────────────────────────────────────────
 
 class _MetricCard extends StatelessWidget {
-  final IconData icon;
+  final String icon;
   final String label;
   final String value;
   final String unit;
@@ -248,7 +248,7 @@ class _MetricCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: custom.colors.textSecondary),
+              AppIcon(icon, size: 14, color: custom.colors.textSecondary),
               const SizedBox(width: 6),
               AppText(
                 label,

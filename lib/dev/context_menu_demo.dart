@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/context_menu/context_menu.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// A demo section that showcases the Zed-style context menu.
@@ -358,7 +358,7 @@ class _DemoCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.mousePointer2, size: 16, color: textColor),
+          AppIcon('mousePointer2', size: 16, color: textColor),
           const SizedBox(width: 8),
           AppText(message, color: textColor),
         ],

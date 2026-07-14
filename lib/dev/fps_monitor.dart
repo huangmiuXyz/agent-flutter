@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 一次异常记录的帧数据
@@ -174,8 +174,8 @@ class FpsMonitor extends HookWidget {
                           // 复制日志
                           TextButton.icon(
                             onPressed: () => _copyAll(history),
-                            icon: const Icon(
-                              LucideIcons.copy,
+                            icon: const AppIcon(
+                              'copy',
                               size: 14,
                               color: Colors.white38,
                             ),
@@ -193,8 +193,8 @@ class FpsMonitor extends HookWidget {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
-                              LucideIcons.x,
+                            icon: const AppIcon(
+                              'x',
                               size: 18,
                               color: Colors.white54,
                             ),

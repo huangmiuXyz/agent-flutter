@@ -4,8 +4,8 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
@@ -231,7 +231,7 @@ class _MenuPanel extends HookWidget {
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
         trailingWidget: hasSubmenu
-            ? const Icon(LucideIcons.chevronRight, size: 10)
+            ? const AppIcon('chevronRight', size: 10)
             : null,
         onHover: hasSubmenu
             ? (isHovered, box) {

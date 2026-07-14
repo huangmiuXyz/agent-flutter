@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
@@ -10,6 +9,7 @@ import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
 import 'package:agent/dev/execute_panel.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
 import 'package:agent/dev/context_menu_demo.dart';
@@ -159,10 +159,7 @@ class DemoPage extends HookConsumerWidget {
             onPressed: () => showEditor.value = !showEditor.value,
             backgroundColor: custom.colors.accent,
             foregroundColor: custom.colors.onAccent,
-            child: Icon(
-              LucideIcons.palette,
-              size: custom.typography.subtitleSize,
-            ),
+            child: AppIcon('palette', size: custom.typography.subtitleSize),
           ),
         ),
         // Backdrop
@@ -190,8 +187,8 @@ class DemoPage extends HookConsumerWidget {
                       children: [
                         const Spacer(),
                         IconButton(
-                          icon: Icon(
-                            LucideIcons.x,
+                          icon: AppIcon(
+                            'x',
                             size: custom.typography.titleSize,
                             color: custom.colors.textSecondary,
                           ),

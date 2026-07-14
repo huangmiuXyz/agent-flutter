@@ -44,6 +44,13 @@ const Map<String, IconData> _registry = {
   'file': LucideIcons.file,
   'folder': LucideIcons.folder,
   'layers': LucideIcons.layers,
+  'mousePointer2': LucideIcons.mousePointer2,
+  'chevronRight': LucideIcons.chevronRight,
+  'play': LucideIcons.play,
+  'stopCircle': LucideIcons.stopCircle,
+  'gauge': LucideIcons.gauge,
+  'timer': LucideIcons.timer,
+  'hardDrive': LucideIcons.hardDrive,
 };
 
 class AppIcon extends ConsumerWidget {

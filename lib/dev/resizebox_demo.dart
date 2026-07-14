@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 
 /// A demo page showcasing [ResizeBox] with a bottom panel layout.
@@ -68,14 +69,12 @@ class ResizeBoxDemo extends HookWidget {
                       ),
                     ),
                   ),
-                  child: Text(
+                  child: AppText(
                     labels[i],
-                    style: TextStyle(
-                      fontSize: custom.typography.captionSize,
-                      color: active
-                          ? custom.colors.accent
-                          : custom.colors.textSecondary,
-                    ),
+                    variant: AppTextVariant.caption,
+                    color: active
+                        ? custom.colors.accent
+                        : custom.colors.textSecondary,
                   ),
                 ),
               );
@@ -89,22 +88,20 @@ class ResizeBoxDemo extends HookWidget {
           color: custom.colors.selected,
           child: Row(
             children: [
-              Text(
+              AppText(
                 '下面板状态: ${collapsedState.value ? "已隐藏" : "展开"}',
-                style: TextStyle(
-                  fontSize: custom.typography.captionSize,
-                  color: custom.colors.textSecondary,
-                ),
+                variant: AppTextVariant.caption,
+                color: custom.colors.textSecondary,
               ),
               if (collapsedState.value) ...[
                 const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () => collapsedState.value = false,
-                  child: Text(
+                  child: AppText(
                     '点击展开',
-                    style: TextStyle(
-                      fontSize: custom.typography.captionSize,
-                      color: custom.colors.accent,
+                    variant: AppTextVariant.caption,
+                    color: custom.colors.accent,
+                    style: const TextStyle(
                       decoration: TextDecoration.underline,
                     ),
                   ),
@@ -348,13 +345,11 @@ class _PanelLabel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(color: color),
       alignment: Alignment.center,
-      child: Text(
+      child: AppText(
         label,
         textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: custom.typography.captionSize,
-          color: custom.colors.textSecondary,
-        ),
+        variant: AppTextVariant.caption,
+        color: custom.colors.textSecondary,
       ),
     );
   }

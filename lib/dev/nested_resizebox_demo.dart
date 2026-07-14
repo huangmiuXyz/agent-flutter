@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// A demo page showing nested [ResizeBox] configurations.
 ///
@@ -63,14 +64,12 @@ class NestedResizeBoxDemo extends HookWidget {
                       ),
                     ),
                   ),
-                  child: Text(
+                  child: AppText(
                     labels[i],
-                    style: TextStyle(
-                      fontSize: custom.typography.captionSize,
-                      color: active
-                          ? custom.colors.accent
-                          : custom.colors.textSecondary,
-                    ),
+                    variant: AppTextVariant.caption,
+                    color: active
+                        ? custom.colors.accent
+                        : custom.colors.textSecondary,
                   ),
                 ),
               );
@@ -226,13 +225,11 @@ class _PanelLabel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(color: color),
       alignment: Alignment.center,
-      child: Text(
+      child: AppText(
         label,
         textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: custom.typography.captionSize,
-          color: custom.colors.textSecondary,
-        ),
+        variant: AppTextVariant.caption,
+        color: custom.colors.textSecondary,
       ),
     );
   }

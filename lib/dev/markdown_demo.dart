@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/markdown/markdown_preview.dart';
@@ -402,8 +403,8 @@ class _StreamButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isStreaming ? Icons.stop : Icons.play_arrow,
+            AppIcon(
+              isStreaming ? 'stopCircle' : 'play',
               size: custom.typography.subtitleSize,
               color: isStreaming
                   ? custom.colors.textPrimary
