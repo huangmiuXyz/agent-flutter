@@ -8,6 +8,7 @@ import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
+import 'package:agent/dev/field_demo.dart';
 import 'package:agent/dev/execute_panel.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
@@ -52,6 +53,7 @@ class DemoPage extends HookConsumerWidget {
                   const PerformanceMonitor(),
                   const ContextMenuDemo(),
                   const GroupedListDemo(),
+                  const FieldDemo(),
                   const ResizeBoxDemo(),
                   const ContentFrame(child: MarkdownDemo()),
                 ],
@@ -110,6 +112,12 @@ class DemoPage extends HookConsumerWidget {
                         label: 'Markdown',
                         active: selectedIndex.value == 6,
                         onTap: () => selectedIndex.value = 6,
+                      ),
+                      AppListItem(
+                        icon: 'pencil',
+                        label: 'Field',
+                        active: selectedIndex.value == 5,
+                        onTap: () => selectedIndex.value = 5,
                       ),
                     ],
                   ),

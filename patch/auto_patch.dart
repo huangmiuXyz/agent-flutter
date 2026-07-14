@@ -4,9 +4,11 @@ import 'package:path/path.dart' as p;
 // ignore_for_file: avoid_print
 
 /// Applies all *.patch files in this directory to their corresponding
-/// packages in pub cache.
+/// packages in pub cache, and Flutter SDK patches to the Flutter SDK.
 ///
-/// Naming: `<package>+<version>.patch` or just `<package>.patch`.
+/// Naming:
+///   - Pub cache: `<package>+<version>.patch` or just `<package>.patch`.
+///   - Flutter SDK: `flutter+<version>/<name>.patch` (applied via git in FLUTTER_ROOT).
 Future<void> main() async {
   final dir = Directory(_scriptDir);
   final patches = _listPatchFiles(dir);
@@ -24,6 +26,13 @@ Future<void> main() async {
     }
 
     final (name, version) = pkgId;
+
+    // Check if this is a Flutter SDK patch (name == 'flutter')
+    if (name == 'flutter' && version != null) {
+      await _applyFlutterPatch(patchFile);
+      continue;
+    }
+
     final pkgDir = _findPackage(name, version);
     if (pkgDir == null) {
       print('Skipping $name: package not found in pub cache.');
@@ -33,6 +42,73 @@ Future<void> main() async {
     await _applyPatch(pkgDir, patchFile);
   }
 }
+
+/// Applies a patch to the Flutter SDK using `git apply`.
+Future<void> _applyFlutterPatch(File patchFile) async {
+  final flutterRoot = _findFlutterRoot();
+  if (flutterRoot == null) {
+    stderr.writeln('Flutter SDK not found. Skipping: ${patchFile.path}');
+    return;
+  }
+
+  // Check if already applied first (reverse apply check)
+  final reverseCheck = await Process.run(_gitExe(), [
+    'apply',
+    '--reverse',
+    '--check',
+    patchFile.path,
+  ], workingDirectory: flutterRoot.path);
+  if (reverseCheck.exitCode == 0) {
+    print('Already applied: ${patchFile.path}');
+    return;
+  }
+
+  final result = await Process.run(_gitExe(), [
+    'apply',
+    '--whitespace=nowarn',
+    patchFile.path,
+  ], workingDirectory: flutterRoot.path);
+
+  if (result.exitCode == 0) {
+    print('Applied Flutter SDK patch: ${patchFile.path}');
+  } else {
+    stderr.writeln('Failed to apply Flutter SDK patch: ${patchFile.path}');
+    stderr.writeln('${result.stderr}');
+  }
+}
+
+/// Returns the Flutter SDK root directory by checking:
+/// 1. FLUTTER_ROOT environment variable
+/// 2. The parent of the `flutter` executable in PATH
+Directory? _findFlutterRoot() {
+  final env = Platform.environment;
+
+  // Check FLUTTER_ROOT first
+  final envRoot = env['FLUTTER_ROOT'];
+  if (envRoot != null && Directory(envRoot).existsSync()) {
+    return Directory(envRoot);
+  }
+
+  // Try to find flutter executable in PATH
+  final pathEnv = env['PATH'] ?? '';
+  for (final p in pathEnv.split(separator)) {
+    if (p.isEmpty) continue;
+    final dartDir = Directory(p);
+    if (!dartDir.existsSync()) continue;
+    final flutterExe = File(
+      '${dartDir.path}${separator}flutter${Platform.isWindows ? '.bat' : ''}',
+    );
+    if (flutterExe.existsSync()) {
+      // FLUTTER_ROOT is the parent of bin/
+      final root = Directory('${dartDir.parent.path}');
+      if (root.existsSync()) return root;
+    }
+  }
+
+  return null;
+}
+
+String _gitExe() => Platform.isWindows ? 'git.exe' : 'git';
 
 List<File> _listPatchFiles(Directory dir) {
   final result = <File>[];
@@ -86,7 +162,8 @@ Future<void> _applyPatch(Directory pkgDir, File patchFile) async {
   final dirName = pkgDir.path.split(separator).last;
   final result = await Process.run(git, [
     'apply',
-    '--directory', dirName,
+    '--directory',
+    dirName,
     '--whitespace=nowarn',
     patchFile.path,
   ], workingDirectory: pkgParent.path);
@@ -134,9 +211,17 @@ void _applyManuallyFull(Directory pkgDir, File patchFile) {
     i++;
     while (i < patchLines.length) {
       final hl = patchLines[i];
-      if (hl.startsWith('@@')) { i--; break; }
-      if (hl.startsWith('--- ') || hl.startsWith('+++ ')) { i--; break; }
-      if (hl.isEmpty) { /* skip empty lines in patch */ }
+      if (hl.startsWith('@@')) {
+        i--;
+        break;
+      }
+      if (hl.startsWith('--- ') || hl.startsWith('+++ ')) {
+        i--;
+        break;
+      }
+      if (hl.isEmpty) {
+        /* skip empty lines in patch */
+      }
       hunkLines.add(hl);
       i++;
     }
@@ -147,7 +232,11 @@ void _applyManuallyFull(Directory pkgDir, File patchFile) {
     final oldBlock = <String>[];
     final newBlock = <String>[];
     for (final hl in hunkLines) {
-      if (hl.isEmpty) { oldBlock.add(''); newBlock.add(''); continue; }
+      if (hl.isEmpty) {
+        oldBlock.add('');
+        newBlock.add('');
+        continue;
+      }
       final prefix = hl[0];
       final rest = hl.length > 1 ? hl.substring(1) : '';
       if (prefix == ' ' || prefix == '-') {
@@ -211,7 +300,9 @@ String _pubCacheDir() {
 }
 
 Directory? _findPackage(String name, String? version) {
-  final hosted = Directory('${_pubCacheDir()}${separator}hosted${separator}pub.dev');
+  final hosted = Directory(
+    '${_pubCacheDir()}${separator}hosted${separator}pub.dev',
+  );
   if (!hosted.existsSync()) return null;
 
   // Version-specific match
@@ -222,11 +313,8 @@ Directory? _findPackage(String name, String? version) {
   }
 
   // Any version
-  return hosted.listSync().whereType<Directory>().firstWhere(
-    (d) {
-      final dirName = d.path.split(separator).last;
-      return dirName.startsWith('$name-');
-    },
-    orElse: () => throw Error(),
-  );
+  return hosted.listSync().whereType<Directory>().firstWhere((d) {
+    final dirName = d.path.split(separator).last;
+    return dirName.startsWith('$name-');
+  }, orElse: () => throw Error());
 }

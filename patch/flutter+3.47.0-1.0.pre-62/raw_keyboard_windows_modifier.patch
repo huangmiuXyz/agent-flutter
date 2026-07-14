@@ -1,0 +1,14 @@
+diff --git a/packages/flutter/lib/src/services/raw_keyboard.dart b/packages/flutter/lib/src/services/raw_keyboard.dart
+index 5a42f9f6563..93cac2ce2e6 100644
+--- a/packages/flutter/lib/src/services/raw_keyboard.dart
++++ b/packages/flutter/lib/src/services/raw_keyboard.dart
+@@ -1079,7 +1079,8 @@ class RawKeyboard {
+       if ((event.data is RawKeyEventDataLinux &&
+               event.physicalKey == PhysicalKeyboardKey.altRight) ||
+           event.data is RawKeyEventDataIos ||
+-          event.data is RawKeyEventDataAndroid) {
++          event.data is RawKeyEventDataAndroid ||
++          event.data is RawKeyEventDataWindows) {
+         final LogicalKeyboardKey? logicalKey = _allModifiersExceptFn[event.physicalKey];
+         if (logicalKey != null) {
+           _keysPressed[event.physicalKey] = logicalKey;

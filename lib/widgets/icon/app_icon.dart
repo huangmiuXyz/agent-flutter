@@ -51,6 +51,15 @@ const Map<String, IconData> _registry = {
   'gauge': LucideIcons.gauge,
   'timer': LucideIcons.timer,
   'hardDrive': LucideIcons.hardDrive,
+  'eye': LucideIcons.eye,
+  'eyeOff': LucideIcons.eyeOff,
+  'key': LucideIcons.key,
+  'mail': LucideIcons.mail,
+  'user': LucideIcons.user,
+  'lock': LucideIcons.lock,
+  'check': LucideIcons.check,
+  'alertCircle': LucideIcons.alertCircle,
+  'info': LucideIcons.info,
 };
 
 class AppIcon extends ConsumerWidget {
