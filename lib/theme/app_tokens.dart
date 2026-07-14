@@ -12,6 +12,8 @@ class AppSpacing {
     this.md = 16,
     this.lg = 24,
     this.xl = 32,
+    this.pageTop = 70,
+    this.pageBottom = 60,
   });
 
   final double xs;
@@ -19,6 +21,8 @@ class AppSpacing {
   final double md;
   final double lg;
   final double xl;
+  final double pageTop;
+  final double pageBottom;
 
   static AppSpacing lerp(AppSpacing a, AppSpacing b, double t) => AppSpacing(
     xs: lerpDouble(a.xs, b.xs, t)!,
@@ -26,6 +30,8 @@ class AppSpacing {
     md: lerpDouble(a.md, b.md, t)!,
     lg: lerpDouble(a.lg, b.lg, t)!,
     xl: lerpDouble(a.xl, b.xl, t)!,
+    pageTop: lerpDouble(a.pageTop, b.pageTop, t)!,
+    pageBottom: lerpDouble(a.pageBottom, b.pageBottom, t)!,
   );
 }
 

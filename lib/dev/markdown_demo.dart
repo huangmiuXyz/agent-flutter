@@ -130,8 +130,11 @@ MarkdownPreview(controller: ctrl)
     // ── Tab switching ──
     final tabs = ['静态预览', '流式动画'];
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(custom.spacing.lg),
+    return Padding(
+      padding: EdgeInsets.only(
+        left: custom.spacing.lg,
+        right: custom.spacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

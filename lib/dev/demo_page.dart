@@ -19,6 +19,7 @@ import 'package:agent/dev/grouped_list_demo.dart';
 import 'package:agent/dev/resizebox_demo.dart';
 import 'package:agent/dev/markdown_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
+import 'package:agent/widgets/content_frame/content_frame.dart';
 
 class DemoPage extends HookConsumerWidget {
   const DemoPage({super.key});
@@ -52,7 +53,7 @@ class DemoPage extends HookConsumerWidget {
                   const ContextMenuDemo(),
                   const GroupedListDemo(),
                   const ResizeBoxDemo(),
-                  const MarkdownDemo(),
+                  const ContentFrame(child: MarkdownDemo()),
                 ],
               ),
             ),
