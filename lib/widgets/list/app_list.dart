@@ -270,6 +270,8 @@ class AppListItem extends HookWidget {
     final isHovered = useState(false);
     final isPressed = useState(false);
     final enabled = !disabled;
+    // Lazily cache the RenderBox so hover callbacks avoid per-event tree traversal.
+    final renderBoxRef = useRef<RenderBox?>(null);
 
     final padding =
         itemPadding ??
@@ -317,7 +319,8 @@ class AppListItem extends HookWidget {
           onHover: (value) {
             isHovered.value = value;
             if (onHover != null) {
-              final box = context.findRenderObject() as RenderBox?;
+              final box = renderBoxRef.value ??=
+                  context.findRenderObject() as RenderBox?;
               if (box != null && box.hasSize) {
                 onHover!(value, box);
               }

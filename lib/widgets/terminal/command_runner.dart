@@ -30,8 +30,11 @@ class CommandRunner {
     final completer = Completer<String>();
     final buffer = StringBuffer();
     StreamSubscription<String>? execSub;
+    Timer? timeoutTimer;
 
     void done() {
+      timeoutTimer?.cancel();
+      timeoutTimer = null;
       if (execSub != null) {
         _execSubs.remove(execSub);
         execSub?.cancel();
@@ -80,7 +83,7 @@ class CommandRunner {
     sendInput('$command\r');
 
     if (timeout > Duration.zero) {
-      Future.delayed(timeout, () {
+      timeoutTimer = Timer(timeout, () {
         if (!completer.isCompleted) {
           done();
           completer.completeError(

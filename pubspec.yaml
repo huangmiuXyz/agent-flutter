@@ -24,6 +24,8 @@ dependencies:
   flutter_pty_new: ^1.0.0
   nanoid: ^1.0.0
   ansi_strip: ^0.1.1+1
+  desktop_drop: ^0.7.1
+  streamdown: ^0.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

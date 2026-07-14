@@ -17,6 +17,7 @@ import 'package:agent/dev/fps_monitor.dart';
 import 'package:agent/dev/grouped_list_demo.dart';
 
 import 'package:agent/dev/resizebox_demo.dart';
+import 'package:agent/dev/markdown_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 
 class DemoPage extends HookConsumerWidget {
@@ -51,6 +52,7 @@ class DemoPage extends HookConsumerWidget {
                   const ContextMenuDemo(),
                   const GroupedListDemo(),
                   const ResizeBoxDemo(),
+                  const MarkdownDemo(),
                 ],
               ),
             ),
@@ -101,6 +103,12 @@ class DemoPage extends HookConsumerWidget {
                         label: 'ResizeBox',
                         active: selectedIndex.value == 5,
                         onTap: () => selectedIndex.value = 5,
+                      ),
+                      AppListItem(
+                        icon: 'fileCode',
+                        label: 'Markdown',
+                        active: selectedIndex.value == 6,
+                        onTap: () => selectedIndex.value = 6,
                       ),
                     ],
                   ),

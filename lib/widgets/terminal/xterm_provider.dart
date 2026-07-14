@@ -132,9 +132,9 @@ class XtermManager extends _$XtermManager {
     );
   }
 
-  /// Clears the terminal screen by sending a form-feed (Ctrl+L).
+  /// Clears the terminal screen and scrollback buffer directly.
   void clearTerminal() {
-    state.terminal.onOutput?.call('\x0c');
+    state.terminal.write('\x1b[H\x1b[2J\x1b[3J');
   }
 
   /// Cuts the current selection: copies to clipboard then deletes.

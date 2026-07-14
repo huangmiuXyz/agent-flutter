@@ -106,15 +106,24 @@ class ResizeBox extends HookWidget {
     // --- drag tracking ---
     final isDragging = useState(false);
     final dragRawTarget = useRef(0.0); // mouse-driven raw target
+    // Cache the RenderBox across drag frames to avoid per-frame tree traversal.
+    final dragRenderBox = useRef<RenderBox?>(null);
+
+    RenderBox _resolveRenderBox() {
+      return dragRenderBox.value ?? context.findRenderObject() as RenderBox;
+    }
 
     // ---- drag handlers ----
 
     void onDragStart(DragStartDetails d) {
       isDragging.value = true; // triggers rebuild → shows cursor overlay
 
+      // Cache the RenderBox for the entire drag gesture.
+      final renderBox = context.findRenderObject() as RenderBox;
+      dragRenderBox.value = renderBox;
+
       // Initialize dragRawTarget so the first rebuild after dragStart
       // already has a valid position rather than the initial 0.
-      final renderBox = context.findRenderObject() as RenderBox;
       final localPos = renderBox.globalToLocal(d.globalPosition);
       switch (direction) {
         case ResizeDirection.right:
@@ -130,6 +139,7 @@ class ResizeBox extends HookWidget {
 
     void onDragEnd(DragEndDetails d) {
       isDragging.value = false; // triggers rebuild → removes cursor overlay
+      dragRenderBox.value = null; // release cached reference
       if (isCollapsed.value) {
         targetSize.value = 0;
       } else if (targetSize.value < minSize) {
@@ -141,7 +151,7 @@ class ResizeBox extends HookWidget {
       // Convert mouse screen position to Stack-local coordinates.
       // This gives us the real distance from the Stack's edges,
       // eliminating cumulative errors from reset tracking.
-      final renderBox = context.findRenderObject() as RenderBox;
+      final renderBox = _resolveRenderBox();
       final localPos = renderBox.globalToLocal(d.globalPosition);
 
       final double rawTarget;

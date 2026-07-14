@@ -53,16 +53,11 @@ class TerminalTabs extends HookWidget {
                 index: activeIndex.value,
                 children: [
                   for (var i = 0; i < tabs.value.length; i++)
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: custom.spacing.sm,
-                      ),
-                      child: XtermTerminalWidget(
-                        key: ValueKey(tabs.value[i].id),
-                        id: tabs.value[i].id,
-                        shell: tabs.value[i].shell,
-                        visible: active && activeIndex.value == i,
-                      ),
+                    XtermTerminalWidget(
+                      key: ValueKey(tabs.value[i].id),
+                      id: tabs.value[i].id,
+                      shell: tabs.value[i].shell,
+                      visible: active && activeIndex.value == i,
                     ),
                 ],
               ),

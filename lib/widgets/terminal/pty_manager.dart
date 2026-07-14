@@ -100,7 +100,11 @@ class PtyManager {
       (List<int> bytes) {
         final text = utf8.decode(bytes, allowMalformed: true);
         _trackShellOutput(text);
-        terminal.write(text);
+        try {
+          terminal.write(text);
+        } catch (e) {
+          debugPrint('[TERMINAL] xterm2 write error: $e');
+        }
         onOutput(text);
       },
       onError: (error) {

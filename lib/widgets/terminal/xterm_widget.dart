@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:xterm2/xterm.dart';
+import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/context_menu/context_menu.dart';
@@ -27,6 +30,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
     final session = ref.watch(xtermManagerProvider(id));
     final custom = CustomTheme.of(context);
     final focusNode = useRef(FocusNode());
+    final isDragging = useState(false);
 
     useEffect(() {
       ref.read(xtermManagerProvider(id).notifier).startPty(shell: shell);
@@ -51,29 +55,73 @@ class XtermTerminalWidget extends HookConsumerWidget {
       fontFamily: 'JetBrainsMono',
     );
 
+    String escapePath(String path) {
+      if (path.contains(' ')) {
+        if (Platform.isWindows) {
+          return '"$path"';
+        } else {
+          return "'${path.replaceAll("'", "'\\''")}'";
+        }
+      }
+      return path;
+    }
+
+    void onDrop(DropDoneDetails detail) {
+      isDragging.value = false;
+      if (detail.files.isEmpty) return;
+      final paths = detail.files.map((f) => escapePath(f.path)).join(' ');
+      ref.read(xtermManagerProvider(id).notifier).sendInput(paths);
+    }
+
     // Single reusable handler instance (stateless).
     final deleteHandler = useMemoized(() => DeleteSelectionHandler());
 
-    final terminalContent = ClipRect(
-      child: TerminalView(
-        session.terminal,
-        controller: session.controller,
-        focusNode: focusNode.value,
-        autofocus: visible,
-        theme: theme,
-        textStyle: textStyle,
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              deleteHandler.canHandle(event.logicalKey)) {
-            if (deleteHandler.handle(session.terminal, session.controller)) {
-              return KeyEventResult.handled;
-            }
-          }
-          return KeyEventResult.ignored;
-        },
-        onTapUp: (details, offset) {
-          ref.read(xtermManagerProvider(id).notifier).handleTap(offset);
-        },
+    final terminalContent = DropTarget(
+      onDragDone: onDrop,
+      onDragEntered: (_) => isDragging.value = true,
+      onDragExited: (_) => isDragging.value = false,
+      child: Stack(
+        children: [
+          ClipRect(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
+              child: TerminalView(
+                session.terminal,
+                controller: session.controller,
+                focusNode: focusNode.value,
+                autofocus: visible,
+                theme: theme,
+                textStyle: textStyle,
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      deleteHandler.canHandle(event.logicalKey)) {
+                    if (deleteHandler.handle(
+                      session.terminal,
+                      session.controller,
+                    )) {
+                      return KeyEventResult.handled;
+                    }
+                  }
+                  return KeyEventResult.ignored;
+                },
+                onTapUp: (details, offset) {
+                  ref.read(xtermManagerProvider(id).notifier).handleTap(offset);
+                },
+              ),
+            ),
+          ),
+          // 拖拽覆盖层 - 淡入淡出
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: !isDragging.value,
+              child: AnimatedOpacity(
+                opacity: isDragging.value ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: const _DragOverlay(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
 
@@ -129,5 +177,15 @@ class XtermTerminalWidget extends HookConsumerWidget {
       },
       child: terminalContent,
     );
+  }
+}
+
+/// 拖拽文件到终端时的覆盖层
+class _DragOverlay extends StatelessWidget {
+  const _DragOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(color: Colors.black.withAlpha(100));
   }
 }
