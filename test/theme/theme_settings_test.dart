@@ -31,7 +31,7 @@ void main() {
         weight: FontWeight.w600,
       );
 
-      expect(style.fontFamily, isNull);
+      expect(style.fontFamily, 'JetBrainsMono');
     });
   });
 

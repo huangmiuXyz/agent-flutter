@@ -2,7 +2,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-const String defaultFontFamily = 'HarmonyOS Sans SC';
+const String defaultFontFamily = 'JetBrainsMono';
 
 @immutable
 class AppSpacing {

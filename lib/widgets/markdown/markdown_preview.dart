@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:streamdown/streamdown.dart';
 
+import 'package:agent/theme/app_tokens.dart';
+
 /// Controller for [MarkdownPreview] that supports streaming text append.
 ///
 /// Create one, pass it to [MarkdownPreview], then call [append] for each new
@@ -136,10 +138,15 @@ class MarkdownPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveStream = controller?.stream ?? stream;
 
+    // Default to the app's global font family when no explicit textStyle
+    // is provided.
+    final effectiveTextStyle =
+        textStyle ?? TextStyle(fontFamily: defaultFontFamily);
+
     if (text != null) {
       return Streamdown.text(
         text!,
-        textStyle: textStyle,
+        textStyle: effectiveTextStyle,
         selectable: selectable,
         onLinkTap: onLinkTap,
         padding: padding,
@@ -156,7 +163,7 @@ class MarkdownPreview extends StatelessWidget {
 
     return Streamdown(
       stream: effectiveStream!,
-      textStyle: textStyle,
+      textStyle: effectiveTextStyle,
       selectable: selectable,
       onLinkTap: onLinkTap,
       padding: padding,

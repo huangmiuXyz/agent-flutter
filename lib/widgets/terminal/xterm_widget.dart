@@ -52,7 +52,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
     // 终端必须使用等宽字体
     final textStyle = TerminalStyle(
       fontSize: custom.typography.bodySize,
-      fontFamily: 'JetBrainsMono',
+      fontFamily: defaultFontFamily,
     );
 
     String escapePath(String path) {
