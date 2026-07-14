@@ -27,7 +27,8 @@ import 'package:streamdown/streamdown.dart';
 /// }
 /// ```
 class MarkdownPreviewController {
-  final StreamController<String> _controller = StreamController<String>();
+  final StreamController<String> _controller =
+      StreamController<String>.broadcast();
   final StringBuffer _buffer = StringBuffer();
 
   /// The stream that feeds markdown chunks to the widget.

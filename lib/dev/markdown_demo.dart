@@ -160,6 +160,8 @@ MarkdownPreview(controller: ctrl)
                     active: streamingTab.value == i,
                     onTap: () {
                       timerRef.value?.cancel();
+                      ctrlState.value?.dispose();
+                      ctrlState.value = null;
                       isStreaming.value = false;
                       streamingTab.value = i;
                     },
