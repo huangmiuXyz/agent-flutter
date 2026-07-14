@@ -159,7 +159,11 @@ class DemoPage extends HookConsumerWidget {
             onPressed: () => showEditor.value = !showEditor.value,
             backgroundColor: custom.colors.accent,
             foregroundColor: custom.colors.onAccent,
-            child: AppIcon('palette', size: custom.typography.subtitleSize),
+            child: AppIcon(
+              'palette',
+              size: custom.typography.subtitleSize,
+              color: custom.colors.textPrimary,
+            ),
           ),
         ),
         // Backdrop
