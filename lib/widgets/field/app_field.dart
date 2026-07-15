@@ -28,6 +28,7 @@ class AppField extends HookWidget {
   final FocusNode? focusNode;
   final int? maxLines;
   final int? minLines;
+  final double? cursorHeight;
 
   const AppField({
     super.key,
@@ -49,6 +50,7 @@ class AppField extends HookWidget {
     this.focusNode,
     this.maxLines = 1,
     this.minLines,
+    this.cursorHeight,
   });
 
   @override
@@ -95,6 +97,20 @@ class AppField extends HookWidget {
     final isDisabled = !enabled;
     final isSingleLine = maxLines == 1;
 
+    // Build a text style with an explicit `height: 1.0` so the line height
+    // matches fontSize exactly, eliminating font-metric interference.
+    final textStyle = custom.typography.styleForSize(
+      fontSize,
+      isDisabled
+          ? custom.colors.textDisabled
+          : custom.colors.textPrimary,
+    ).copyWith(height: 1.0);
+
+    // Vertical padding to center the text/cursor in the fixed-height container.
+    // `height: 1.0` guarantees the text block is exactly fontSize tall,
+    // so this math reliably centers it.
+    final verticalPadding = isSingleLine ? (height - fontSize) / 2 : 0.0;
+
     final borderColor = hasError
         ? custom.colors.danger
         : isHovered.value
@@ -123,34 +139,33 @@ class AppField extends HookWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              obscureText: obscureText,
-              enabled: enabled,
-              readOnly: readOnly,
-              keyboardType: keyboardType,
-              textInputAction: textInputAction,
-              maxLines: maxLines,
-              minLines: minLines,
-              style: custom.typography.styleForSize(
-                fontSize,
-                isDisabled
-                    ? custom.colors.textDisabled
-                    : custom.colors.textPrimary,
+            controller: controller,
+            focusNode: focusNode,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
+            obscureText: obscureText,
+            enabled: enabled,
+            readOnly: readOnly,
+            keyboardType: keyboardType,
+            textInputAction: textInputAction,
+            maxLines: maxLines,
+            minLines: minLines,
+            style: textStyle,
+            cursorHeight: cursorHeight,
+            textAlignVertical: TextAlignVertical.center,
+            decoration: InputDecoration(
+              hintText: placeholder,
+              hintStyle: textStyle.copyWith(
+                color: custom.colors.textDisabled,
               ),
-              decoration: InputDecoration(
-                hintText: placeholder,
-                hintStyle: custom.typography.styleForSize(
-                  fontSize,
-                  custom.colors.textDisabled,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 0,
+                vertical: verticalPadding,
               ),
             ),
+          ),
           ),
         ),
         if (suffixIcon != null)
@@ -256,11 +271,13 @@ class AppField extends HookWidget {
       FieldSize.lg => custom.typography.subtitleSize,
     };
 
+    // Use height: 1.0 so line-height equals fontSize exactly,
+    // preventing font metrics from pushing the cursor up.
     final textStyle = custom.typography.styleForSize(
       fontSize,
       custom.colors.textPrimary,
       weight: custom.typography.bodyWeight,
-    );
+    ).copyWith(height: 1.0);
 
     if (!isEditing.value) {
       return Listener(
@@ -312,6 +329,8 @@ class AppField extends HookWidget {
         autofocus: true,
         style: textStyle,
         cursorColor: custom.colors.accent,
+        cursorHeight: cursorHeight,
+        textAlignVertical: TextAlignVertical.center,
         textInputAction: TextInputAction.done,
         onChanged: onChanged,
         onSubmitted: (value) {
