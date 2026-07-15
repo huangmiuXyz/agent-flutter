@@ -48,66 +48,79 @@ class AppSwitch extends HookWidget {
     final isDisabled = disabled || onChanged == null;
 
     // ---- Sizing ----------------------------------------------------------
-    // Switch track height is intentionally more compact than button heights.
-    // Derived from spacing tokens to keep switches visually lightweight.
-    final trackHeight = switch (size) {
-      SwitchSize.sm => custom.spacing.md,                          // 16
-      SwitchSize.md => custom.spacing.md + custom.spacing.xs,      // 20
-      SwitchSize.lg => custom.spacing.lg,                          // 24
+    // Switch dimensions are defined as dedicated tokens in [AppControls] —
+    // no expression-based arithmetic.
+    final (double trackHeight, double trackWidth) = switch (size) {
+      SwitchSize.sm => (custom.controls.switchSmHeight, custom.controls.switchSmWidth),
+      SwitchSize.md => (custom.controls.switchMdHeight, custom.controls.switchMdWidth),
+      SwitchSize.lg => (custom.controls.switchLgHeight, custom.controls.switchLgWidth),
     };
-    final trackWidth = trackHeight * 1.75;
     // Thumb is slightly smaller than the track, with xs (4px) total air gap
     final thumbSize = trackHeight - custom.spacing.xs;
     final thumbInset = (trackHeight - thumbSize) / 2;
     final thumbOnLeft = trackWidth - thumbSize - thumbInset;
 
-    // ---- Colors ----------------------------------------------------------
-    final effectiveTrackColor = isDisabled
-        ? custom.colors.panel
-        : value
-            ? (isHovered.value ? custom.colors.accentHover : custom.colors.accent)
-            : (isHovered.value ? custom.colors.hover : custom.colors.panelElevated);
+    // ---- Colors & border -------------------------------------------------
+    final Color trackColor;
+    final Color thumbColor;
+    final Color? trackBorderColor;
 
-    final effectiveThumbColor = isDisabled
-        ? custom.colors.textDisabled
-        : value
-            ? custom.colors.onAccent
-            : custom.colors.textPrimary;
+    if (isDisabled) {
+      trackColor = custom.colors.panel;
+      thumbColor = custom.colors.textDisabled;
+      trackBorderColor = null;
+    } else if (value) {
+      trackColor = isHovered.value ? custom.colors.accentHover : custom.colors.accent;
+      thumbColor = custom.colors.onAccent;
+      trackBorderColor = null;
+    } else {
+      trackColor = isHovered.value ? custom.colors.hover : custom.colors.panel;
+      thumbColor = custom.colors.textPrimary;
+      trackBorderColor = isHovered.value ? custom.colors.border : custom.colors.borderSubtle;
+    }
 
     // ---- Switch widget ---------------------------------------------------
-    final switchWidget = GestureDetector(
-      onTap: isDisabled ? null : () => onChanged?.call(!value),
-      child: MouseRegion(
-        onEnter: (_) => isHovered.value = true,
-        onExit: (_) => isHovered.value = false,
-        cursor:
-            isDisabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: trackWidth,
-          height: trackHeight,
-          decoration: BoxDecoration(
-            color: effectiveTrackColor,
-            borderRadius: BorderRadius.circular(trackHeight / 2),
-          ),
-          child: Stack(
-            children: [
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 200),
-                left: value ? thumbOnLeft : thumbInset,
-                top: thumbInset,
-                child: AnimatedContainer(
+    final switchWidget = SizedBox(
+      width: trackWidth,
+      height: trackHeight,
+      child: GestureDetector(
+        onTap: isDisabled ? null : () => onChanged?.call(!value),
+        child: MouseRegion(
+          onEnter: (_) => isHovered.value = true,
+          onExit: (_) => isHovered.value = false,
+          cursor: isDisabled
+              ? SystemMouseCursors.basic
+              : SystemMouseCursors.click,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: trackWidth,
+            height: trackHeight,
+            decoration: BoxDecoration(
+              color: trackColor,
+              borderRadius: BorderRadius.circular(trackHeight / 2),
+              border: trackBorderColor != null
+                  ? Border.all(color: trackBorderColor)
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                AnimatedPositioned(
                   duration: const Duration(milliseconds: 200),
-                  width: thumbSize,
-                  height: thumbSize,
-                  decoration: BoxDecoration(
-                    color: effectiveThumbColor,
-                    shape: BoxShape.circle,
-                    boxShadow: value ? custom.shadows.small : null,
+                  left: value ? thumbOnLeft : thumbInset,
+                  top: thumbInset,
+                  bottom: thumbInset,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: thumbSize,
+                    decoration: BoxDecoration(
+                      color: thumbColor,
+                      shape: BoxShape.circle,
+                      boxShadow: custom.shadows.small,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
