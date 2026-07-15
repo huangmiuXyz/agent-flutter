@@ -1,117 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/text/app_text.dart';
-import 'package:agent/widgets/terminal/provider.dart';
+import 'package:agent/widgets/terminal/xterm_provider.dart';
 
-class ExecutePanel extends ConsumerStatefulWidget {
+class ExecutePanel extends HookConsumerWidget {
   const ExecutePanel({super.key});
 
   @override
-  ConsumerState<ExecutePanel> createState() => _ExecutePanelState();
-}
-
-class _ExecutePanelState extends ConsumerState<ExecutePanel> {
-  final _controller = TextEditingController();
-  final _output = ValueNotifier<String>('');
-  bool _running = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _output.dispose();
-    super.dispose();
-  }
-
-  void _sendSigint() {
-    final registry = ref.read(terminalRegistryProvider);
-    final ids = registry.ids.toList();
-    if (ids.isEmpty) return;
-    ref.read(terminalManagerProvider(ids.first).notifier).sendInput('\x03');
-  }
-
-  Future<void> _execute() async {
-    final cmd = _controller.text.trim();
-    if (cmd.isEmpty) return;
-
-    setState(() => _running = true);
-    _output.value = '';
-
-    try {
-      // 获取第一个活跃终端
-      final registry = ref.read(terminalRegistryProvider);
-      final ids = registry.ids.toList();
-      if (ids.isEmpty) {
-        _output.value = '[error: no active terminal]';
-        return;
-      }
-
-      final id = ids.first;
-      final result = await ref
-          .read(terminalManagerProvider(id).notifier)
-          .execute(cmd);
-      _output.value = result;
-    } catch (e) {
-      _output.value = '[error: $e]';
-    } finally {
-      if (mounted) setState(() => _running = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = useTextEditingController();
+    final output = useState('');
+    final running = useState(false);
     final custom = CustomTheme.of(context);
 
+    void sendSigint() {
+      final registry = ref.read(xtermRegistryProvider);
+      final ids = registry.ids.toList();
+      if (ids.isEmpty) return;
+      ref.read(xtermManagerProvider(ids.first).notifier).sendInput('\x03');
+    }
+
+    Future<void> execute() async {
+      final cmd = controller.text.trim();
+      if (cmd.isEmpty) return;
+
+      running.value = true;
+      output.value = '';
+
+      try {
+        final registry = ref.read(xtermRegistryProvider);
+        final ids = registry.ids.toList();
+        if (ids.isEmpty) {
+          output.value = '[error: no active terminal]';
+          return;
+        }
+
+        final id = ids.first;
+        final result = await ref
+            .read(xtermManagerProvider(id).notifier)
+            .execute(cmd);
+        output.value = result;
+      } catch (e) {
+        output.value = '[error: $e]';
+      } finally {
+        if (context.mounted) running.value = false;
+      }
+    }
+
     return Container(
-      color: custom.surfaceContainer,
+      color: custom.colors.panelElevated,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(height: 1, color: custom.surfaceContainerHighest),
+          Container(height: 1, color: custom.colors.selected),
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: custom.spacingSm,
-              vertical: custom.spacingXs,
+              horizontal: custom.spacing.sm,
+              vertical: custom.spacing.xs,
             ),
             child: Row(
               children: [
                 Expanded(
                   child: CallbackShortcuts(
                     bindings: {
-                      SingleActivator(
-                        LogicalKeyboardKey.enter,
-                        control: true,
-                      ): _execute,
+                      SingleActivator(LogicalKeyboardKey.enter, control: true):
+                          execute,
                     },
                     child: Focus(
                       child: TextField(
-                        controller: _controller,
-                        enabled: !_running,
+                        controller: controller,
+                        enabled: !running.value,
                         maxLines: 4,
                         minLines: 1,
                         style: TextStyle(
-                          fontFamily: 'JetBrainsMono',
-                          fontSize: custom.fontSizeCaption,
-                          color: custom.onSurface,
+                          fontSize: custom.typography.captionSize,
+                          color: custom.colors.textPrimary,
                         ),
                         decoration: InputDecoration(
                           isDense: true,
                           contentPadding: EdgeInsets.symmetric(
-                            horizontal: custom.spacingSm,
-                            vertical: custom.spacingXs,
+                            horizontal: custom.spacing.sm,
+                            vertical: custom.spacing.xs,
                           ),
                           hintText: '输入命令... (Ctrl+Enter 执行)',
                           hintStyle: TextStyle(
-                            color: custom.onSurfaceVariant,
-                            fontSize: custom.fontSizeCaption,
+                            color: custom.colors.textSecondary,
+                            fontSize: custom.typography.captionSize,
                           ),
                           filled: true,
-                          fillColor: custom.surfaceContainerLow,
+                          fillColor: custom.colors.panel,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(custom.radiusSm.topLeft.x),
+                            borderRadius: BorderRadius.circular(
+                              custom.radii.sm.topLeft.x,
+                            ),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -119,56 +105,46 @@ class _ExecutePanelState extends ConsumerState<ExecutePanel> {
                     ),
                   ),
                 ),
-                SizedBox(width: custom.spacingSm),
+                SizedBox(width: custom.spacing.sm),
                 AppButton(
                   icon: 'square',
                   text: 'Ctrl+C',
-                  onPressed: _sendSigint,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  onPressed: sendSigint,
+                  style: ButtonStyle(visualDensity: VisualDensity.compact),
                 ),
-                SizedBox(width: custom.spacingSm),
+                SizedBox(width: custom.spacing.sm),
                 AppButton(
                   text: '执行',
-                  disabled: _running,
-                  onPressed: _execute,
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                  ),
+                  disabled: running.value,
+                  onPressed: execute,
+                  style: ButtonStyle(visualDensity: VisualDensity.compact),
                 ),
               ],
             ),
           ),
           Expanded(
             child: Container(
-              color: custom.surfaceContainerLow,
-              padding: EdgeInsets.all(custom.spacingSm),
-              child: ValueListenableBuilder<String>(
-                valueListenable: _output,
-                builder: (context, output, _) {
-                  if (output.isEmpty && !_running) {
-                    return Center(
-                      child: AppText(
-                        '输入命令后点击执行',
-                        variant: AppTextVariant.caption,
-                        color: custom.onSurfaceVariant,
-                      ),
-                    );
-                  }
-                  return SingleChildScrollView(
-                    child: SelectableText(
-                      _running ? '运行中... $output' : output,
-                      style: TextStyle(
-                        fontFamily: 'JetBrainsMono',
-                        fontSize: custom.fontSizeCaption,
-                        color: custom.onSurface,
-                        height: 1.4,
-                      ),
+              color: custom.colors.panel,
+              padding: EdgeInsets.all(custom.spacing.sm),
+              child: switch ((output.value, running.value)) {
+                (final out, false) when out.isEmpty => Center(
+                  child: AppText(
+                    '输入命令后点击执行',
+                    variant: AppTextVariant.caption,
+                    color: custom.colors.textSecondary,
+                  ),
+                ),
+                (final out, final run) => SingleChildScrollView(
+                  child: SelectableText(
+                    run ? '运行中... $out' : out,
+                    style: TextStyle(
+                      fontSize: custom.typography.captionSize,
+                      color: custom.colors.textPrimary,
+                      height: 1.4,
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              },
             ),
           ),
         ],

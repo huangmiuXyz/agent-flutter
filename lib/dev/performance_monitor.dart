@@ -8,6 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// FPS tracker using [SchedulerBinding.addTimingsCallback] + periodic timer.
@@ -105,9 +106,9 @@ class PerformanceMonitor extends HookConsumerWidget {
 
     // ── Gauge colour helper ──
     Color gaugeColor(double value, double warn, double critical) {
-      if (value >= critical) return custom.error;
-      if (value >= warn) return custom.tertiary;
-      return custom.primary;
+      if (value >= critical) return custom.colors.danger;
+      if (value >= warn) return custom.colors.warning;
+      return custom.colors.accent;
     }
 
     return ListView(
@@ -118,7 +119,7 @@ class PerformanceMonitor extends HookConsumerWidget {
 
         // FPS
         _MetricCard(
-          icon: Icons.speed,
+          icon: 'gauge',
           label: 'FPS',
           value: fps.value.toStringAsFixed(1),
           unit: 'fps',
@@ -129,7 +130,7 @@ class PerformanceMonitor extends HookConsumerWidget {
 
         // Frame time
         _MetricCard(
-          icon: Icons.timer_outlined,
+          icon: 'timer',
           label: '帧耗时',
           value: frameTime.value.toStringAsFixed(1),
           unit: 'ms',
@@ -141,7 +142,7 @@ class PerformanceMonitor extends HookConsumerWidget {
         // Memory usage (only when available)
         if (memUsed.value > 0)
           _MetricCard(
-            icon: Icons.memory,
+            icon: 'hardDrive',
             label: '内存使用',
             value: '${memUsed.value}',
             unit: 'MB',
@@ -158,22 +159,27 @@ class PerformanceMonitor extends HookConsumerWidget {
         const SizedBox(height: 8),
         _InfoRow(
           label: 'VSync 帧率',
-          value:
-              '${SchedulerBinding.instance.transientCallbackCount} 帧/秒',
+          value: '${SchedulerBinding.instance.transientCallbackCount} 帧/秒',
           custom: custom,
         ),
       ],
     );
   }
 
-  Widget _sectionHeader(BuildContext context, String label, CustomTheme custom) {
-    return AppText(label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: custom.onSurfaceVariant,
-          letterSpacing: 0.5,
-        ));
+  Widget _sectionHeader(
+    BuildContext context,
+    String label,
+    CustomTheme custom,
+  ) {
+    return AppText(
+      label,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: custom.colors.textSecondary,
+        letterSpacing: 0.5,
+      ),
+    );
   }
 }
 
@@ -211,7 +217,7 @@ int _currentRssMb() {
 // ── Widgets ────────────────────────────────────────────────────────────────
 
 class _MetricCard extends StatelessWidget {
-  final IconData icon;
+  final String icon;
   final String label;
   final String value;
   final String unit;
@@ -234,28 +240,34 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: custom.surfaceContainerLow,
-        borderRadius: custom.radiusSm,
+        color: custom.colors.panel,
+        borderRadius: custom.radii.sm,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: custom.onSurfaceVariant),
+              AppIcon(icon, size: 14, color: custom.colors.textSecondary),
               const SizedBox(width: 6),
-              AppText(label,
-                  variant: AppTextVariant.caption,
-                  color: custom.onSurfaceVariant),
+              AppText(
+                label,
+                variant: AppTextVariant.caption,
+                color: custom.colors.textSecondary,
+              ),
               const Spacer(),
-              AppText(value,
-                  variant: AppTextVariant.subtitle,
-                  color: color,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              AppText(
+                value,
+                variant: AppTextVariant.subtitle,
+                color: color,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               const SizedBox(width: 4),
-              AppText(unit,
-                  variant: AppTextVariant.caption,
-                  color: custom.onSurfaceVariant),
+              AppText(
+                unit,
+                variant: AppTextVariant.caption,
+                color: custom.colors.textSecondary,
+              ),
             ],
           ),
           if (barValue > 0) ...[
@@ -264,7 +276,7 @@ class _MetricCard extends StatelessWidget {
               borderRadius: const BorderRadius.all(Radius.circular(2)),
               child: LinearProgressIndicator(
                 value: barValue,
-                backgroundColor: custom.surfaceContainerHigh,
+                backgroundColor: custom.colors.hover,
                 valueColor: AlwaysStoppedAnimation<Color>(color),
                 minHeight: 4,
               ),
@@ -296,16 +308,20 @@ class _InfoRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 72,
-            child: AppText(label,
-                variant: AppTextVariant.caption,
-                color: custom.onSurfaceVariant),
+            child: AppText(
+              label,
+              variant: AppTextVariant.caption,
+              color: custom.colors.textSecondary,
+            ),
           ),
           Expanded(
-            child: AppText(value,
-                variant: AppTextVariant.caption,
-                color: custom.onSurface,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis),
+            child: AppText(
+              value,
+              variant: AppTextVariant.caption,
+              color: custom.colors.textPrimary,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),

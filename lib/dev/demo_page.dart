@@ -5,95 +5,23 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
+import 'package:agent/dev/field_demo.dart';
+import 'package:agent/dev/execute_panel.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
+import 'package:agent/dev/context_menu_demo.dart';
 import 'package:agent/dev/fps_monitor.dart';
+import 'package:agent/dev/grouped_list_demo.dart';
 
-class _VSCodeSplitView extends StatefulWidget {
-  const _VSCodeSplitView({
-    required this.left,
-    required this.right,
-    this.initialSize = 256,
-    this.minSize = 180,
-    this.maxSize = 600,
-  });
-
-  final Widget left;
-  final Widget right;
-  final double initialSize;
-  final double minSize;
-  final double maxSize;
-
-  @override
-  State<_VSCodeSplitView> createState() => _VSCodeSplitViewState();
-}
-
-class _VSCodeSplitViewState extends State<_VSCodeSplitView> {
-  late double _size;
-  double _startX = 0;
-  double _startSize = 0;
-  bool _hovering = false;
-  bool _dragging = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _size = widget.initialSize;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Row(
-          children: [
-            SizedBox(width: _size, child: widget.left),
-            Expanded(child: widget.right),
-          ],
-        ),
-        Positioned(
-          left: _size - 5,
-          top: 0,
-          bottom: 0,
-          width: 10,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onHorizontalDragStart: (d) {
-              _startX = d.globalPosition.dx;
-              _startSize = _size;
-              setState(() => _dragging = true);
-            },
-            onHorizontalDragEnd: (_) => setState(() => _dragging = false),
-            onHorizontalDragUpdate: (d) {
-              setState(() {
-                _size = (_startSize + d.globalPosition.dx - _startX)
-                    .clamp(widget.minSize, widget.maxSize);
-              });
-            },
-            child: MouseRegion(
-              cursor: SystemMouseCursors.resizeLeftRight,
-              onEnter: (_) => setState(() => _hovering = true),
-              onExit: (_) => setState(() => _hovering = false),
-              child: Center(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  curve: Curves.easeOut,
-                  width: 4,
-                  color: (_hovering || _dragging)
-                      ? const Color(0xFF007FD4)
-                      : Colors.transparent,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+import 'package:agent/dev/resizebox_demo.dart';
+import 'package:agent/dev/markdown_demo.dart';
+import 'package:agent/widgets/resizebox/resizebox.dart';
+import 'package:agent/widgets/content_frame/content_frame.dart';
 
 class DemoPage extends HookConsumerWidget {
   const DemoPage({super.key});
@@ -108,82 +36,117 @@ class DemoPage extends HookConsumerWidget {
     return Stack(
       children: [
         Positioned.fill(
-          child: _VSCodeSplitView(
-            left: Container(
-              decoration: BoxDecoration(
-                color: custom.surfaceContainerLow,
-                border: Border(
-                  right: BorderSide(
-                    color: custom.surfaceContainerHighest,
-                  ),
-                ),
-              ),
-              child: Column(children: [
-                AppList(
-                  width: double.infinity,
-                  children: [
-                    AppListItem(
-                      icon: 'square',
-                      label: 'Button',
-                      active: selectedIndex.value == 0,
-                      onTap: () => selectedIndex.value = 0,
-                    ),
-                    AppListItem(
-                      icon: 'terminal',
-                      label: 'Terminal',
-                      active: selectedIndex.value == 1,
-                      onTap: () => selectedIndex.value = 1,
-                    ),
-                    AppListItem(
-                      icon: 'activity',
-                      label: 'Performance',
-                      active: selectedIndex.value == 2,
-                      onTap: () => selectedIndex.value = 2,
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      AppButton(
-                        icon: switch (config.themeMode) {
-                          ThemeMode.system => 'sun',
-                          ThemeMode.light => 'sun',
-                          ThemeMode.dark => 'moon',
-                        },
-                        variant: ButtonVariant.iconOnly,
-                        text: switch (config.themeMode) {
-                          ThemeMode.system => '主题: 系统',
-                          ThemeMode.light => '主题: 亮色',
-                          ThemeMode.dark => '主题: 暗色',
-                        },
-                        onPressed: () {
-                          final next = switch (config.themeMode) {
-                            ThemeMode.system => ThemeMode.light,
-                            ThemeMode.light => ThemeMode.dark,
-                            ThemeMode.dark => ThemeMode.system,
-                          };
-                          ref
-                              .read(themeProvider.notifier)
-                              .setThemeMode(next);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
-            ),
-            right: ColoredBox(
-              color: custom.surface,
+          child: ResizeBox(
+            other: ColoredBox(
+              color: custom.colors.background,
               child: IndexedStack(
                 index: selectedIndex.value,
                 children: [
                   const ButtonDemo(),
-                  TerminalTabs(active: selectedIndex.value == 1),
+                  Column(
+                    children: [
+                      Expanded(
+                        child: TerminalTabs(active: selectedIndex.value == 1),
+                      ),
+                      SizedBox(height: 200, child: ExecutePanel()),
+                    ],
+                  ),
                   const PerformanceMonitor(),
+                  const ContextMenuDemo(),
+                  const GroupedListDemo(),
+                  const FieldDemo(),
+                  const ResizeBoxDemo(),
+                  const ContentFrame(child: MarkdownDemo()),
+                ],
+              ),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: custom.colors.panel,
+                border: Border(
+                  right: BorderSide(color: custom.colors.selected),
+                ),
+              ),
+              child: Column(
+                children: [
+                  AppList(
+                    width: double.infinity,
+                    children: [
+                      AppListItem(
+                        icon: 'square',
+                        label: 'Button',
+                        active: selectedIndex.value == 0,
+                        onTap: () => selectedIndex.value = 0,
+                      ),
+                      AppListItem(
+                        icon: 'terminal',
+                        label: 'Terminal',
+                        active: selectedIndex.value == 1,
+                        onTap: () => selectedIndex.value = 1,
+                      ),
+                      AppListItem(
+                        icon: 'activity',
+                        label: 'Performance',
+                        active: selectedIndex.value == 2,
+                        onTap: () => selectedIndex.value = 2,
+                      ),
+                      AppListItem(
+                        icon: 'terminalSquare',
+                        label: 'Context Menu',
+                        active: selectedIndex.value == 3,
+                        onTap: () => selectedIndex.value = 3,
+                      ),
+                      AppListItem(
+                        icon: 'layers',
+                        label: 'List',
+                        active: selectedIndex.value == 4,
+                        onTap: () => selectedIndex.value = 4,
+                      ),
+                      AppListItem(
+                        icon: 'move',
+                        label: 'ResizeBox',
+                        active: selectedIndex.value == 6,
+                        onTap: () => selectedIndex.value = 6,
+                      ),
+                      AppListItem(
+                        icon: 'fileCode',
+                        label: 'Markdown',
+                        active: selectedIndex.value == 7,
+                        onTap: () => selectedIndex.value = 7,
+                      ),
+                      _SidebarInlineField(selectedIndex: selectedIndex),
+                    ],
+                  ),
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        AppButton(
+                          icon: switch (config.themeMode) {
+                            ThemeMode.system => 'sun',
+                            ThemeMode.light => 'sun',
+                            ThemeMode.dark => 'moon',
+                          },
+                          variant: ButtonVariant.iconOnly,
+                          text: switch (config.themeMode) {
+                            ThemeMode.system => '主题: 系统',
+                            ThemeMode.light => '主题: 亮色',
+                            ThemeMode.dark => '主题: 暗色',
+                          },
+                          onPressed: () {
+                            final next = switch (config.themeMode) {
+                              ThemeMode.system => ThemeMode.light,
+                              ThemeMode.light => ThemeMode.dark,
+                              ThemeMode.dark => ThemeMode.system,
+                            };
+                            ref.read(themeProvider.notifier).setThemeMode(next);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -198,10 +161,13 @@ class DemoPage extends HookConsumerWidget {
           child: FloatingActionButton(
             mini: true,
             onPressed: () => showEditor.value = !showEditor.value,
-            backgroundColor: custom.primary,
-            foregroundColor: custom.onPrimary,
-            child: Icon(Icons.palette,
-                size: custom.fontSizeSubtitle),
+            backgroundColor: custom.colors.accent,
+            foregroundColor: custom.colors.onAccent,
+            child: AppIcon(
+              'palette',
+              size: custom.typography.subtitleSize,
+              color: custom.colors.onAccent,
+            ),
           ),
         ),
         // Backdrop
@@ -221,7 +187,7 @@ class DemoPage extends HookConsumerWidget {
             width: trayWidth.clamp(200, 400),
             child: Material(
               elevation: 16,
-              color: custom.surface,
+              color: custom.colors.background,
               child: SafeArea(
                 child: Column(
                   children: [
@@ -229,22 +195,86 @@ class DemoPage extends HookConsumerWidget {
                       children: [
                         const Spacer(),
                         IconButton(
-                          icon: Icon(Icons.close,
-                              size: custom.fontSizeTitle,
-                              color: custom.onSurfaceVariant),
+                          icon: AppIcon(
+                            'x',
+                            size: custom.typography.titleSize,
+                            color: custom.colors.textSecondary,
+                          ),
                           onPressed: () => showEditor.value = false,
                         ),
                       ],
                     ),
-                    Expanded(
-                      child: ColorThemeEditor(),
-                    ),
+                    Expanded(child: ColorThemeEditor()),
                   ],
                 ),
               ),
             ),
           ),
       ],
+    );
+  }
+}
+
+class _SidebarInlineField extends HookWidget {
+  final ValueNotifier<int> selectedIndex;
+
+  const _SidebarInlineField({required this.selectedIndex});
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    final isHovered = useState(false);
+    final isPressed = useState(false);
+    final controller = useTextEditingController(text: 'Field');
+    final active = selectedIndex.value == 5;
+
+    final bgColor = switch ((active, isPressed.value, isHovered.value)) {
+      (true, _, _) => custom.colors.selected,
+      (_, true, _) => custom.colors.selected,
+      (_, _, true) => custom.colors.hover,
+      _ => Colors.transparent,
+    };
+    final foreground = custom.colors.textPrimary;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => isHovered.value = true,
+      onExit: (_) => isHovered.value = false,
+      child: Material(
+        color: bgColor,
+        borderRadius: custom.radii.sm,
+        child: InkWell(
+          onTap: () => selectedIndex.value = 5,
+          onHighlightChanged: (v) => isPressed.value = v,
+          borderRadius: custom.radii.sm,
+          splashFactory: NoSplash.splashFactory,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          child: SizedBox(
+            height: custom.controls.mediumHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  AppIcon(
+                    'pencil',
+                    size: custom.typography.bodySize,
+                    color: foreground,
+                  ),
+                  SizedBox(width: custom.spacing.sm),
+                  Expanded(
+                    child: AppField(
+                      variant: FieldVariant.inline,
+                      controller: controller,
+                      size: FieldSize.md,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

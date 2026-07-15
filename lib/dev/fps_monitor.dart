@@ -5,13 +5,20 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import 'package:agent/widgets/icon/app_icon.dart';
+import 'package:agent/widgets/text/app_text.dart';
+
 /// 一次异常记录的帧数据
 class _FrameSample {
   final DateTime time;
   final double buildMs;
   final double rasterMs;
 
-  _FrameSample({required this.time, required this.buildMs, required this.rasterMs});
+  _FrameSample({
+    required this.time,
+    required this.buildMs,
+    required this.rasterMs,
+  });
 
   String get formatted {
     final t =
@@ -25,7 +32,9 @@ class _FrameHistory {
   final _samples = <_FrameSample>[];
 
   void add(double buildMs, double rasterMs) {
-    _samples.add(_FrameSample(time: DateTime.now(), buildMs: buildMs, rasterMs: rasterMs));
+    _samples.add(
+      _FrameSample(time: DateTime.now(), buildMs: buildMs, rasterMs: rasterMs),
+    );
     final cutoff = DateTime.now().subtract(const Duration(seconds: 30));
     while (_samples.isNotEmpty && _samples.first.time.isBefore(cutoff)) {
       _samples.removeAt(0);
@@ -69,7 +78,9 @@ class FpsMonitor extends HookWidget {
         fps.value = frameCount.toDouble();
         frameCount = 0;
         final avgBuild = timingCount > 0 ? buildUs / timingCount / 1000.0 : 0.0;
-        final avgRaster = timingCount > 0 ? rasterUs / timingCount / 1000.0 : 0.0;
+        final avgRaster = timingCount > 0
+            ? rasterUs / timingCount / 1000.0
+            : 0.0;
         buildMs.value = avgBuild;
         rasterMs.value = avgRaster;
         history.add(avgBuild, avgRaster);
@@ -87,8 +98,8 @@ class FpsMonitor extends HookWidget {
     final color = fps.value >= 55
         ? const Color(0xFF4ADE80)
         : fps.value >= 30
-            ? const Color(0xFFFBBF24)
-            : const Color(0xFFF87171);
+        ? const Color(0xFFFBBF24)
+        : const Color(0xFFF87171);
 
     return Stack(
       children: [
@@ -101,8 +112,8 @@ class FpsMonitor extends HookWidget {
             onPressed: () => open.value = !open.value,
             backgroundColor: color,
             foregroundColor: Colors.black87,
-            child: Text(
-              '${fps.value.toStringAsFixed(0)}',
+            child: AppText(
+              fps.value.toStringAsFixed(0),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
@@ -151,28 +162,42 @@ class FpsMonitor extends HookWidget {
                       padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
                       child: Row(
                         children: [
-                          const Text('性能监视',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white70,
-                              )),
+                          const AppText(
+                            '性能监视',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white70,
+                            ),
+                          ),
                           const Spacer(),
                           // 复制日志
                           TextButton.icon(
                             onPressed: () => _copyAll(history),
-                            icon: const Icon(Icons.copy,
-                                size: 14, color: Colors.white38),
-                            label: const Text('复制日志',
-                                style: TextStyle(
-                                    fontSize: 11, color: Colors.white38)),
+                            icon: const AppIcon(
+                              'copy',
+                              size: 14,
+                              color: Colors.white38,
+                            ),
+                            label: const AppText(
+                              '复制日志',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white38,
+                              ),
+                            ),
                             style: TextButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 8)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.close,
-                                size: 18, color: Colors.white54),
+                            icon: const AppIcon(
+                              'x',
+                              size: 18,
+                              color: Colors.white54,
+                            ),
                             onPressed: () => open.value = false,
                           ),
                         ],
@@ -186,17 +211,23 @@ class FpsMonitor extends HookWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
                         children: [
-                          _stat('FPS', '${fps.value.toStringAsFixed(0)}', color),
+                          _stat('FPS', fps.value.toStringAsFixed(0), color),
                           const SizedBox(width: 24),
-                          _stat('Build', '${buildMs.value.toStringAsFixed(1)}ms',
-                              buildMs.value > 16
-                                  ? const Color(0xFFF87171)
-                                  : Colors.white70),
+                          _stat(
+                            'Build',
+                            '${buildMs.value.toStringAsFixed(1)}ms',
+                            buildMs.value > 16
+                                ? const Color(0xFFF87171)
+                                : Colors.white70,
+                          ),
                           const SizedBox(width: 24),
-                          _stat('Raster', '${rasterMs.value.toStringAsFixed(1)}ms',
-                              rasterMs.value > 16
-                                  ? const Color(0xFFF87171)
-                                  : Colors.white70),
+                          _stat(
+                            'Raster',
+                            '${rasterMs.value.toStringAsFixed(1)}ms',
+                            rasterMs.value > 16
+                                ? const Color(0xFFF87171)
+                                : Colors.white70,
+                          ),
                         ],
                       ),
                     ),
@@ -205,7 +236,7 @@ class FpsMonitor extends HookWidget {
                     // 异常记录
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
+                      child: AppText(
                         history.hasAnomaly ? '掉帧记录' : '暂无异常',
                         style: TextStyle(
                           fontSize: 11,
@@ -222,19 +253,21 @@ class FpsMonitor extends HookWidget {
                     Expanded(
                       child: history.hasAnomaly
                           ? ListView.builder(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               itemCount: history.count,
                               itemBuilder: (context, index) {
                                 final s = history.all[index];
                                 final isBad = s.buildMs > 16;
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
-                                  child: Text(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2,
+                                  ),
+                                  child: AppText(
                                     s.formatted,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontFamily: 'monospace',
                                       color: isBad
                                           ? const Color(0xFFF87171)
                                           : Colors.white54,
@@ -244,9 +277,13 @@ class FpsMonitor extends HookWidget {
                               },
                             )
                           : const Center(
-                              child: Text('性能正常',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.white30)),
+                              child: AppText(
+                                '性能正常',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white30,
+                                ),
+                              ),
                             ),
                     ),
                   ],
@@ -262,16 +299,19 @@ class FpsMonitor extends HookWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 10, color: Colors.white38)),
+        AppText(
+          label,
+          style: const TextStyle(fontSize: 10, color: Colors.white38),
+        ),
         const SizedBox(height: 2),
-        Text(value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: color,
-              fontFamily: 'monospace',
-            )),
+        AppText(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
       ],
     );
   }

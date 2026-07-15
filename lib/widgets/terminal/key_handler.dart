@@ -1,51 +1,48 @@
 import 'package:flutter/services.dart';
-import 'package:kterm/kterm.dart';
+import 'package:xterm2/xterm.dart';
 
-// ─── 按键处理器 ───────────────────────────────────────────────
-
-abstract class KeyHandler {
-  bool canHandle(LogicalKeyboardKey key);
-  bool handle(Terminal terminal, TerminalController controller);
-}
-
-/// 选中删除：选中文本后按 Delete/Backspace，向 shell 发等量退格
-class DeleteSelectionHandler implements KeyHandler {
-  @override
+/// Handles Delete / Backspace when a selection is active:
+/// removes the selected characters and moves the cursor accordingly.
+class DeleteSelectionHandler {
   bool canHandle(LogicalKeyboardKey key) =>
       key == LogicalKeyboardKey.delete || key == LogicalKeyboardKey.backspace;
 
-  @override
   bool handle(Terminal terminal, TerminalController controller) {
     final sel = controller.selection;
     if (sel == null) return false;
     controller.clearSelection();
 
-    final cursorY = terminal.buffer.absoluteCursorY;
+    final selection = sel.normalized;
+    final buffer = terminal.buffer;
+
     int count = 0;
-    int tail = -1;
-    for (final seg in sel.normalized.toSegments()) {
-      if (seg.line != cursorY) continue;
-      final start = seg.start ?? 0;
-      final end = seg.end ?? terminal.buffer.viewWidth;
-      final line = terminal.buffer.lines[seg.line];
-      for (int i = start; i < end; i++) {
-        if (line.getCodePoint(i) != 0) {
-          count++;
-          if (i + 1 > tail) tail = i + 1;
-        }
+    CellOffset? selectionEnd;
+    for (final segment in selection.toSegments()) {
+      if (segment.line < 0 || segment.line >= buffer.height) continue;
+      final line = buffer.lines[segment.line];
+      final start = (segment.start ?? 0).clamp(0, buffer.viewWidth);
+      final end = (segment.end ?? buffer.viewWidth).clamp(
+        start,
+        buffer.viewWidth,
+      );
+      for (int x = start; x < end; x++) {
+        if (line.getCodePoint(x) != 0) count++;
       }
+      selectionEnd = CellOffset(end, segment.line);
     }
 
-    if (count <= 0 || tail <= 0) return true;
+    if (count <= 0 || selectionEnd == null) return true;
 
-    final offset = tail - terminal.buffer.cursorX;
-    if (offset > 0) {
-      for (int i = 0; i < offset; i++) {
-        terminal.keyInput(TerminalKey.arrowRight);
-      }
-    } else if (offset < 0) {
-      for (int i = 0; i < -offset; i++) {
-        terminal.keyInput(TerminalKey.arrowLeft);
+    final moveRequest = MoveCursorHandler().createRequest(
+      terminal,
+      selectionEnd,
+    );
+    if (moveRequest != null) {
+      final key = moveRequest.delta > 0
+          ? TerminalKey.arrowRight
+          : TerminalKey.arrowLeft;
+      for (int i = 0; i < moveRequest.delta.abs(); i++) {
+        terminal.keyInput(key);
       }
     }
     for (int i = 0; i < count; i++) {
@@ -55,86 +52,80 @@ class DeleteSelectionHandler implements KeyHandler {
   }
 }
 
-class KeyHandlerFactory {
-  static final List<KeyHandler> _handlers = [
-    DeleteSelectionHandler(),
-  ];
-
-  static KeyHandler? forKey(LogicalKeyboardKey key) {
-    for (final h in _handlers) {
-      if (h.canHandle(key)) return h;
-    }
-    return null;
-  }
-}
-
-// ─── 点击处理器 ───────────────────────────────────────────────
-
-abstract class TapHandler {
-  void handle(Terminal terminal, CellOffset offset);
-}
-
-/// 点击移动光标：在 TUI（vim/less 等）中可跨行移动，在 shell点击光标所在行的某个位置，发左右箭头把光标移过去
-/// 点击移动光标：用左右箭头跨行跳转（shell 多行输入时自动折行）
-class MoveCursorHandler implements TapHandler {
-  @override
-  void handle(Terminal terminal, CellOffset offset) {
+/// Processes a tap on the terminal to move the cursor.
+class MoveCursorHandler {
+  /// Calculates the number of characters between the cursor and [offset].
+  CursorMoveRequest? createRequest(Terminal terminal, CellOffset offset) {
     final cursorX = terminal.buffer.cursorX;
     final cursorY = terminal.buffer.absoluteCursorY;
-    final dy = offset.y - cursorY;
-    final dx = offset.x - cursorX;
+    final width = terminal.buffer.viewWidth;
+    final cursorPosition = cursorY * width + cursorX;
+    final targetPosition = offset.y * width + offset.x;
+    if (cursorPosition == targetPosition) return null;
 
-    if (dy == 0) {
-      // 同行：直接左右
-      if (dx > 0) {
-        for (int i = 0; i < dx; i++) {
-          terminal.keyInput(TerminalKey.arrowRight);
-        }
-      } else if (dx < 0) {
-        for (int i = 0; i < -dx; i++) {
-          terminal.keyInput(TerminalKey.arrowLeft);
-        }
+    final movingRight = targetPosition > cursorPosition;
+    final startY = movingRight ? cursorY : offset.y;
+    final endY = movingRight ? offset.y : cursorY;
+    int characterCount = 0;
+
+    for (int y = startY; y <= endY; y++) {
+      final startX = y == startY ? (movingRight ? cursorX : offset.x) : 0;
+      final endX = y == endY ? (movingRight ? offset.x : cursorX) : width;
+      final line = terminal.buffer.lines[y];
+      for (int x = startX; x < endX; x++) {
+        if (line.getCodePoint(x) != 0) characterCount++;
       }
-      return;
     }
 
-    // 跨行：先折行到目标行的开头，再左右调整
-    final w = terminal.buffer.viewWidth;
-    int arrows;
-    TerminalKey key;
+    if (characterCount == 0) return null;
+    return CursorMoveRequest(movingRight ? characterCount : -characterCount);
+  }
 
-    if (dy < 0) {
-      // 目标在上方：从当前列一直左键到折回目标行
-      arrows = cursorX + 1;                       // 到行首 + 折到上一行
-      for (int i = 0; i < -dy - 1; i++) {
-        arrows += w + 1;                          // 再往上折 dy-1 行
-      }
-      arrows += w - offset.x;                     // 从行尾到目标列
-      key = TerminalKey.arrowLeft;
+  /// Moves the cursor by the computed delta.
+  /// Calls [onCursorMove] if provided, otherwise sends ANSI escape sequences.
+  void handle(
+    Terminal terminal,
+    CellOffset offset, {
+    CursorMoveCallback? onCursorMove,
+  }) {
+    final request = createRequest(terminal, offset);
+    if (request == null) return;
+
+    if (onCursorMove != null) {
+      onCursorMove(request);
     } else {
-      // 目标在下方：从当前列一直右键到折回目标行
-      arrows = w - cursorX;                       // 到行尾
-      for (int i = 0; i < dy - 1; i++) {
-        arrows += w + 1;                          // 再往下折 dy-1 行
-      }
-      arrows += offset.x + 1;                     // 从行首到目标列 + 1
-      key = TerminalKey.arrowRight;
+      terminal.onOutput?.call(request.fallbackInput);
     }
+  }
 
-    for (int i = 0; i < arrows; i++) {
-      terminal.keyInput(key);
-    }
+  /// Direct convenience: compute and move in one step with a callback.
+  static void handleTap(
+    Terminal terminal,
+    CellOffset offset, {
+    CursorMoveCallback? onCursorMove,
+  }) {
+    final handler = MoveCursorHandler();
+    handler.handle(terminal, offset, onCursorMove: onCursorMove);
   }
 }
 
-class TapHandlerFactory {
-  static final List<TapHandler> _handlers = [
-    MoveCursorHandler(),
-  ];
+/// Describes how many cells to move the cursor (positive = right).
+class CursorMoveRequest {
+  const CursorMoveRequest(this.delta);
 
-  static void handleTap(Terminal terminal, CellOffset offset) {
-    for (final h in _handlers) {
-      h.handle(terminal, offset);
+  /// Signed delta: positive moves right, negative moves left.
+  final int delta;
+
+  /// ANSI escape sequence fallback.
+  String get fallbackInput {
+    final sequence = delta > 0 ? '\x1b[C' : '\x1b[D';
+    final buffer = StringBuffer();
+    for (int i = 0; i < delta.abs(); i++) {
+      buffer.write(sequence);
     }
+    return buffer.toString();
   }
 }
+
+/// Callback type for cursor movement.
+typedef CursorMoveCallback = void Function(CursorMoveRequest request);

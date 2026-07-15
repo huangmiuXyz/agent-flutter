@@ -14,7 +14,7 @@ class MainLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final bgColor = custom.surfaceContainerLow;
+    final bgColor = custom.colors.panel;
 
     if (Platform.isMacOS) {
       return Scaffold(
@@ -26,7 +26,7 @@ class MainLayout extends StatelessWidget {
               decoration: BoxDecoration(
                 color: bgColor,
                 border: Border(
-                  bottom: BorderSide(color: custom.surfaceContainerHighest),
+                  bottom: BorderSide(color: custom.colors.selected),
                 ),
               ),
             ),
@@ -36,15 +36,13 @@ class MainLayout extends StatelessWidget {
       );
     }
 
-    final brightness = Theme.of(context).brightness;
+    final brightness = custom.brightness;
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kWindowCaptionHeight),
         child: Container(
           decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: custom.surfaceContainerHighest),
-            ),
+            border: Border(bottom: BorderSide(color: custom.colors.selected)),
           ),
           child: WindowCaption(
             brightness: brightness,

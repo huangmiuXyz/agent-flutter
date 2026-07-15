@@ -1,27 +1,14 @@
-import 'dart:io';
-
 import 'package:nanoid/nanoid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/terminal/terminal_widget.dart';
-import 'package:agent/dev/execute_panel.dart';
+import 'package:agent/utils/shell_utils.dart';
+import 'package:agent/widgets/terminal/xterm_widget.dart';
 import 'package:agent/widgets/button/app_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
-
-String tabLabel(String shell) {
-  final resolved = shell.isNotEmpty ? shell : resolveShell();
-  return resolved.split(RegExp(r'[\\/]')).last.replaceAll('.exe', '');
-}
-
-String resolveShell() {
-  if (Platform.isWindows) return 'pwsh.exe';
-  final envShell = Platform.environment['SHELL'];
-  if (envShell != null && envShell.isNotEmpty) return envShell;
-  return File('/bin/zsh').existsSync() ? '/bin/zsh' : '/bin/bash';
-}
+import 'package:agent/dev/execute_panel.dart';
 
 class TerminalTabs extends HookWidget {
   const TerminalTabs({super.key, this.active = true});
@@ -50,7 +37,7 @@ class TerminalTabs extends HookWidget {
       }
     }
 
-    final tabBarHeight = custom.controlHeightMd;
+    final tabBarHeight = custom.controls.mediumHeight;
 
     return Stack(
       children: [
@@ -58,16 +45,16 @@ class TerminalTabs extends HookWidget {
           children: [
             Container(
               height: tabBarHeight - 1.0,
-              color: custom.surfaceContainer,
+              color: custom.colors.panelElevated,
             ),
-            Container(height: 1.0, color: custom.surfaceContainerHighest),
-            SizedBox(height: custom.spacingXs),
+            Container(height: 1.0, color: custom.colors.selected),
+            SizedBox(height: custom.spacing.xs),
             Expanded(
               child: IndexedStack(
                 index: activeIndex.value,
                 children: [
                   for (var i = 0; i < tabs.value.length; i++)
-                    TerminalWidget(
+                    XtermTerminalWidget(
                       key: ValueKey(tabs.value[i].id),
                       id: tabs.value[i].id,
                       shell: tabs.value[i].shell,
@@ -105,7 +92,7 @@ class TerminalTabs extends HookWidget {
                           children: [
                             for (var i = 0; i < tabs.value.length; i++)
                               _TabItem(
-                                label: tabLabel(tabs.value[i].shell),
+                                label: shellLabel(tabs.value[i].shell),
                                 active: activeIndex.value == i,
                                 isFirst: i == 0,
                                 onTap: () => activeIndex.value = i,
@@ -163,22 +150,20 @@ class _TabItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: custom.controlHeightMd,
-        padding: EdgeInsets.symmetric(horizontal: custom.spacingSm),
+        height: custom.controls.mediumHeight,
+        padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? custom.surface : Colors.transparent,
+          color: active ? custom.colors.background : Colors.transparent,
           border: Border(
             left: BorderSide(
               color: active && !isFirst
-                  ? custom.surfaceContainerHighest
+                  ? custom.colors.selected
                   : Colors.transparent,
               width: 1.0,
             ),
             right: BorderSide(
-              color: active
-                  ? custom.surfaceContainerHighest
-                  : Colors.transparent,
+              color: active ? custom.colors.selected : Colors.transparent,
               width: 1.0,
             ),
           ),
@@ -189,17 +174,21 @@ class _TabItem extends StatelessWidget {
           children: [
             AppIcon(
               'terminalSquare',
-              size: custom.fontSizeCaption,
-              color: active ? custom.onSurface : custom.onSurfaceVariant,
+              size: custom.typography.captionSize,
+              color: active
+                  ? custom.colors.textPrimary
+                  : custom.colors.textSecondary,
             ),
-            SizedBox(width: custom.spacingXs),
+            SizedBox(width: custom.spacing.xs),
             AppText(
               label,
               variant: AppTextVariant.caption,
-              color: active ? custom.onSurface : custom.onSurfaceVariant,
+              color: active
+                  ? custom.colors.textPrimary
+                  : custom.colors.textSecondary,
             ),
             if (onClose != null) ...[
-              SizedBox(width: custom.spacingXs),
+              SizedBox(width: custom.spacing.xs),
               AppButton(
                 icon: 'x',
                 variant: ButtonVariant.iconOnly,

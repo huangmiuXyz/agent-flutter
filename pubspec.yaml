@@ -17,15 +17,15 @@ dependencies:
   window_manager: ^0.5.2
   freezed_annotation: ^3.0.0
   lucide_icons_flutter: ^3.1.14+2
-  kterm: ^1.5.1
+  xterm2: ^5.0.0
   path: ^1.9.0
   meta: ^1.18.0
   riverpod: ^3.3.2
   flutter_pty_new: ^1.0.0
   nanoid: ^1.0.0
   ansi_strip: ^0.1.1+1
-
-
+  desktop_drop: ^0.7.1
+  streamdown: ^0.1.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -36,10 +36,15 @@ dev_dependencies:
   freezed: ^3.0.0
 
 flutter:
-  uses-material-design: true
   fonts:
     - family: JetBrainsMono
       fonts:
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Light.ttf
-        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Bold.ttf
-          weight: 700
+        - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
+    - family: HarmonyOS Sans SC
+      fonts:
+        - asset: assets/fonts/HarmonyOSSans/HarmonyOS_Sans_SC.ttf
+          weight: 400
+    - family: HarmonyOS Sans
+      fonts:
+        - asset: assets/fonts/HarmonyOSSans/HarmonyOS_Sans.ttf
+          weight: 400
