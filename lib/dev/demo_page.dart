@@ -10,7 +10,6 @@ import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
 import 'package:agent/dev/field_demo.dart';
-import 'package:agent/dev/execute_panel.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/terminal/terminal_tabs.dart';
 import 'package:agent/dev/color_theme_editor.dart';
@@ -46,14 +45,7 @@ class DemoPage extends HookConsumerWidget {
                 index: selectedIndex.value,
                 children: [
                   const ButtonDemo(),
-                  Column(
-                    children: [
-                      Expanded(
-                        child: TerminalTabs(active: selectedIndex.value == 1),
-                      ),
-                      SizedBox(height: 200, child: ExecutePanel()),
-                    ],
-                  ),
+                  TerminalTabs(active: selectedIndex.value == 1),
                   const PerformanceMonitor(),
                   const ContextMenuDemo(),
                   const GroupedListDemo(),
