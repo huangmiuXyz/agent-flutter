@@ -22,6 +22,7 @@ import 'package:agent/dev/resizebox_demo.dart';
 import 'package:agent/dev/markdown_demo.dart';
 import 'package:agent/dev/select_demo.dart';
 import 'package:agent/dev/switch_demo.dart';
+import 'package:agent/dev/dialog_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 
@@ -61,6 +62,7 @@ class DemoPage extends HookConsumerWidget {
                   const ResizeBoxDemo(),
                   const ContentFrame(child: MarkdownDemo()),
                   const SwitchDemo(),
+                  const DialogDemo(),
                 ],
               ),
             ),
@@ -129,6 +131,12 @@ class DemoPage extends HookConsumerWidget {
                         label: 'Switch',
                         active: selectedIndex.value == 9,
                         onTap: () => selectedIndex.value = 9,
+                      ),
+                      AppListItem(
+                        icon: 'x',
+                        label: 'Dialog',
+                        active: selectedIndex.value == 10,
+                        onTap: () => selectedIndex.value = 10,
                       ),
                       _SidebarInlineField(selectedIndex: selectedIndex),
                     ],

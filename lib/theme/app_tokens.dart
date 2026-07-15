@@ -70,17 +70,40 @@ class AppControls {
     this.smallHeight = 24,
     this.mediumHeight = 32,
     this.largeHeight = 40,
+    // Switch-specific sizes (fixed width × height, no computation)
+    this.switchSmHeight = 16,
+    this.switchSmWidth = 28,
+    this.switchMdHeight = 20,
+    this.switchMdWidth = 36,
+    this.switchLgHeight = 24,
+    this.switchLgWidth = 40,
+    // Dialog
+    this.dialogWidth = 420,
   });
 
   final double smallHeight;
   final double mediumHeight;
   final double largeHeight;
+  final double switchSmHeight;
+  final double switchSmWidth;
+  final double switchMdHeight;
+  final double switchMdWidth;
+  final double switchLgHeight;
+  final double switchLgWidth;
+  final double dialogWidth;
 
   static AppControls lerp(AppControls a, AppControls b, double t) =>
       AppControls(
         smallHeight: lerpDouble(a.smallHeight, b.smallHeight, t)!,
         mediumHeight: lerpDouble(a.mediumHeight, b.mediumHeight, t)!,
         largeHeight: lerpDouble(a.largeHeight, b.largeHeight, t)!,
+        switchSmHeight: lerpDouble(a.switchSmHeight, b.switchSmHeight, t)!,
+        switchSmWidth: lerpDouble(a.switchSmWidth, b.switchSmWidth, t)!,
+        switchMdHeight: lerpDouble(a.switchMdHeight, b.switchMdHeight, t)!,
+        switchMdWidth: lerpDouble(a.switchMdWidth, b.switchMdWidth, t)!,
+        switchLgHeight: lerpDouble(a.switchLgHeight, b.switchLgHeight, t)!,
+        switchLgWidth: lerpDouble(a.switchLgWidth, b.switchLgWidth, t)!,
+        dialogWidth: lerpDouble(a.dialogWidth, b.dialogWidth, t)!,
       );
 }
 
