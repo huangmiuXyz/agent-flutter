@@ -17,6 +17,10 @@ function global:prompt {
 }
 
 if (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue) {
+  Set-PSReadLineKeyHandler -Chord 'Enter' -ScriptBlock {
+    [Console]::Write("__ESC__]633;C__BEL__")
+    [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
+  }
   Set-PSReadLineKeyHandler -Chord 'Ctrl+x,Ctrl+g' -ScriptBlock {
     try {
       $delta = [int](Get-Content -LiteralPath '__CURSOR_PATH__' -Raw)

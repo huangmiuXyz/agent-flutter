@@ -72,6 +72,15 @@ class CommandRunner {
           final resultLines = cleaned.split('\n')
             ..retainWhere((l) => !RegExp(r'^[%$#>]\s*$').hasMatch(l.trim()));
           cleaned = resultLines.join('\n').trim();
+
+          // 没有开始标记时，去掉开头的命令回显
+          if (startIdx < 0) {
+            final cmdText = command.trim();
+            if (cleaned.startsWith(cmdText)) {
+              cleaned = cleaned.substring(cmdText.length).trimLeft();
+            }
+          }
+
           completer.complete(cleaned);
         }
       }
