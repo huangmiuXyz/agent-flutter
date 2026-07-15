@@ -20,6 +20,8 @@ import 'package:agent/dev/grouped_list_demo.dart';
 
 import 'package:agent/dev/resizebox_demo.dart';
 import 'package:agent/dev/markdown_demo.dart';
+import 'package:agent/dev/select_demo.dart';
+import 'package:agent/dev/switch_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 
@@ -55,8 +57,10 @@ class DemoPage extends HookConsumerWidget {
                   const ContextMenuDemo(),
                   const GroupedListDemo(),
                   const FieldDemo(),
+                  const SelectDemo(),
                   const ResizeBoxDemo(),
                   const ContentFrame(child: MarkdownDemo()),
+                  const SwitchDemo(),
                 ],
               ),
             ),
@@ -103,16 +107,28 @@ class DemoPage extends HookConsumerWidget {
                         onTap: () => selectedIndex.value = 4,
                       ),
                       AppListItem(
-                        icon: 'move',
-                        label: 'ResizeBox',
+                        icon: 'arrowUpRight',
+                        label: 'Select',
                         active: selectedIndex.value == 6,
                         onTap: () => selectedIndex.value = 6,
                       ),
                       AppListItem(
-                        icon: 'fileCode',
-                        label: 'Markdown',
+                        icon: 'move',
+                        label: 'ResizeBox',
                         active: selectedIndex.value == 7,
                         onTap: () => selectedIndex.value = 7,
+                      ),
+                      AppListItem(
+                        icon: 'fileCode',
+                        label: 'Markdown',
+                        active: selectedIndex.value == 8,
+                        onTap: () => selectedIndex.value = 8,
+                      ),
+                      AppListItem(
+                        icon: 'checkSquare2',
+                        label: 'Switch',
+                        active: selectedIndex.value == 9,
+                        onTap: () => selectedIndex.value = 9,
                       ),
                       _SidebarInlineField(selectedIndex: selectedIndex),
                     ],

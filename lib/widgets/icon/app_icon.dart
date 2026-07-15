@@ -46,6 +46,7 @@ const Map<String, IconData> _registry = {
   'layers': LucideIcons.layers,
   'mousePointer2': LucideIcons.mousePointer2,
   'chevronRight': LucideIcons.chevronRight,
+  'chevronDown': LucideIcons.chevronDown,
   'play': LucideIcons.play,
   'stopCircle': LucideIcons.stopCircle,
   'gauge': LucideIcons.gauge,
