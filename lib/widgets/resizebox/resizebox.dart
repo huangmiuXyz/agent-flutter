@@ -109,7 +109,7 @@ class ResizeBox extends HookWidget {
     // Cache the RenderBox across drag frames to avoid per-frame tree traversal.
     final dragRenderBox = useRef<RenderBox?>(null);
 
-    RenderBox _resolveRenderBox() {
+    RenderBox resolveRenderBox() {
       return dragRenderBox.value ?? context.findRenderObject() as RenderBox;
     }
 
@@ -151,7 +151,7 @@ class ResizeBox extends HookWidget {
       // Convert mouse screen position to Stack-local coordinates.
       // This gives us the real distance from the Stack's edges,
       // eliminating cumulative errors from reset tracking.
-      final renderBox = _resolveRenderBox();
+      final renderBox = resolveRenderBox();
       final localPos = renderBox.globalToLocal(d.globalPosition);
 
       final double rawTarget;

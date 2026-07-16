@@ -22,6 +22,7 @@ import 'package:agent/dev/markdown_demo.dart';
 import 'package:agent/dev/select_demo.dart';
 import 'package:agent/dev/switch_demo.dart';
 import 'package:agent/dev/dialog_demo.dart';
+import 'package:agent/dev/rust_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 
@@ -55,6 +56,7 @@ class DemoPage extends HookConsumerWidget {
                   const ContentFrame(child: MarkdownDemo()),
                   const SwitchDemo(),
                   const DialogDemo(),
+                  const RustDemo(),
                 ],
               ),
             ),
@@ -129,6 +131,12 @@ class DemoPage extends HookConsumerWidget {
                         label: 'Dialog',
                         active: selectedIndex.value == 10,
                         onTap: () => selectedIndex.value = 10,
+                      ),
+                      AppListItem(
+                        icon: 'fileCode',
+                        label: 'Rust FFI',
+                        active: selectedIndex.value == 11,
+                        onTap: () => selectedIndex.value = 11,
                       ),
                       _SidebarInlineField(selectedIndex: selectedIndex),
                     ],

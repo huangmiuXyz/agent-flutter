@@ -66,7 +66,6 @@ class AppDialog extends StatelessWidget {
       transitionDuration: Duration.zero,
       pageBuilder: (context, animation, secondaryAnimation) => _AppDialogRoot(
         title: title,
-        child: child,
         okText: okText,
         cancelText: cancelText,
         onOk: onOk,
@@ -74,6 +73,7 @@ class AppDialog extends StatelessWidget {
         showFooter: showFooter,
         showCancel: showCancel,
         width: width,
+        child: child,
       ),
     );
   }
@@ -82,7 +82,6 @@ class AppDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return _AppDialogRoot(
       title: title,
-      child: child,
       okText: okText,
       cancelText: cancelText,
       onOk: onOk,
@@ -90,6 +89,7 @@ class AppDialog extends StatelessWidget {
       showFooter: showFooter,
       showCancel: showCancel,
       width: width,
+      child: child,
     );
   }
 }
@@ -121,7 +121,7 @@ class _AppDialogRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final pop = () => Navigator.of(context).pop();
+    void pop() => Navigator.of(context).pop();
 
     final effectiveWidth = width ?? custom.controls.dialogWidth;
 

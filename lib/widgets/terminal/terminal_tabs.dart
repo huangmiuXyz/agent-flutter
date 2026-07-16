@@ -63,10 +63,7 @@ class TerminalTabs extends HookWidget {
                 ],
               ),
             ),
-            SizedBox(
-                height: 200,
-                child: ExecutePanel(),
-              ),
+            SizedBox(height: 200, child: ExecutePanel()),
           ],
         ),
         Positioned(
@@ -125,8 +122,6 @@ class _TabState {
   final String shell;
   const _TabState({required this.id, this.shell = ''});
 }
-
-
 
 class _TabItem extends StatelessWidget {
   final String label;

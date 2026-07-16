@@ -117,11 +117,7 @@ class SwitchDemo extends HookConsumerWidget {
           children: [
             const AppSwitch(value: true, disabled: true),
             const AppSwitch(value: false, disabled: true),
-            const AppSwitch(
-              value: true,
-              disabled: true,
-              label: '已禁用的开关',
-            ),
+            const AppSwitch(value: true, disabled: true, label: '已禁用的开关'),
           ],
         ),
         const SizedBox(height: 32),
@@ -218,9 +214,7 @@ class SwitchDemo extends HookConsumerWidget {
             text,
             variant: AppTextVariant.caption,
             color: color,
-            style: TextStyle(
-              fontWeight: isHeader ? FontWeight.w600 : null,
-            ),
+            style: TextStyle(fontWeight: isHeader ? FontWeight.w600 : null),
           ),
         ),
       ),

@@ -6,7 +6,6 @@ import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
-import 'package:agent/widgets/text/app_text.dart';
 
 /// A single option inside [AppSelect].
 class AppSelectOption<T> {
