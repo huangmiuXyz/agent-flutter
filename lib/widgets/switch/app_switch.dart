@@ -80,46 +80,50 @@ class AppSwitch extends HookWidget {
     }
 
     // ---- Switch widget ---------------------------------------------------
-    final switchWidget = SizedBox(
-      width: trackWidth,
-      height: trackHeight,
-      child: GestureDetector(
-        onTap: isDisabled ? null : () => onChanged?.call(!value),
-        child: MouseRegion(
-          onEnter: (_) => isHovered.value = true,
-          onExit: (_) => isHovered.value = false,
-          cursor: isDisabled
-              ? SystemMouseCursors.basic
-              : SystemMouseCursors.click,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: trackWidth,
-            height: trackHeight,
-            decoration: BoxDecoration(
-              color: trackColor,
-              borderRadius: BorderRadius.circular(trackHeight / 2),
-              border: trackBorderColor != null
-                  ? Border.all(color: trackBorderColor)
-                  : null,
-            ),
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 200),
-                  left: value ? thumbOnLeft : thumbInset,
-                  top: thumbInset,
-                  bottom: thumbInset,
-                  child: AnimatedContainer(
+    // UnconstrainedBox ensures the switch track is never stretched by parent
+    // constraints (e.g. Column.crossAxisAlignment.stretch).
+    final switchWidget = UnconstrainedBox(
+      child: SizedBox(
+        width: trackWidth,
+        height: trackHeight,
+        child: GestureDetector(
+          onTap: isDisabled ? null : () => onChanged?.call(!value),
+          child: MouseRegion(
+            onEnter: (_) => isHovered.value = true,
+            onExit: (_) => isHovered.value = false,
+            cursor: isDisabled
+                ? SystemMouseCursors.basic
+                : SystemMouseCursors.click,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: trackWidth,
+              height: trackHeight,
+              decoration: BoxDecoration(
+                color: trackColor,
+                borderRadius: BorderRadius.circular(trackHeight / 2),
+                border: trackBorderColor != null
+                    ? Border.all(color: trackBorderColor)
+                    : null,
+              ),
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
                     duration: const Duration(milliseconds: 200),
-                    width: thumbSize,
-                    decoration: BoxDecoration(
-                      color: thumbColor,
-                      shape: BoxShape.circle,
-                      boxShadow: custom.shadows.small,
+                    left: value ? thumbOnLeft : thumbInset,
+                    top: thumbInset,
+                    bottom: thumbInset,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: thumbSize,
+                      decoration: BoxDecoration(
+                        color: thumbColor,
+                        shape: BoxShape.circle,
+                        boxShadow: custom.shadows.small,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

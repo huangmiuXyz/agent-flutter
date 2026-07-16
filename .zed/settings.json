@@ -1,3 +1,9 @@
 {
-  "file_scan_exclusions": ["*.freezed.dart", "*.g.dart"]
+  "file_scan_exclusions": ["*.freezed.dart", "*.g.dart"],
+  "context_servers": {
+    "flutter-mcp-toolkit": {
+      "command": "/Users/Zhuanz/.local/bin/flutter-mcp-toolkit-server",
+      "args": ["--resources", "--images", "--dynamics"]
+    }
+  }
 }
