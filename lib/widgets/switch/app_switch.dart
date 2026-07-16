@@ -51,9 +51,18 @@ class AppSwitch extends HookWidget {
     // Switch dimensions are defined as dedicated tokens in [AppControls] —
     // no expression-based arithmetic.
     final (double trackHeight, double trackWidth) = switch (size) {
-      SwitchSize.sm => (custom.controls.switchSmHeight, custom.controls.switchSmWidth),
-      SwitchSize.md => (custom.controls.switchMdHeight, custom.controls.switchMdWidth),
-      SwitchSize.lg => (custom.controls.switchLgHeight, custom.controls.switchLgWidth),
+      SwitchSize.sm => (
+        custom.controls.switchSmHeight,
+        custom.controls.switchSmWidth,
+      ),
+      SwitchSize.md => (
+        custom.controls.switchMdHeight,
+        custom.controls.switchMdWidth,
+      ),
+      SwitchSize.lg => (
+        custom.controls.switchLgHeight,
+        custom.controls.switchLgWidth,
+      ),
     };
     // Thumb is slightly smaller than the track, with xs (4px) total air gap
     final thumbSize = trackHeight - custom.spacing.xs;
@@ -67,16 +76,20 @@ class AppSwitch extends HookWidget {
 
     if (isDisabled) {
       trackColor = custom.colors.panel;
-      thumbColor = custom.colors.textDisabled;
-      trackBorderColor = null;
+      thumbColor = custom.colors.textSecondary;
+      trackBorderColor = custom.colors.borderSubtle;
     } else if (value) {
-      trackColor = isHovered.value ? custom.colors.accentHover : custom.colors.accent;
+      trackColor = isHovered.value
+          ? custom.colors.accentHover
+          : custom.colors.accent;
       thumbColor = custom.colors.onAccent;
       trackBorderColor = null;
     } else {
       trackColor = isHovered.value ? custom.colors.hover : custom.colors.panel;
       thumbColor = custom.colors.textPrimary;
-      trackBorderColor = isHovered.value ? custom.colors.border : custom.colors.borderSubtle;
+      trackBorderColor = isHovered.value
+          ? custom.colors.border
+          : custom.colors.borderSubtle;
     }
 
     // ---- Switch widget ---------------------------------------------------
