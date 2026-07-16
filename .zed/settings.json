@@ -2,7 +2,7 @@
   "file_scan_exclusions": ["*.freezed.dart", "*.g.dart"],
   "context_servers": {
     "flutter-mcp-toolkit": {
-      "command": "/Users/Zhuanz/.local/bin/flutter-mcp-toolkit-server",
+      "command": "E:\\code\\private\\agent-flutter\\.mcp_server\\flutter-mcp-toolkit-server.exe",
       "args": ["--resources", "--images", "--dynamics"]
     }
   }
