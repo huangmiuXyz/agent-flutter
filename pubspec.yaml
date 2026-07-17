@@ -44,11 +44,3 @@ flutter:
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
-    - family: HarmonyOS Sans SC
-      fonts:
-        - asset: assets/fonts/HarmonyOSSans/HarmonyOS_Sans_SC.ttf
-          weight: 400
-    - family: HarmonyOS Sans
-      fonts:
-        - asset: assets/fonts/HarmonyOSSans/HarmonyOS_Sans.ttf
-          weight: 400
