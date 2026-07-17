@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
@@ -33,10 +34,53 @@ class _AppListInheritedSize extends InheritedWidget {
 }
 
 // ---------------------------------------------------------------------------
+// AppList keyboard navigation shared state
+// ---------------------------------------------------------------------------
+
+/// Flat entry describing a keyboard-navigable item inside [AppList].
+class _NavEntry {
+  /// Index of this child in [AppList.children].
+  final int childIndex;
+
+  /// Index within a group if the child is inside an [AppListGroup], else null.
+  final int? groupChildIndex;
+
+  /// The tap callback.
+  final VoidCallback? onTap;
+
+  const _NavEntry({
+    required this.childIndex,
+    this.groupChildIndex,
+    required this.onTap,
+  });
+}
+
+/// Builds a flat list of navigable entries from [AppList] children.
+///
+/// Recurse into [AppListGroup] to pick up its children.
+List<_NavEntry> _collectNavEntries(List<Widget> children) {
+  final result = <_NavEntry>[];
+  for (int i = 0; i < children.length; i++) {
+    final child = children[i];
+    if (child is AppListItem && child.onTap != null && !child.disabled) {
+      result.add(_NavEntry(childIndex: i, onTap: child.onTap));
+    } else if (child is AppListGroup) {
+      for (int j = 0; j < child.children.length; j++) {
+        final gc = child.children[j];
+        if (gc is AppListItem && gc.onTap != null && !gc.disabled) {
+          result.add(_NavEntry(childIndex: i, groupChildIndex: j, onTap: gc.onTap));
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // AppList
 // ---------------------------------------------------------------------------
 
-class AppList extends StatelessWidget {
+class AppList extends HookWidget {
   final double? width;
   final EdgeInsetsGeometry? containerPadding;
   final double? itemGap;
@@ -47,6 +91,15 @@ class AppList extends StatelessWidget {
   /// Visual density. Defaults to [AppListSize.normal].
   final AppListSize size;
 
+  /// Whether to enable keyboard navigation (↑↓ to move, Enter to confirm).
+  ///
+  /// When enabled, the widget captures focus and responds to keyboard events.
+  final bool keyboardNavigable;
+
+  /// When [keyboardNavigable] is true, whether to request focus automatically
+  /// when the widget is inserted into the tree (e.g. for context menus).
+  final bool autoFocus;
+
   const AppList({
     super.key,
     this.width,
@@ -55,6 +108,8 @@ class AppList extends StatelessWidget {
     this.containerRadius,
     this.containerColor,
     this.size = AppListSize.normal,
+    this.keyboardNavigable = false,
+    this.autoFocus = false,
     required this.children,
   });
 
@@ -69,6 +124,169 @@ class AppList extends StatelessWidget {
             : EdgeInsets.all(custom.spacing.sm));
     final effectiveGap = itemGap ?? custom.spacing.xs;
 
+    // Build flat list of navigable items (memoized by children identity).
+    final navEntries = useMemoized(() => _collectNavEntries(children), [children]);
+
+    // Keyboard navigation state.
+    // Start at -1 (no keyboard focus) so items don't highlight on first render.
+    final focusNode = useFocusNode();
+    final focusedIdx = useState<int>(-1);
+
+    // GlobalKey for the currently focused child, used to scroll it into view.
+    final focusKeyRef = useRef<GlobalKey?>(null);
+
+    // Helper to scroll the focused item into view only if it's not fully visible.
+    void scrollFocusedIntoView() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = focusKeyRef.value?.currentContext;
+        if (ctx == null) return;
+        final renderBox = ctx.findRenderObject() as RenderBox?;
+        if (renderBox == null || !renderBox.hasSize) return;
+
+        // Check if the item is already fully visible inside the scrollable.
+        final scrollableState = Scrollable.of(ctx);
+        final scrollRenderBox =
+            scrollableState.context.findRenderObject() as RenderBox?;
+        if (scrollRenderBox == null) return;
+        final itemOffset = renderBox.localToGlobal(
+          Offset.zero,
+          ancestor: scrollRenderBox,
+        );
+        final viewportHeight = scrollableState.position.viewportDimension;
+        if (itemOffset.dy >= 0 &&
+            itemOffset.dy + renderBox.size.height <= viewportHeight) {
+          return; // already fully visible
+        }
+
+        Scrollable.ensureVisible(ctx, alignment: 1.0);
+      });
+    }
+
+    // ── Passive keyboard listener (no focus steal) ────────────────────
+    // Used when keyboard navigable but NOT auto-focused (e.g. @mention menu).
+    useEffect(() {
+      if (!keyboardNavigable || autoFocus) return null;
+
+      bool handler(KeyEvent event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+          return false;
+        }
+        if (navEntries.isEmpty) return false;
+
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          if (focusedIdx.value < 0) {
+            focusedIdx.value = 0;
+          } else {
+            focusedIdx.value =
+                (focusedIdx.value + 1) % navEntries.length;
+          }
+          scrollFocusedIntoView();
+          return true;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+          if (focusedIdx.value < 0) {
+            focusedIdx.value = navEntries.length - 1;
+          } else {
+            focusedIdx.value =
+                (focusedIdx.value - 1 + navEntries.length) % navEntries.length;
+          }
+          scrollFocusedIntoView();
+          return true;
+        }
+        if ((event.logicalKey == LogicalKeyboardKey.enter ||
+             event.logicalKey == LogicalKeyboardKey.select) &&
+            focusedIdx.value >= 0) {
+          navEntries[focusedIdx.value].onTap?.call();
+          return true;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.escape) {
+          focusedIdx.value = -1;
+          return false; // let caller decide to dismiss
+        }
+        return false;
+      }
+
+      HardwareKeyboard.instance.addHandler(handler);
+      return () => HardwareKeyboard.instance.removeHandler(handler);
+    }, [keyboardNavigable, autoFocus, navEntries]);
+
+    // Auto-focus when mounted (only for autoFocus mode).
+    useEffect(() {
+      if (autoFocus && keyboardNavigable && navEntries.isNotEmpty) {
+        focusNode.requestFocus();
+      }
+      return null;
+    }, [autoFocus, keyboardNavigable, navEntries.length]);
+
+    // ── Build the column content ──────────────────────────────────────
+    Widget buildChild(int childIndex, Widget child) {
+      final ff = focusedIdx.value;
+      if (ff < 0 || ff >= navEntries.length) return child;
+      final entry = navEntries[ff];
+      if (entry.childIndex != childIndex) return child;
+      final key = GlobalKey();
+      focusKeyRef.value = key;
+      return _KeyboardFocusWrapper(
+        key: key,
+        borderRadius: custom.radii.sm,
+        color: custom.colors.hover,
+        child: child,
+      );
+    }
+
+    Widget listBody = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int i = 0; i < children.length; i++) ...[if (i > 0) SizedBox(height: effectiveGap),
+          buildChild(i, children[i]),
+        ],
+      ],
+    );
+
+    // ── Wrap with Focus widget only when auto-focusing (steals focus) ──
+    // When !autoFocus, keyboard is handled by the HardwareKeyboard effect above.
+    if (keyboardNavigable && autoFocus) {
+      listBody = Focus(
+        focusNode: focusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent || event is KeyRepeatEvent) {
+            if (navEntries.isEmpty) return KeyEventResult.ignored;
+
+            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+              if (focusedIdx.value < 0) {
+                focusedIdx.value = 0;
+              } else {
+                focusedIdx.value =
+                    (focusedIdx.value + 1) % navEntries.length;
+              }
+              scrollFocusedIntoView();
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+              if (focusedIdx.value < 0) {
+                focusedIdx.value = navEntries.length - 1;
+              } else {
+                focusedIdx.value =
+                    (focusedIdx.value - 1 + navEntries.length) % navEntries.length;
+              }
+              scrollFocusedIntoView();
+              return KeyEventResult.handled;
+            }
+            if ((event.logicalKey == LogicalKeyboardKey.enter ||
+                 event.logicalKey == LogicalKeyboardKey.select) &&
+                focusedIdx.value >= 0) {
+              navEntries[focusedIdx.value].onTap?.call();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: listBody,
+      );
+    }
+
     return _AppListInheritedSize(
       size: size,
       child: Container(
@@ -78,17 +296,41 @@ class AppList extends StatelessWidget {
           color: containerColor ?? Colors.transparent,
           borderRadius: (containerRadius ?? custom.radii.sm) as BorderRadius,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (int i = 0; i < children.length; i++) ...[
-              if (i > 0) SizedBox(height: effectiveGap),
-              children[i],
-            ],
-          ],
-        ),
+        child: listBody,
       ),
+    );
+  }
+
+  /// Build a single child, wrapping it with a keyboard-focus highlight
+  /// if it is the currently focused navigable item.
+
+}
+
+/// Wraps a child with a keyboard-focus background highlight.
+///
+/// Paints the background behind the child so existing hover/active styles
+/// inside the child still work.
+class _KeyboardFocusWrapper extends StatelessWidget {
+  final BorderRadius borderRadius;
+  final Color color;
+  final Widget child;
+
+  const _KeyboardFocusWrapper({
+    super.key,
+    required this.borderRadius,
+    required this.color,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: borderRadius,
+      ),
+      position: DecorationPosition.background,
+      child: child,
     );
   }
 }
@@ -106,22 +348,6 @@ class AppList extends StatelessWidget {
 ///
 /// When [size] is not specified, inherits from the nearest ancestor
 /// [AppList] or parent [AppListGroup].
-///
-/// Example:
-/// ```dart
-/// AppList(
-///   children: [
-///     AppListGroup(
-///       title: 'Section 1',
-///       icon: 'star',
-///       children: [
-///         AppListItem(icon: 'home', label: 'Home'),
-///         AppListItem(icon: 'settings', label: 'Settings'),
-///       ],
-///     ),
-///   ],
-/// )
-/// ```
 class AppListGroup extends StatelessWidget {
   /// Optional icon name for the group header (resolved via [AppIcon]).
   final String? icon;
@@ -272,6 +498,8 @@ class AppListItem extends HookWidget {
     final enabled = !disabled;
     // Lazily cache the RenderBox so hover callbacks avoid per-event tree traversal.
     final renderBoxRef = useRef<RenderBox?>(null);
+
+
 
     final padding =
         itemPadding ??

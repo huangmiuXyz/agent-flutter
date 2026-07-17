@@ -27,6 +27,7 @@ dependencies:
   desktop_drop: ^0.7.1
   streamdown: ^0.1.1
   mcp_toolkit: ^3.0.0
+  fleather: ^1.27.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

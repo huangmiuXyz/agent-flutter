@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 
+/// Scroll behavior that hides the scrollbar.
+class _NoScrollbarBehavior extends ScrollBehavior {
+  const _NoScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
+}
+
 /// A styled card container used for context menus, dropdowns, tooltips,
 /// and other floating overlay panels.
 ///
@@ -59,7 +67,10 @@ class AppCard extends StatelessWidget {
             boxShadow: effectiveShadow,
           ),
           child: scrollable
-              ? SingleChildScrollView(padding: effectivePadding, child: child)
+              ? ScrollConfiguration(
+                  behavior: const _NoScrollbarBehavior(),
+                  child: SingleChildScrollView(padding: effectivePadding, child: child),
+                )
               : Padding(padding: effectivePadding, child: child),
         ),
       ),

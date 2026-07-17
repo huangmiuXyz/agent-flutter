@@ -59,6 +59,7 @@ class ContextMenu {
     required List<MenuItem> items,
     double? minWidth,
     double? maxHeight,
+    bool autoFocus = true,
     VoidCallback? onDismiss,
   }) {
     dismiss();
@@ -69,6 +70,7 @@ class ContextMenu {
         items: items,
         minWidth: minWidth,
         maxHeight: maxHeight,
+        autoFocus: autoFocus,
         onDismiss: () {
           dismiss();
           onDismiss?.call();
@@ -105,6 +107,7 @@ class _MenuOverlay extends HookWidget {
   final List<MenuItem> items;
   final double? minWidth;
   final double? maxHeight;
+  final bool autoFocus;
   final VoidCallback onDismiss;
   final void Function(bool)? onHoverChanged;
 
@@ -114,6 +117,7 @@ class _MenuOverlay extends HookWidget {
     required this.onDismiss,
     this.minWidth,
     this.maxHeight,
+    this.autoFocus = true,
     this.onHoverChanged,
   });
 
@@ -166,6 +170,7 @@ class _MenuOverlay extends HookWidget {
                   items: items,
                   minWidth: minWidth,
                   maxHeight: maxHeight,
+                  autoFocus: autoFocus,
                   onDismiss: onDismiss,
                 ),
               ),
@@ -182,6 +187,7 @@ class _MenuPanel extends HookWidget {
   final List<MenuItem> items;
   final double? minWidth;
   final double? maxHeight;
+  final bool autoFocus;
   final VoidCallback onDismiss;
 
   const _MenuPanel({
@@ -190,6 +196,7 @@ class _MenuPanel extends HookWidget {
     required this.onDismiss,
     this.minWidth,
     this.maxHeight,
+    this.autoFocus = true,
   });
 
   @override
@@ -230,6 +237,7 @@ class _MenuPanel extends HookWidget {
         label: item.label,
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
+        active: item.selected,
         trailingWidget: hasSubmenu
             ? const AppIcon('chevronRight', size: 10)
             : null,
@@ -300,6 +308,8 @@ class _MenuPanel extends HookWidget {
       border: Border.all(color: custom.colors.menuBorder, width: 1),
       child: AppList(
         size: AppListSize.small,
+        keyboardNavigable: true,
+        autoFocus: autoFocus,
         children: [
           for (final item in items)
             if (item.isSeparator) buildSeparator() else buildMenuItem(item),
