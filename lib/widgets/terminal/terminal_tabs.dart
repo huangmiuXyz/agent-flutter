@@ -63,8 +63,8 @@ class TerminalTabs extends HookWidget {
                 ],
               ),
             ),
-            // Execute panel height — matches typical dev tool panel size
-            SizedBox(height: 200, child: ExecutePanel()),
+            // Execute panel
+            SizedBox(height: custom.controls.executePanelHeight, child: ExecutePanel()),
           ],
         ),
         Positioned(
@@ -75,7 +75,7 @@ class TerminalTabs extends HookWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               // Minimum width for the empty area right of tabs (double-tap to add)
-              final rightMinWidth = custom.controls.smallHeight + custom.spacing.xs;
+              final rightMinWidth = custom.controls.tabAddButtonWidth;
               final leftMaxWidth = constraints.maxWidth - rightMinWidth;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

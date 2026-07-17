@@ -12,6 +12,7 @@
 8. [文本变体规范](#8-文本变体规范)
 9. [路由管理规范](#9-路由管理规范)
 10. [Provider 规范](#10-provider-规范)
+11. [Token 禁止使用计算值](#11-token-禁止使用计算值)
 
 ---
 
@@ -470,4 +471,74 @@ final value = ref.read(myProvider);
 
 // 调用方法修改状态
 ref.read(myNotifierProvider.notifier).update(42);
+```
+
+## 11. Token 禁止使用计算值
+
+主题 token 的值必须直接使用，禁止对 token 进行算术运算或方法调用生成新的计算值。如果某个值在主题中不存在，应当向主题系统申请新增 token，而非在消费侧临时计算。
+
+### ❌ 禁止
+
+```dart
+final custom = CustomTheme.of(context);
+
+// 算术运算
+EdgeInsets.all(custom.spacing.md * 2)       // 不应在间距上做乘法
+EdgeInsets.all(custom.spacing.lg + 4)         // 不应在间距上做加法
+SizedBox(width: custom.spacing.sm * 3)        // 不应在间距上做乘法
+
+// 方法调用修改
+Container(color: custom.colors.background.withOpacity(0.8))   // 不应调用方法修改颜色
+Container(color: custom.colors.panel.withValues(alpha: 0.8))  // 不应调用方法修改颜色
+AppText('标题', color: custom.colors.textSecondary.withOpacity(0.6))
+
+// 复合计算
+final padding = EdgeInsets.symmetric(
+  horizontal: custom.spacing.md,
+  vertical: custom.spacing.sm + 2,            // 不应做加法
+);
+```
+
+### ✅ 正确
+
+```dart
+final custom = CustomTheme.of(context);
+
+// 直接使用 token
+EdgeInsets.all(custom.spacing.lg)
+EdgeInsets.symmetric(horizontal: custom.spacing.md, vertical: custom.spacing.sm)
+Container(color: custom.colors.background)
+
+// 如果需要主题中没有的值，应优先考虑使用已有的近似 token
+// 若无合适 token，应向主题系统申请新增
+```
+
+### 例外
+
+以下情况允许对 token 进行计算：
+
+```dart
+// 1. 使用 custom.themeMode 或 custom.isDark 做条件分支，而非计算 token 值
+final bgColor = custom.isDark ? custom.colors.panel : custom.colors.background;
+
+// 2. 动画插值过渡（Tween）场景
+final colorTween = ColorTween(
+  begin: custom.colors.panel,
+  end: custom.colors.selected,
+);
+
+// 3. 负值场景（通过 -token 取反，仅限间距/尺寸类 token）
+EdgeInsets.only(left: -custom.spacing.sm)
+```
+
+### 核心原则
+
+Token 是设计系统的契约，计算 token 意味着在设计系统之外引入新的视觉变量，破坏了一致性。若反复需要某个计算值，说明主题系统缺少该 token，应将其加入主题定义。
+
+```dart
+// ❌ 每次使用时重复计算
+custom.spacing.md * 2
+
+// ✅ 主题中定义 spacing.lg（= spacing.md * 2），消费侧直接使用
+EdgeInsets.all(custom.spacing.lg)
 ```

@@ -14,6 +14,8 @@ class AppSpacing {
     this.xl = 32,
     this.pageTop = 70,
     this.pageBottom = 60,
+    // Edge margin for context menus and overlays
+    this.edgeMargin = 12,
   });
 
   final double xs;
@@ -23,6 +25,7 @@ class AppSpacing {
   final double xl;
   final double pageTop;
   final double pageBottom;
+  final double edgeMargin;
 
   static AppSpacing lerp(AppSpacing a, AppSpacing b, double t) => AppSpacing(
     xs: lerpDouble(a.xs, b.xs, t)!,
@@ -32,6 +35,7 @@ class AppSpacing {
     xl: lerpDouble(a.xl, b.xl, t)!,
     pageTop: lerpDouble(a.pageTop, b.pageTop, t)!,
     pageBottom: lerpDouble(a.pageBottom, b.pageBottom, t)!,
+    edgeMargin: lerpDouble(a.edgeMargin, b.edgeMargin, t)!,
   );
 }
 
@@ -79,6 +83,13 @@ class AppControls {
     this.switchLgWidth = 40,
     // Dialog
     this.dialogWidth = 420,
+    // Context menu
+    this.contextMenuMinWidth = 128,
+    this.contextMenuSubmenuWidth = 192,
+    // Tab bar
+    this.tabAddButtonWidth = 28,
+    // Execute panel
+    this.executePanelHeight = 200,
   });
 
   final double smallHeight;
@@ -91,6 +102,10 @@ class AppControls {
   final double switchLgHeight;
   final double switchLgWidth;
   final double dialogWidth;
+  final double contextMenuMinWidth;
+  final double contextMenuSubmenuWidth;
+  final double tabAddButtonWidth;
+  final double executePanelHeight;
 
   static AppControls lerp(AppControls a, AppControls b, double t) =>
       AppControls(
@@ -104,6 +119,10 @@ class AppControls {
         switchLgHeight: lerpDouble(a.switchLgHeight, b.switchLgHeight, t)!,
         switchLgWidth: lerpDouble(a.switchLgWidth, b.switchLgWidth, t)!,
         dialogWidth: lerpDouble(a.dialogWidth, b.dialogWidth, t)!,
+        contextMenuMinWidth: lerpDouble(a.contextMenuMinWidth, b.contextMenuMinWidth, t)!,
+        contextMenuSubmenuWidth: lerpDouble(a.contextMenuSubmenuWidth, b.contextMenuSubmenuWidth, t)!,
+        tabAddButtonWidth: lerpDouble(a.tabAddButtonWidth, b.tabAddButtonWidth, t)!,
+        executePanelHeight: lerpDouble(a.executePanelHeight, b.executePanelHeight, t)!,
       );
 }
 

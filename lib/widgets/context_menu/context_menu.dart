@@ -82,14 +82,12 @@ class ContextMenu {
 }
 
 // -------------------- 工具：位置修正 --------------------
-/// Minimum edge margin for context menu positioning.
-const double _menuEdgeMargin = 12;
 
 Offset _adjustMenuPosition({
   required Offset mouse,
   required Size menuSize,
   required Size screenSize,
-  double margin = _menuEdgeMargin,
+  required double margin,
 }) {
   double dx = mouse.dx;
   double dy = mouse.dy;
@@ -126,6 +124,7 @@ class _MenuOverlay extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
     final menuKey = useState(GlobalKey());
     final offset = useState(Offset.zero);
     final ready = useState(false);
@@ -142,6 +141,7 @@ class _MenuOverlay extends HookWidget {
           mouse: position,
           menuSize: size,
           screenSize: screenSize,
+          margin: custom.spacing.edgeMargin,
         );
         ready.value = true;
       });
@@ -232,10 +232,6 @@ class _MenuPanel extends HookWidget {
 
     Widget buildSeparator() => AppDivider(size: AppDividerSize.small);
 
-    // Compact fixed item height for context menus, so total panel height can
-    // be snapped to whole items (avoiding half-cut items at the bottom).
-    final double menuItemHeight = custom.controls.smallHeight;
-
     Widget buildMenuItem(MenuItem item) {
       final hasSubmenu = item.submenu != null && item.submenu!.isNotEmpty;
 
@@ -245,8 +241,6 @@ class _MenuPanel extends HookWidget {
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
         active: item.selected,
-        intrinsicHeight: false,
-        itemHeight: menuItemHeight,
         trailingWidget: hasSubmenu
             ? AppIcon('chevronRight', size: custom.typography.captionSize)
             : null,
@@ -267,8 +261,7 @@ class _MenuPanel extends HookWidget {
                             pos.dy - custom.spacing.xs,
                           ),
                           items: item.submenu!,
-                          // Submenu ≈ 6× medium control height wide
-                          minWidth: custom.controls.mediumHeight * 6,
+                          minWidth: custom.controls.contextMenuSubmenuWidth,
                           onHoverChanged: (h) {
                             submenuHovered.value = h;
                             if (h) cancelTimers();
@@ -315,17 +308,15 @@ class _MenuPanel extends HookWidget {
     // Add a small tolerance so content exactly fits and SingleChildScrollView
     // doesn't allow spurious scrolling due to font-metric variances.
     const int maxVisibleItems = 10;
-    const double heightTolerance = 4.0;
-    final double unitHeight = menuItemHeight + custom.spacing.xs; // item + gap
-    final double cardPadding = custom.spacing.xs * 2;             // top + bottom
+    final double unitHeight = custom.controls.smallHeight + custom.spacing.xs; // item + gap
+    final double cardPadding = custom.spacing.sm;                  // top + bottom (xs×2)
     final double maxMenuHeight = cardPadding
         + maxVisibleItems * unitHeight
         - custom.spacing.xs  // last item has no trailing gap
-        + heightTolerance;
+        + custom.spacing.xs; // tolerance for SingleChildScrollView
 
     return AppCard(
-      // Menu ≈ 4× medium control height wide
-      minWidth: minWidth ?? custom.controls.mediumHeight * 4,
+      minWidth: minWidth ?? custom.controls.contextMenuMinWidth,
       maxHeight: maxMenuHeight,
       backgroundColor: custom.colors.menuBackground,
       border: Border.all(color: custom.colors.menuBorder, width: 1),

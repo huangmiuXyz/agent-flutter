@@ -233,7 +233,7 @@ class ResizeBox extends HookWidget {
           ? (isHoveringEdge.value || isDragging.value)
           : (isHoveringHandle.value || isDragging.value);
       final handleColor = collapsed
-          ? custom.colors.accent.withValues(alpha: 0.5)
+          ? custom.colors.accentHover
           : custom.colors.accent;
 
       double? left;
