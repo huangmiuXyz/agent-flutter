@@ -118,6 +118,8 @@ class _AppDialogRoot extends StatelessWidget {
     this.width,
   });
 
+  static const double _maxHeightFactor = 0.9; // 90% of viewport height
+
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
@@ -131,7 +133,7 @@ class _AppDialogRoot extends StatelessWidget {
         child: Container(
           width: effectiveWidth,
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
+            maxHeight: MediaQuery.of(context).size.height * _maxHeightFactor,
           ),
           decoration: BoxDecoration(
             color: custom.colors.cardBackground,

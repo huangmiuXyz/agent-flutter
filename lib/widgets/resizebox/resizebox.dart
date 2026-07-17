@@ -86,8 +86,8 @@ class ResizeBox extends HookWidget {
   /// Called when the panel collapses (true) or re-expands (false).
   final ValueChanged<bool>? onCollapseChanged;
 
+  /// Hit area size for the resize handle (Fitts' Law minimum ~10 px).
   static const double _handleHitSize = 10;
-  static const double _handleVisualSize = 4;
   static const Duration _collapsedHoverDelay = Duration(milliseconds: 300);
 
   @override
@@ -339,19 +339,19 @@ class ResizeBox extends HookWidget {
                       ResizeDirection.top => Alignment.bottomCenter,
                     },
                     child: Container(
-                      width: isHorizontal ? _handleVisualSize : double.infinity,
+                      width: isHorizontal ? custom.spacing.xs : double.infinity,
                       height: isHorizontal
                           ? double.infinity
-                          : _handleVisualSize,
+                          : custom.spacing.xs,
                       color: showVisual ? handleColor : Colors.transparent,
                     ),
                   )
                 : Center(
                     child: Container(
-                      width: isHorizontal ? _handleVisualSize : double.infinity,
+                      width: isHorizontal ? custom.spacing.xs : double.infinity,
                       height: isHorizontal
                           ? double.infinity
-                          : _handleVisualSize,
+                          : custom.spacing.xs,
                       color: showVisual ? handleColor : Colors.transparent,
                     ),
                   ),

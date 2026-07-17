@@ -265,6 +265,7 @@ class _FleatherDemoState extends State<FleatherDemo> {
                 top: 8,
               ),
               embedBuilder: _embedBuilder,
+              clipboardManager: _MentionClipboardManager(_users),
               spellCheckConfiguration: SpellCheckConfiguration(
                 spellCheckService: DefaultSpellCheckService(),
                 misspelledSelectionColor: Colors.red,
@@ -276,6 +277,102 @@ class _FleatherDemoState extends State<FleatherDemo> {
         ),
       ],
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Clipboard manager that preserves @mention tags during copy/paste
+// ---------------------------------------------------------------------------
+
+/// Custom [ClipboardManager] for Fleather that handles [@mention](mention) embeds.
+///
+/// **Copy**: Converts mention embeds in Delta back to `@用户名` plain text so the
+/// system clipboard gets readable text like "Hello @Alice Wang".
+///
+/// **Paste**: Scans pasted plain text for `@用户名` patterns that match known users
+/// and reconstructs mention embeds in the Delta.
+class _MentionClipboardManager extends ClipboardManager {
+  final List<String> _knownUsers;
+
+  const _MentionClipboardManager(this._knownUsers);
+
+  /// Copy: translate mention embeds to `@用户名` in plain text.
+  @override
+  Future<void> setData(FleatherClipboardData data) async {
+    String? text;
+
+    if (data.delta != null) {
+      text = _deltaToMentionText(data.delta!);
+    } else {
+      text = data.plainText;
+    }
+
+    if (text != null && text.isNotEmpty) {
+      await Clipboard.setData(ClipboardData(text: text));
+    }
+  }
+
+  String _deltaToMentionText(Delta delta) {
+    final buf = StringBuffer();
+    for (final op in delta.toList()) {
+      if (op.data is String) {
+        buf.write(op.data);
+      } else if (op.data is Map<String, dynamic>) {
+        final map = op.data as Map<String, dynamic>;
+        if (map['_type'] == 'mention') {
+          buf.write('@${map['user'] ?? ''}');
+        } else {
+          buf.write('\uFFFC'); // object replacement char for other embeds
+        }
+      }
+    }
+    return buf.toString();
+  }
+
+  /// Paste: parse `@用户名` back into mention embeds.
+  @override
+  Future<FleatherClipboardData?> getData() async {
+    final raw = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = raw?.text;
+    if (text == null || text.isEmpty) return null;
+
+    final delta = _mentionTextToDelta(text);
+    return FleatherClipboardData(plainText: text, delta: delta);
+  }
+
+  Delta _mentionTextToDelta(String text) {
+    final delta = Delta();
+
+    // Sort longest-first so "Alice Wang" matches before "Alice"
+    final sorted = List<String>.from(_knownUsers)
+      ..sort((a, b) => b.length.compareTo(a.length));
+
+    // Build regex: @(user1|user2|...) — case-insensitive
+    final escaped = sorted.map((u) => RegExp.escape(u)).join('|');
+    final pattern = RegExp('@($escaped)', caseSensitive: false);
+
+    int last = 0;
+    for (final m in pattern.allMatches(text)) {
+      // Text before the mention
+      if (m.start > last) {
+        delta.insert(text.substring(last, m.start));
+      }
+      // Use canonical casing from the known users list
+      final matchedName = m.group(1)!;
+      final canonicalName = sorted.firstWhere(
+        (u) => u.toLowerCase() == matchedName.toLowerCase(),
+      );
+      delta.insert(
+        EmbeddableObject('mention', inline: true, data: {'user': canonicalName})
+            .toJson(),
+      );
+      last = m.end;
+    }
+    // Remaining text after last mention
+    if (last < text.length) {
+      delta.insert(text.substring(last));
+    }
+    return delta;
   }
 }
 

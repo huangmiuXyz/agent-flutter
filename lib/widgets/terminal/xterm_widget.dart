@@ -186,6 +186,7 @@ class _DragOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: Colors.black.withAlpha(100));
+    final custom = CustomTheme.of(context);
+    return Container(color: custom.colors.overlay);
   }
 }

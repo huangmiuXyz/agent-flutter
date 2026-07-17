@@ -66,12 +66,15 @@ class AppCard extends StatelessWidget {
             border: effectiveBorder,
             boxShadow: effectiveShadow,
           ),
-          child: scrollable
-              ? ScrollConfiguration(
-                  behavior: const _NoScrollbarBehavior(),
-                  child: SingleChildScrollView(padding: effectivePadding, child: child),
-                )
-              : Padding(padding: effectivePadding, child: child),
+          child: Padding(
+            padding: effectivePadding,
+            child: scrollable
+                ? ScrollConfiguration(
+                    behavior: const _NoScrollbarBehavior(),
+                    child: SingleChildScrollView(child: child),
+                  )
+                : child,
+          ),
         ),
       ),
     );

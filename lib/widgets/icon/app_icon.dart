@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:agent/theme/custom_theme.dart';
 
@@ -63,7 +62,7 @@ const Map<String, IconData> _registry = {
   'info': LucideIcons.info,
 };
 
-class AppIcon extends ConsumerWidget {
+class AppIcon extends StatelessWidget {
   final String name;
   final double? size;
   final Color? color;
@@ -71,7 +70,7 @@ class AppIcon extends ConsumerWidget {
   const AppIcon(this.name, {super.key, this.size, this.color});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final icon = _registry[name] ?? LucideIcons.helpCircle;
     return Icon(
       icon,
