@@ -265,7 +265,6 @@ class _FleatherDemoState extends State<FleatherDemo> {
                 misspelledSelectionColor: Colors.red,
                 misspelledTextStyle: theme.textTheme.bodyMedium ?? const TextStyle(),
               ),
-              maxContentWidth: 800,
             ),
           ),
         ),
