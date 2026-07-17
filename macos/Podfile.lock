@@ -2,20 +2,26 @@ PODS:
   - flutter_pty_new (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
+  - rust_lib_agent (0.0.1):
+    - FlutterMacOS
 
 DEPENDENCIES:
   - flutter_pty_new (from `Flutter/ephemeral/.symlinks/plugins/flutter_pty_new/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - rust_lib_agent (from `Flutter/ephemeral/.symlinks/plugins/rust_lib_agent/macos`)
 
 EXTERNAL SOURCES:
   flutter_pty_new:
     :path: Flutter/ephemeral/.symlinks/plugins/flutter_pty_new/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  rust_lib_agent:
+    :path: Flutter/ephemeral/.symlinks/plugins/rust_lib_agent/macos
 
 SPEC CHECKSUMS:
   flutter_pty_new: 76ea3908c5d46eba13bb9254a48c5c201128b408
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  rust_lib_agent: c45850521fed9361166385774ee5636653ba409a
 
 PODFILE CHECKSUM: 54d867c82ac51cbd61b565781b9fada492027009
 

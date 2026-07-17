@@ -28,8 +28,13 @@ dependencies:
   streamdown: ^0.1.1
   mcp_toolkit: ^3.0.0
   fleather: ^1.27.0
+  flutter_rust_bridge: ^2.12.0
+  rust_lib_agent:
+    path: rust_builder
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   riverpod_generator: ^4.0.4
