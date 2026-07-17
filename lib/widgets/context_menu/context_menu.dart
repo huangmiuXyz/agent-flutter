@@ -241,6 +241,8 @@ class _MenuPanel extends HookWidget {
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
         active: item.selected,
+        intrinsicHeight: false,
+        itemHeight: custom.controls.smallHeight,
         trailingWidget: hasSubmenu
             ? AppIcon('chevronRight', size: custom.typography.captionSize)
             : null,
