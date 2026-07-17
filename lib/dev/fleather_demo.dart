@@ -258,12 +258,6 @@ class _FleatherDemoState extends State<FleatherDemo> {
               controller: _controller,
               focusNode: _focusNode,
               editorKey: _editorKey,
-              padding: const EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                top: 8,
-              ),
               embedBuilder: _embedBuilder,
               clipboardManager: _MentionClipboardManager(_users),
               spellCheckConfiguration: SpellCheckConfiguration(
