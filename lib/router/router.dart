@@ -13,8 +13,9 @@ abstract class AppRoutes {
   static const settings = '/settings';
 }
 
-final GlobalKey<NavigatorState> _rootNavigatorKey =
-    GlobalKey<NavigatorState>(debugLabel: 'root');
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'root',
+);
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,

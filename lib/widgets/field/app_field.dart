@@ -99,12 +99,12 @@ class AppField extends HookWidget {
 
     // Build a text style with an explicit `height: 1.0` so the line height
     // matches fontSize exactly, eliminating font-metric interference.
-    final textStyle = custom.typography.styleForSize(
-      fontSize,
-      isDisabled
-          ? custom.colors.textDisabled
-          : custom.colors.textPrimary,
-    ).copyWith(height: 1.0);
+    final textStyle = custom.typography
+        .styleForSize(
+          fontSize,
+          isDisabled ? custom.colors.textDisabled : custom.colors.textPrimary,
+        )
+        .copyWith(height: 1.0);
 
     // Vertical padding to center the text/cursor in the fixed-height container.
     // `height: 1.0` guarantees the text block is exactly fontSize tall,
@@ -139,33 +139,33 @@ class AppField extends HookWidget {
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
             child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            onChanged: onChanged,
-            onSubmitted: onSubmitted,
-            obscureText: obscureText,
-            enabled: enabled,
-            readOnly: readOnly,
-            keyboardType: keyboardType,
-            textInputAction: textInputAction,
-            maxLines: maxLines,
-            minLines: minLines,
-            style: textStyle,
-            cursorHeight: cursorHeight,
-            textAlignVertical: TextAlignVertical.center,
-            decoration: InputDecoration(
-              hintText: placeholder,
-              hintStyle: textStyle.copyWith(
-                color: custom.colors.textDisabled,
-              ),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 0,
-                vertical: verticalPadding,
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: onChanged,
+              onSubmitted: onSubmitted,
+              obscureText: obscureText,
+              enabled: enabled,
+              readOnly: readOnly,
+              keyboardType: keyboardType,
+              textInputAction: textInputAction,
+              maxLines: maxLines,
+              minLines: minLines,
+              style: textStyle,
+              cursorHeight: cursorHeight,
+              textAlignVertical: TextAlignVertical.center,
+              decoration: InputDecoration(
+                hintText: placeholder,
+                hintStyle: textStyle.copyWith(
+                  color: custom.colors.textDisabled,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 0,
+                  vertical: verticalPadding,
+                ),
               ),
             ),
-          ),
           ),
         ),
         if (suffixIcon != null)
@@ -231,7 +231,11 @@ class AppField extends HookWidget {
     );
   }
 
-  Widget _buildInline(BuildContext context, CustomTheme custom, ValueNotifier<bool> isEditing) {
+  Widget _buildInline(
+    BuildContext context,
+    CustomTheme custom,
+    ValueNotifier<bool> isEditing,
+  ) {
     final internalController = useMemoized(() => TextEditingController());
     final textController = controller ?? internalController;
     final focusNode = useMemoized(() => FocusNode());
@@ -249,6 +253,7 @@ class AppField extends HookWidget {
           );
         }
       }
+
       focusNode.addListener(listener);
       return () => focusNode.removeListener(listener);
     }, []);
@@ -261,6 +266,7 @@ class AppField extends HookWidget {
           isEditing.value = false;
         }
       }
+
       focusNode.addListener(listener);
       return () => focusNode.removeListener(listener);
     }, []);
@@ -273,11 +279,13 @@ class AppField extends HookWidget {
 
     // Use height: 1.0 so line-height equals fontSize exactly,
     // preventing font metrics from pushing the cursor up.
-    final textStyle = custom.typography.styleForSize(
-      fontSize,
-      custom.colors.textPrimary,
-      weight: custom.typography.bodyWeight,
-    ).copyWith(height: 1.0);
+    final textStyle = custom.typography
+        .styleForSize(
+          fontSize,
+          custom.colors.textPrimary,
+          weight: custom.typography.bodyWeight,
+        )
+        .copyWith(height: 1.0);
 
     if (!isEditing.value) {
       return Listener(
@@ -330,7 +338,6 @@ class AppField extends HookWidget {
         style: textStyle,
         cursorColor: custom.colors.accent,
         cursorHeight: cursorHeight,
-        textAlignVertical: TextAlignVertical.center,
         textInputAction: TextInputAction.done,
         onChanged: onChanged,
         onSubmitted: (value) {
@@ -339,9 +346,7 @@ class AppField extends HookWidget {
         },
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: textStyle.copyWith(
-            color: custom.colors.textDisabled,
-          ),
+          hintStyle: textStyle.copyWith(color: custom.colors.textDisabled),
           border: InputBorder.none,
           isCollapsed: true,
         ),
