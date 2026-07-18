@@ -68,7 +68,7 @@ class AppColors {
     AppColorRole.panel: const Color(0xFFFDFDFD),
     AppColorRole.panelElevated: const Color(0xFFEBEBEB),
     AppColorRole.hover: const Color(0xFFE0E0E0),
-    AppColorRole.selected: const Color(0xFFD4D4D4),
+    AppColorRole.selected: const Color(0xFFE8E8E8),
     AppColorRole.textPrimary: const Color(0xFF000000),
     AppColorRole.textSecondary: const Color(0xFF68686D),
     AppColorRole.textDisabled: const Color(0xFF9A9A9F),

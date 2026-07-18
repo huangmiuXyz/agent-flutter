@@ -233,7 +233,7 @@ class _ResizeHandle extends HookWidget {
 
     final rawForPos = (collapsed || !isDragging.value)
         ? targetSize.value
-        : (dragRawTarget as ValueNotifier<double>).value;
+        : dragRawTarget.value;
     final handlePos = rawForPos.clamp(minSize, maxSize);
 
     double? left, right, top, bottom;

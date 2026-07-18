@@ -172,9 +172,10 @@ class AppList extends HookWidget {
     final navEntries = useMemoized(() => _collectNavEntries(children), [children]);
 
     // Keyboard navigation state.
-    // Start at 0 so the first item is focused by default.
+    // Start at 0 when nav is enabled so the first item is focused by default;
+    // start at -1 when disabled so nothing appears visually highlighted.
     final focusNode = useFocusNode();
-    final focusedIdx = useState<int>(0);
+    final focusedIdx = useState<int>(keyboardNavigable ? 0 : -1);
 
     // GlobalKey for the currently focused child, used to scroll it into view.
     final focusKeyRef = useRef<GlobalKey?>(null);
