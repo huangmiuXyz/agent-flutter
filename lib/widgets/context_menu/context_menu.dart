@@ -48,9 +48,21 @@ class MenuItem {
 class ContextMenu {
   static OverlayEntry? _overlayEntry;
 
+  // Latest parameters — kept alive so we can update the overlay IN PLACE
+  // without dismiss+recreate (which would destroy child widget state).
+  static Offset? _lastPosition;
+  static List<MenuItem>? _lastItems;
+  static double? _lastMinWidth;
+  static double? _lastMaxHeight;
+  static bool _lastAutoFocus = true;
+  static VoidCallback? _lastOnDismiss;
+
   static void dismiss() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _lastPosition = null;
+    _lastItems = null;
+    _lastOnDismiss = null;
   }
 
   static void show(
@@ -62,18 +74,35 @@ class ContextMenu {
     bool autoFocus = true,
     VoidCallback? onDismiss,
   }) {
-    dismiss();
+    // Store latest params so the overlay builder picks them up.
+    _lastPosition = position;
+    _lastItems = items;
+    _lastMinWidth = minWidth;
+    _lastMaxHeight = maxHeight;
+    _lastAutoFocus = autoFocus;
+    _lastOnDismiss = onDismiss;
+
+    if (_overlayEntry != null) {
+      // Update existing overlay IN PLACE — no dismiss.
+      // The builder reads the static fields above, so when it rebuilds
+      // it picks up the new items/position.  Child widget state (keyboard
+      // focus, hover, etc.) is preserved because the Element tree stays
+      // alive.
+      _overlayEntry!.markNeedsBuild();
+      return;
+    }
+
     final overlay = Overlay.of(context, rootOverlay: true);
     _overlayEntry = OverlayEntry(
       builder: (_) => _MenuOverlay(
-        position: position,
-        items: items,
-        minWidth: minWidth,
-        maxHeight: maxHeight,
-        autoFocus: autoFocus,
+        position: _lastPosition!,
+        items: _lastItems!,
+        minWidth: _lastMinWidth,
+        maxHeight: _lastMaxHeight,
+        autoFocus: _lastAutoFocus,
         onDismiss: () {
           dismiss();
-          onDismiss?.call();
+          _lastOnDismiss?.call();
         },
       ),
     );
@@ -125,7 +154,7 @@ class _MenuOverlay extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final menuKey = useState(GlobalKey());
+    final menuKey = useRef(GlobalKey());
     final offset = useState(Offset.zero);
     final ready = useState(false);
 
@@ -310,12 +339,17 @@ class _MenuPanel extends HookWidget {
     // Add a small tolerance so content exactly fits and SingleChildScrollView
     // doesn't allow spurious scrolling due to font-metric variances.
     const int maxVisibleItems = 10;
-    final double unitHeight = custom.controls.smallHeight + custom.spacing.xs; // item + gap
-    final double cardPadding = custom.spacing.sm;                  // top + bottom (xs×2)
-    final double maxMenuHeight = cardPadding
-        + maxVisibleItems * unitHeight
-        - custom.spacing.xs  // last item has no trailing gap
-        + custom.spacing.xs; // tolerance for SingleChildScrollView
+    final double unitHeight =
+        custom.controls.smallHeight + custom.spacing.xs; // item + gap
+    final double cardPadding = custom.spacing.sm; // top + bottom (xs×2)
+    final double maxMenuHeight =
+        cardPadding +
+        maxVisibleItems * unitHeight -
+        custom
+            .spacing
+            .xs // last item has no trailing gap
+            +
+        custom.spacing.xs; // tolerance for SingleChildScrollView
 
     return AppCard(
       minWidth: minWidth ?? custom.controls.contextMenuMinWidth,

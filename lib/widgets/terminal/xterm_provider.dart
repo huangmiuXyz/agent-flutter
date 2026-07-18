@@ -158,13 +158,16 @@ class XtermManager extends _$XtermManager {
     state.terminal.paste(singleLine);
   }
 
+  final DeleteSelectionHandler _deleteSelectionHandler =
+      DeleteSelectionHandler();
+
   /// Deletes the current selection without copying to clipboard.
   void deleteSelection() {
     _deleteSelection();
   }
 
   void _deleteSelection() {
-    DeleteSelectionHandler().handle(state.terminal, state.controller);
+    _deleteSelectionHandler.handle(state.terminal, state.controller);
   }
 
   // ---------------------------------------------------------------------------

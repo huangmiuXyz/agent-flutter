@@ -9,7 +9,6 @@ import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
-import 'package:agent/dev/execute_panel.dart';
 
 class TerminalTabs extends HookWidget {
   const TerminalTabs({super.key, this.active = true});
@@ -64,8 +63,6 @@ class TerminalTabs extends HookWidget {
                 ],
               ),
             ),
-            // Execute panel
-            SizedBox(height: custom.controls.executePanelHeight, child: ExecutePanel()),
           ],
         ),
         Positioned(
@@ -195,7 +192,8 @@ class _TabItem extends StatelessWidget {
                 onPressed: onClose,
                 style: ButtonStyle(
                   padding: WidgetStateProperty.all(
-                    EdgeInsets.all(custom.spacing.xs)),
+                    EdgeInsets.all(custom.spacing.xs),
+                  ),
                 ),
               ),
             ],

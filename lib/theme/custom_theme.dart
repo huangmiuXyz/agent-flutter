@@ -61,9 +61,12 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     final extension = Theme.of(context).extension<CustomTheme>();
     assert(
       extension != null,
-      'CustomTheme is missing from ThemeData.extensions',
+      'CustomTheme is missing from ThemeData.extensions. '
+      'Ensure the theme is registered in ThemeData.extensions.',
     );
-    return extension ?? light;
+    // Deliberately throw if extension is null – a missing CustomTheme
+    // indicates a misconfigured theme, not a graceful fallback scenario.
+    return extension!;
   }
 
   @override

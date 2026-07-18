@@ -71,9 +71,14 @@ class AppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = _registry[name] ?? LucideIcons.helpCircle;
+    final icon = _registry[name];
+    assert(
+      icon != null,
+      'AppIcon: "$name" is not registered in _registry. '
+      'Add it or use a valid icon name.',
+    );
     return Icon(
-      icon,
+      icon ?? LucideIcons.helpCircle,
       size: size,
       color: color ?? CustomTheme.of(context).colors.textPrimary,
     );

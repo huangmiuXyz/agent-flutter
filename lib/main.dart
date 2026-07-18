@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:window_manager/window_manager.dart';
@@ -30,7 +31,14 @@ void main() async {
       runApp(const ProviderScope(child: AgentApp()));
     },
     (error, stack) {
-      debugPrint('Unhandled error: $error');
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stack,
+          library: 'agent',
+          context: ErrorDescription('top-level unhandled error'),
+        ),
+      );
     },
   );
 }

@@ -15,7 +15,6 @@ dependencies:
   hooks_riverpod: ^3.3.2
   riverpod_annotation: ^4.0.3
   window_manager: ^0.5.2
-  freezed_annotation: ^3.0.0
   lucide_icons_flutter: ^3.1.14+2
   xterm2: ^5.0.0
   path: ^1.9.0
@@ -25,8 +24,6 @@ dependencies:
   nanoid: ^1.0.0
   ansi_strip: ^0.1.1+1
   desktop_drop: ^0.7.1
-  streamdown: ^0.1.1
-  fleather: ^1.27.0
 
 dev_dependencies:
   flutter_test:

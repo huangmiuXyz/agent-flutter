@@ -34,26 +34,36 @@ class AppIconButton extends StatelessWidget {
         ? custom.colors.textDisabled
         : custom.colors.textPrimary;
 
+    Widget iconWidget = AppIcon(
+      icon,
+      size: sizing.iconSize,
+      color: foregroundColor,
+    );
+
+    if (tooltip != null && tooltip!.isNotEmpty) {
+      iconWidget = Tooltip(
+        message: tooltip!,
+        decoration: BoxDecoration(
+          color: custom.colors.menuBackground,
+          border: Border.all(color: custom.colors.menuBorder),
+          borderRadius: custom.radii.xs,
+          boxShadow: custom.shadows.small,
+        ),
+        textStyle: custom.typography.styleForSize(
+          custom.typography.captionSize,
+          custom.colors.textPrimary,
+        ),
+        child: iconWidget,
+      );
+    }
+
     final button = SizedBox(
       width: sizing.height,
       height: sizing.height,
       child: TextButton(
         onPressed: isDisabled ? null : onPressed,
         style: _buildStyle(custom, sizing).merge(style),
-        child: Tooltip(
-          message: tooltip ?? '',
-          decoration: BoxDecoration(
-            color: custom.colors.menuBackground,
-            border: Border.all(color: custom.colors.menuBorder),
-            borderRadius: custom.radii.xs,
-            boxShadow: custom.shadows.small,
-          ),
-          textStyle: custom.typography.styleForSize(
-            custom.typography.captionSize,
-            custom.colors.textPrimary,
-          ),
-          child: AppIcon(icon, size: sizing.iconSize, color: foregroundColor),
-        ),
+        child: iconWidget,
       ),
     );
 
@@ -74,7 +84,8 @@ class AppIconButton extends StatelessWidget {
     }
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.pressed)) {
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.pressed)) {
           return custom.colors.hover;
         }
         return Colors.transparent;

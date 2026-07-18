@@ -68,7 +68,9 @@ List<_NavEntry> _collectNavEntries(List<Widget> children) {
       for (int j = 0; j < child.children.length; j++) {
         final gc = child.children[j];
         if (gc is AppListItem && gc.onTap != null && !gc.disabled) {
-          result.add(_NavEntry(childIndex: i, groupChildIndex: j, onTap: gc.onTap));
+          result.add(
+            _NavEntry(childIndex: i, groupChildIndex: j, onTap: gc.onTap),
+          );
         }
       }
     }
@@ -105,8 +107,7 @@ bool _handleNavKey({
     return true;
   }
 
-  if ((key == LogicalKeyboardKey.enter ||
-       key == LogicalKeyboardKey.select) &&
+  if ((key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.select) &&
       focusedIdx >= 0) {
     navEntries[focusedIdx].onTap?.call();
     return true;
@@ -169,7 +170,12 @@ class AppList extends HookWidget {
     final effectiveGap = itemGap ?? custom.spacing.xs;
 
     // Build flat list of navigable items (memoized by children identity).
-    final navEntries = useMemoized(() => _collectNavEntries(children), [children]);
+    final navEntries = useMemoized(() => _collectNavEntries(children), [
+      children,
+    ]);
+    // Ref-based navEntries so HardwareKeyboard handler doesn't re-register on rebuild.
+    final navEntriesRef = useRef(navEntries);
+    navEntriesRef.value = navEntries;
 
     // Keyboard navigation state.
     // Start at 0 when nav is enabled so the first item is focused by default;
@@ -179,6 +185,9 @@ class AppList extends HookWidget {
 
     // GlobalKey for the currently focused child, used to scroll it into view.
     final focusKeyRef = useRef<GlobalKey?>(null);
+
+    // Stable per-child GlobalKeys so widgets aren't recreated on every focus change.
+    final focusKeysRef = useRef(<int, GlobalKey>{});
 
     // Helper to scroll the focused item into view only if it's not fully visible.
     void scrollFocusedIntoView() {
@@ -218,14 +227,14 @@ class AppList extends HookWidget {
           key: event.logicalKey,
           focusedIdx: focusedIdx.value,
           setFocusedIdx: (v) => focusedIdx.value = v,
-          navEntries: navEntries,
+          navEntries: navEntriesRef.value,
           scrollFocusedIntoView: scrollFocusedIntoView,
         );
       }
 
       HardwareKeyboard.instance.addHandler(handler);
       return () => HardwareKeyboard.instance.removeHandler(handler);
-    }, [keyboardNavigable, autoFocus, navEntries]);
+    }, [keyboardNavigable, autoFocus]);
 
     // Auto-focus when mounted (only for autoFocus mode).
     useEffect(() {
@@ -236,18 +245,38 @@ class AppList extends HookWidget {
     }, [autoFocus, keyboardNavigable, navEntries.length]);
 
     // ── Build the column content ──────────────────────────────────────
+    // Build a stable column. Each child is wrapped in a simple ColoredBox
+    // that always has the hover color.  Unfocused items set opacity to 0 so
+    // no decoration enters or leaves the render tree — only the alpha
+    // channel changes, which on Windows/DirectX avoids Skia paint-record
+    // recreation and the resulting frame-delay flash.
     Widget buildChild(int childIndex, Widget child) {
       final ff = focusedIdx.value;
-      if (ff < 0 || ff >= navEntries.length) return child;
-      final entry = navEntries[ff];
-      if (entry.childIndex != childIndex) return child;
-      final key = GlobalKey();
-      focusKeyRef.value = key;
-      return _KeyboardFocusWrapper(
-        key: key,
-        borderRadius: custom.radii.sm,
-        color: custom.colors.hover,
-        child: child,
+      final isFocused =
+          ff >= 0 &&
+          ff < navEntries.length &&
+          navEntries[ff].childIndex == childIndex;
+
+      final key = focusKeysRef.value.putIfAbsent(childIndex, () => GlobalKey());
+      if (isFocused) {
+        focusKeyRef.value = key;
+      }
+
+      // Always wrap so the widget tree is perfectly stable.  When unfocused
+      // the ColoredBox is fully transparent but *present*, avoiding any
+      // decoration enter/exit artifacts.
+      return Opacity(
+        // Opacity layer forces Flutter/Skia to keep the paint record alive
+        // across all frames — no optimization skip, no flash.
+        opacity: 1.0,
+        child: Container(
+          key: key,
+          decoration: BoxDecoration(
+            color: isFocused ? custom.colors.hover : Colors.transparent,
+            borderRadius: custom.radii.sm,
+          ),
+          child: child,
+        ),
       );
     }
 
@@ -255,7 +284,8 @@ class AppList extends HookWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (int i = 0; i < children.length; i++) ...[if (i > 0) SizedBox(height: effectiveGap),
+        for (int i = 0; i < children.length; i++) ...[
+          if (i > 0) SizedBox(height: effectiveGap),
           buildChild(i, children[i]),
         ],
       ],
@@ -295,39 +325,6 @@ class AppList extends HookWidget {
         ),
         child: listBody,
       ),
-    );
-  }
-
-  /// Build a single child, wrapping it with a keyboard-focus highlight
-  /// if it is the currently focused navigable item.
-
-}
-
-/// Wraps a child with a keyboard-focus background highlight.
-///
-/// Paints the background behind the child so existing hover/active styles
-/// inside the child still work.
-class _KeyboardFocusWrapper extends StatelessWidget {
-  final BorderRadius borderRadius;
-  final Color color;
-  final Widget child;
-
-  const _KeyboardFocusWrapper({
-    super.key,
-    required this.borderRadius,
-    required this.color,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: borderRadius,
-      ),
-      position: DecorationPosition.background,
-      child: child,
     );
   }
 }
@@ -495,8 +492,6 @@ class AppListItem extends HookWidget {
     final enabled = !disabled;
     // Lazily cache the RenderBox so hover callbacks avoid per-event tree traversal.
     final renderBoxRef = useRef<RenderBox?>(null);
-
-
 
     final padding =
         itemPadding ??
