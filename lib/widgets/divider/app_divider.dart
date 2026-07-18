@@ -14,8 +14,7 @@ enum AppDividerSize { normal, small }
 /// other layouts. Supports both [Axis.horizontal] (default) and
 /// [Axis.vertical] orientations.
 ///
-/// Theme defaults can be overridden via constructor parameters,
-/// following the same pattern as [AppCard] and [AppButton].
+/// Theme defaults can be overridden via constructor parameters.
 ///
 /// ```dart
 /// // Horizontal divider (for vertical lists, menus)

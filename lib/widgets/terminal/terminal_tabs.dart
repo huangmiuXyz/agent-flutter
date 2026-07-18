@@ -5,7 +5,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/shell_utils.dart';
 import 'package:agent/widgets/terminal/xterm_widget.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/dev/execute_panel.dart';
@@ -186,11 +187,10 @@ class _TabItem extends StatelessWidget {
             ),
             if (onClose != null) ...[
               SizedBox(width: custom.spacing.xs),
-              AppButton(
+              AppIconButton(
                 icon: 'x',
-                variant: ButtonVariant.iconOnly,
                 size: ButtonSize.sm,
-                text: '关闭',
+                tooltip: '关闭',
                 hoverStyle: false,
                 onPressed: onClose,
                 style: ButtonStyle(

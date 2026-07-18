@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -50,9 +51,12 @@ class XtermTerminalWidget extends HookConsumerWidget {
 
     final theme = ref.watch(xtermThemeProvider);
     // 终端必须使用等宽字体
-    final textStyle = TerminalStyle(
-      fontSize: custom.typography.bodySize,
-      fontFamily: defaultFontFamily,
+    final textStyle = useMemoized(
+      () => TerminalStyle(
+        fontSize: custom.typography.bodySize,
+        fontFamily: defaultFontFamily,
+      ),
+      [custom.typography.bodySize],
     );
 
     String escapePath(String path) {
@@ -93,13 +97,41 @@ class XtermTerminalWidget extends HookConsumerWidget {
                 theme: theme,
                 textStyle: textStyle,
                 onKeyEvent: (node, event) {
-                  if (event is KeyDownEvent &&
-                      deleteHandler.canHandle(event.logicalKey)) {
-                    if (deleteHandler.handle(
-                      session.terminal,
-                      session.controller,
-                    )) {
+                  if (event is KeyDownEvent || event is KeyRepeatEvent) {
+                    final keyboard = HardwareKeyboard.instance;
+                    final isClipboardModifier =
+                        keyboard.isControlPressed || keyboard.isMetaPressed;
+                    final manager = ref.read(xtermManagerProvider(id).notifier);
+
+                    final selection = session.controller.selection;
+                    final hasSelection =
+                        selection != null && !selection.isCollapsed;
+
+                    if (isClipboardModifier &&
+                        event.logicalKey == LogicalKeyboardKey.keyV) {
+                      if (event is KeyDownEvent) {
+                        unawaited(manager.pasteText());
+                      }
                       return KeyEventResult.handled;
+                    }
+
+                    if (isClipboardModifier &&
+                        event.logicalKey == LogicalKeyboardKey.keyX &&
+                        hasSelection) {
+                      if (event is KeyDownEvent) {
+                        unawaited(manager.cutSelection());
+                      }
+                      return KeyEventResult.handled;
+                    }
+
+                    if (event is KeyDownEvent &&
+                        deleteHandler.canHandle(event.logicalKey)) {
+                      if (deleteHandler.handle(
+                        session.terminal,
+                        session.controller,
+                      )) {
+                        return KeyEventResult.handled;
+                      }
                     }
                   }
                   return KeyEventResult.ignored;
@@ -128,7 +160,8 @@ class XtermTerminalWidget extends HookConsumerWidget {
     return MenuArea(
       builder: (context) {
         final manager = ref.read(xtermManagerProvider(id).notifier);
-        final hasSelection = session.controller.selection != null;
+        final selection = session.controller.selection;
+        final hasSelection = selection != null && !selection.isCollapsed;
         return [
           MenuItem(
             label: '复制',
@@ -140,20 +173,20 @@ class XtermTerminalWidget extends HookConsumerWidget {
           MenuItem(
             label: '剪切',
             icon: 'scissors',
-            shortcut: 'Ctrl+Shift+X',
+            shortcut: 'Ctrl+X',
             enabled: hasSelection,
             onTap: () => manager.cutSelection(),
           ),
           MenuItem(
             label: '粘贴',
             icon: 'clipboardPaste',
-            shortcut: 'Ctrl+Shift+V',
+            shortcut: 'Ctrl+V',
             onTap: () => manager.pasteText(),
           ),
           MenuItem(
             label: '粘贴文字',
             icon: 'clipboardType',
-            onTap: () => manager.pasteText(),
+            onTap: () => manager.pasteAsPlainText(),
           ),
           MenuItem(
             label: '删除',

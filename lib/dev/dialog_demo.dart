@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -20,9 +21,8 @@ class DialogDemo extends HookConsumerWidget {
         // --- Confirm Dialog ---
         _sectionHeader(context, '确认弹窗 (Confirm Dialog)', custom),
         const SizedBox(height: 12),
-        AppButton(
+        AppPrimaryButton(
           text: '打开确认弹窗',
-          variant: ButtonVariant.primary,
           onPressed: () => AppDialog.show(
             context: context,
             title: '删除文件',
@@ -35,9 +35,8 @@ class DialogDemo extends HookConsumerWidget {
         // --- Without Title ---
         _sectionHeader(context, '无标题弹窗 (Without Title)', custom),
         const SizedBox(height: 12),
-        AppButton(
+        AppSecondaryButton(
           text: '打开无标题弹窗',
-          variant: ButtonVariant.secondary,
           onPressed: () => AppDialog.show(
             context: context,
             child: AppText('这是一条没有标题的提示消息。'),
@@ -49,9 +48,8 @@ class DialogDemo extends HookConsumerWidget {
         // --- Custom Content ---
         _sectionHeader(context, '自定义内容 (Custom Content)', custom),
         const SizedBox(height: 12),
-        AppButton(
+        AppSecondaryButton(
           text: '打开自定义弹窗',
-          variant: ButtonVariant.secondary,
           onPressed: () => AppDialog.show(
             context: context,
             title: '用户信息',
@@ -77,9 +75,8 @@ class DialogDemo extends HookConsumerWidget {
         // --- Without Footer ---
         _sectionHeader(context, '无底部按钮 (Without Footer)', custom),
         const SizedBox(height: 12),
-        AppButton(
+        AppSecondaryButton(
           text: '打开无按钮弹窗',
-          variant: ButtonVariant.secondary,
           onPressed: () => AppDialog.show(
             context: context,
             title: '提示',
@@ -92,9 +89,8 @@ class DialogDemo extends HookConsumerWidget {
         // --- Long Content (Scrolling) ---
         _sectionHeader(context, '长内容滚动 (Scrolling Content)', custom),
         const SizedBox(height: 12),
-        AppButton(
+        AppSecondaryButton(
           text: '打开长内容弹窗',
-          variant: ButtonVariant.secondary,
           onPressed: () => AppDialog.show(
             context: context,
             title: '使用条款',

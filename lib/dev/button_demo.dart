@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
+import 'package:agent/widgets/button/app_text_button.dart';
+import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Demo page section for showcasing button variants.
@@ -23,28 +27,10 @@ class ButtonDemo extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            AppButton(
-              variant: ButtonVariant.primary,
-              onPressed: () {},
-              text: '主要',
-            ),
-            AppButton(
-              variant: ButtonVariant.primary,
-              onPressed: () {},
-              text: '小',
-              size: ButtonSize.sm,
-            ),
-            AppButton(
-              variant: ButtonVariant.primary,
-              onPressed: () {},
-              text: '中',
-            ),
-            AppButton(
-              variant: ButtonVariant.primary,
-              onPressed: () {},
-              text: '大',
-              size: ButtonSize.lg,
-            ),
+            AppPrimaryButton(onPressed: () {}, text: '主要'),
+            AppPrimaryButton(onPressed: () {}, text: '小', size: ButtonSize.sm),
+            AppPrimaryButton(onPressed: () {}, text: '中'),
+            AppPrimaryButton(onPressed: () {}, text: '大', size: ButtonSize.lg),
           ],
         ),
         const SizedBox(height: 32),
@@ -56,28 +42,10 @@ class ButtonDemo extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            AppButton(
-              variant: ButtonVariant.secondary,
-              onPressed: () {},
-              text: '次要',
-            ),
-            AppButton(
-              variant: ButtonVariant.secondary,
-              onPressed: () {},
-              text: '小',
-              size: ButtonSize.sm,
-            ),
-            AppButton(
-              variant: ButtonVariant.secondary,
-              onPressed: () {},
-              text: '中',
-            ),
-            AppButton(
-              variant: ButtonVariant.secondary,
-              onPressed: () {},
-              text: '大',
-              size: ButtonSize.lg,
-            ),
+            AppSecondaryButton(onPressed: () {}, text: '次要'),
+            AppSecondaryButton(onPressed: () {}, text: '小', size: ButtonSize.sm),
+            AppSecondaryButton(onPressed: () {}, text: '中'),
+            AppSecondaryButton(onPressed: () {}, text: '大', size: ButtonSize.lg),
           ],
         ),
         const SizedBox(height: 32),
@@ -85,7 +53,7 @@ class ButtonDemo extends ConsumerWidget {
         // Text
         _sectionHeader(context, 'Text', custom),
         const SizedBox(height: 12),
-        AppButton(variant: ButtonVariant.text, onPressed: () {}, text: '文字'),
+        AppTextButton(onPressed: () {}, text: '文字'),
         const SizedBox(height: 32),
 
         // Icon only
@@ -95,23 +63,9 @@ class ButtonDemo extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'settings',
-              onPressed: () {},
-              size: ButtonSize.sm,
-            ),
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'settings',
-              onPressed: () {},
-            ),
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'settings',
-              onPressed: () {},
-              size: ButtonSize.lg,
-            ),
+            AppIconButton(icon: 'settings', onPressed: () {}, size: ButtonSize.sm),
+            AppIconButton(icon: 'settings', onPressed: () {}),
+            AppIconButton(icon: 'settings', onPressed: () {}, size: ButtonSize.lg),
           ],
         ),
         const SizedBox(height: 12),
@@ -119,31 +73,11 @@ class ButtonDemo extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'sun',
-              onPressed: () {},
-            ),
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'moon',
-              onPressed: () {},
-            ),
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'brush',
-              onPressed: () {},
-            ),
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'refresh',
-              onPressed: () {},
-            ),
-            AppButton(
-              variant: ButtonVariant.iconOnly,
-              icon: 'trash',
-              onPressed: () {},
-            ),
+            AppIconButton(icon: 'sun', onPressed: () {}),
+            AppIconButton(icon: 'moon', onPressed: () {}),
+            AppIconButton(icon: 'brush', onPressed: () {}),
+            AppIconButton(icon: 'refresh', onPressed: () {}),
+            AppIconButton(icon: 'trash', onPressed: () {}),
           ],
         ),
       ],

@@ -4,7 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/terminal/xterm_provider.dart';
 
@@ -106,14 +106,14 @@ class ExecutePanel extends HookConsumerWidget {
                   ),
                 ),
                 SizedBox(width: custom.spacing.sm),
-                AppButton(
+                AppPrimaryButton(
                   icon: 'square',
                   text: 'Ctrl+C',
                   onPressed: sendSigint,
                   style: ButtonStyle(visualDensity: VisualDensity.compact),
                 ),
                 SizedBox(width: custom.spacing.sm),
-                AppButton(
+                AppPrimaryButton(
                   text: '执行',
                   disabled: running.value,
                   onPressed: execute,

@@ -136,7 +136,8 @@ class PtyManager {
     final path = _cursorRequestPath;
     if (path == null) return false;
     try {
-      File(path).writeAsStringSync('$delta');
+      // bash/zsh `read` requires a line terminator to report success.
+      File(path).writeAsStringSync('$delta\n');
       sendInput(_cursorMoveChord);
       return true;
     } catch (e) {

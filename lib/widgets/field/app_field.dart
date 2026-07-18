@@ -5,10 +5,10 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
+/// Visual size variants for [AppField] and [InlineField].
 enum FieldSize { sm, md, lg }
 
-enum FieldVariant { outlined, inline }
-
+/// A themed outlined text input with icon, label, and error state support.
 class AppField extends HookWidget {
   final String? placeholder;
   final String? label;
@@ -22,7 +22,6 @@ class AppField extends HookWidget {
   final bool readOnly;
   final String? errorText;
   final FieldSize size;
-  final FieldVariant variant;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final FocusNode? focusNode;
@@ -44,7 +43,6 @@ class AppField extends HookWidget {
     this.readOnly = false,
     this.errorText,
     this.size = FieldSize.md,
-    this.variant = FieldVariant.outlined,
     this.keyboardType,
     this.textInputAction,
     this.focusNode,
@@ -59,11 +57,6 @@ class AppField extends HookWidget {
     final physicalPixel = 1.0 / MediaQuery.devicePixelRatioOf(context);
     final isHovered = useState(false);
     final isFocused = useState(false);
-    final isEditing = useState(false); // for inline variant
-
-    if (variant == FieldVariant.inline) {
-      return _buildInline(context, custom, isEditing);
-    }
 
     final height = switch (size) {
       FieldSize.sm => custom.controls.smallHeight,
@@ -228,129 +221,6 @@ class AppField extends HookWidget {
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildInline(
-    BuildContext context,
-    CustomTheme custom,
-    ValueNotifier<bool> isEditing,
-  ) {
-    final internalController = useMemoized(() => TextEditingController());
-    final textController = controller ?? internalController;
-    final focusNode = useMemoized(() => FocusNode());
-    final lastTapTime = useRef<DateTime?>(null);
-
-    // Select all when focus is gained in edit mode
-    useEffect(() {
-      void listener() {
-        if (focusNode.hasFocus && isEditing.value) {
-          textController.value = textController.value.copyWith(
-            selection: TextSelection(
-              baseOffset: 0,
-              extentOffset: textController.text.length,
-            ),
-          );
-        }
-      }
-
-      focusNode.addListener(listener);
-      return () => focusNode.removeListener(listener);
-    }, []);
-
-    // Commit on focus loss
-    useEffect(() {
-      void listener() {
-        if (!focusNode.hasFocus && isEditing.value) {
-          onSubmitted?.call(textController.text);
-          isEditing.value = false;
-        }
-      }
-
-      focusNode.addListener(listener);
-      return () => focusNode.removeListener(listener);
-    }, []);
-
-    final fontSize = switch (size) {
-      FieldSize.sm => custom.typography.captionSize,
-      FieldSize.md => custom.typography.bodySize,
-      FieldSize.lg => custom.typography.subtitleSize,
-    };
-
-    // Use height: 1.0 so line-height equals fontSize exactly,
-    // preventing font metrics from pushing the cursor up.
-    final textStyle = custom.typography
-        .styleForSize(
-          fontSize,
-          custom.colors.textPrimary,
-          weight: custom.typography.bodyWeight,
-        )
-        .copyWith(height: 1.0);
-
-    if (!isEditing.value) {
-      return Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: enabled
-            ? (event) {
-                final now = DateTime.now();
-                final last = lastTapTime.value;
-                lastTapTime.value = now;
-                if (last != null && now.difference(last).inMilliseconds < 300) {
-                  textController.value = textController.value.copyWith(
-                    selection: TextSelection(
-                      baseOffset: 0,
-                      extentOffset: textController.text.length,
-                    ),
-                  );
-                  isEditing.value = true;
-                }
-              }
-            : null,
-        child: IntrinsicWidth(
-          child: IgnorePointer(
-            ignoring: true,
-            child: TextField(
-              key: const ValueKey('inline_display'),
-              controller: textController,
-              readOnly: true,
-              showCursor: false,
-              style: textStyle,
-              decoration: InputDecoration(
-                hintText: placeholder,
-                hintStyle: textStyle.copyWith(
-                  color: custom.colors.textDisabled,
-                ),
-                border: InputBorder.none,
-                isCollapsed: true,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return IntrinsicWidth(
-      child: TextField(
-        key: const ValueKey('inline_edit'),
-        controller: textController,
-        focusNode: focusNode,
-        autofocus: true,
-        style: textStyle,
-        cursorColor: custom.colors.accent,
-        cursorHeight: cursorHeight,
-        textInputAction: TextInputAction.done,
-        onChanged: onChanged,
-        onSubmitted: (value) {
-          onSubmitted?.call(value);
-          isEditing.value = false;
-        },
-        decoration: InputDecoration(
-          hintText: placeholder,
-          hintStyle: textStyle.copyWith(color: custom.colors.textDisabled),
-          border: InputBorder.none,
-          isCollapsed: true,
-        ),
-      ),
     );
   }
 }

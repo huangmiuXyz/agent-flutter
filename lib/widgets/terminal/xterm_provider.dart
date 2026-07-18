@@ -113,13 +113,19 @@ class XtermManager extends _$XtermManager {
   }
 
   /// Pastes text from the system clipboard into the terminal.
+  ///
+  /// When terminal text is selected, replaces that selection before inserting
+  /// the clipboard text.
   Future<void> pasteText() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
-    if (text != null && text.isNotEmpty) {
-      state.terminal.paste(text);
-      state.controller.clearSelection();
+    if (text == null || text.isEmpty) return;
+
+    if (state.controller.selection != null) {
+      _deleteSelection();
     }
+    state.terminal.paste(text);
+    state.controller.clearSelection();
   }
 
   /// Selects all visible content in the terminal.
@@ -141,6 +147,15 @@ class XtermManager extends _$XtermManager {
   Future<void> cutSelection() async {
     await copySelection();
     _deleteSelection();
+  }
+
+  /// Pastes clipboard text as a single line (newlines → spaces).
+  Future<void> pasteAsPlainText() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null || text.isEmpty) return;
+    final singleLine = text.replaceAll('\n', ' ').replaceAll('\r', ' ');
+    state.terminal.paste(singleLine);
   }
 
   /// Deletes the current selection without copying to clipboard.

@@ -6,18 +6,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/theme/custom_theme.dart';
 
 /// Direction of the resize handle relative to the resizable [ResizeBox.child].
-///
-/// [ResizeDirection.right]
-/// : Handle on the right edge → child is on the left, other on the right.
-///
-/// [ResizeDirection.left]
-/// : Handle on the left edge → child is on the right, other on the left.
-///
-/// [ResizeDirection.bottom]
-/// : Handle on the bottom edge → child is on top, other on bottom.
-///
-/// [ResizeDirection.top]
-/// : Handle on the top edge → child is on bottom, other on top.
 enum ResizeDirection {
   right,
   left,
@@ -32,22 +20,6 @@ enum ResizeDirection {
 /// A resizable split-panel with two slots and VS Code-style auto-collapse.
 ///
 /// [child] is the resizable panel. [other] fills the remaining space.
-/// When the user drags past [minSize] for at least [collapseThreshold]
-/// pixels, the [child] panel auto-collapses (like VS Code sidebar).
-///
-/// Supports nesting by placing another [ResizeBox] in [child] or [other].
-///
-/// ```dart
-/// ResizeBox(
-///   direction: ResizeDirection.right,
-///   child: panel1,
-///   other: ResizeBox(
-///     direction: ResizeDirection.bottom,
-///     child: panel2,
-///     other: panel3,
-///   ),
-/// )
-/// ```
 class ResizeBox extends HookWidget {
   const ResizeBox({
     super.key,
@@ -61,85 +33,46 @@ class ResizeBox extends HookWidget {
     this.onCollapseChanged,
   });
 
-  /// The resizable panel.
   final Widget child;
-
-  /// The other panel that fills the remaining space.
   final Widget other;
-
-  /// Which edge the resize handle is on.
   final ResizeDirection direction;
-
-  /// Minimum size of the resizable panel (default 180).
   final double minSize;
-
-  /// Maximum size of the resizable panel (default 600).
   final double maxSize;
-
-  /// Initial size (clamped to [minSize]..[maxSize], default 256).
   final double initialSize;
-
-  /// Distance past [minSize] the user must drag before auto-collapse
-  /// (default 80 px).
   final double collapseThreshold;
-
-  /// Called when the panel collapses (true) or re-expands (false).
   final ValueChanged<bool>? onCollapseChanged;
-
-  /// Hit area size for the resize handle (Fitts' Law minimum ~10 px).
-  static const double _handleHitSize = 10;
-  static const Duration _collapsedHoverDelay = Duration(milliseconds: 300);
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
     final isHorizontal = direction.isHorizontal;
-    final handleOffset = _handleHitSize / 2;
-
-    // --- reactive states ---
     final targetSize = useState(initialSize.clamp(minSize, maxSize));
     final isCollapsed = useState(false);
-    final isHoveringHandle = useState(false);
-    final isHoveringEdge = useState(false);
-    final hoverTimer = useRef<Timer?>(null);
-
-    // --- drag tracking ---
     final isDragging = useState(false);
-    final dragRawTarget = useRef(0.0); // mouse-driven raw target
-    // Cache the RenderBox across drag frames to avoid per-frame tree traversal.
+    final dragRawTarget = useRef(0.0);
     final dragRenderBox = useRef<RenderBox?>(null);
 
-    RenderBox resolveRenderBox() {
-      return dragRenderBox.value ?? context.findRenderObject() as RenderBox;
+    RenderBox resolveRenderBox() =>
+        dragRenderBox.value ?? context.findRenderObject() as RenderBox;
+
+    double localCoord(RenderBox renderBox, Offset localPos) {
+      return switch (direction) {
+        ResizeDirection.right => localPos.dx,
+        ResizeDirection.left => renderBox.size.width - localPos.dx,
+        ResizeDirection.bottom => localPos.dy,
+        ResizeDirection.top => renderBox.size.height - localPos.dy,
+      };
     }
 
-    // ---- drag handlers ----
-
     void onDragStart(DragStartDetails d) {
-      isDragging.value = true; // triggers rebuild → shows cursor overlay
-
-      // Cache the RenderBox for the entire drag gesture.
+      isDragging.value = true;
       final renderBox = context.findRenderObject() as RenderBox;
       dragRenderBox.value = renderBox;
-
-      // Initialize dragRawTarget so the first rebuild after dragStart
-      // already has a valid position rather than the initial 0.
-      final localPos = renderBox.globalToLocal(d.globalPosition);
-      switch (direction) {
-        case ResizeDirection.right:
-          dragRawTarget.value = localPos.dx;
-        case ResizeDirection.left:
-          dragRawTarget.value = renderBox.size.width - localPos.dx;
-        case ResizeDirection.bottom:
-          dragRawTarget.value = localPos.dy;
-        case ResizeDirection.top:
-          dragRawTarget.value = renderBox.size.height - localPos.dy;
-      }
+      dragRawTarget.value = localCoord(renderBox, renderBox.globalToLocal(d.globalPosition));
     }
 
     void onDragEnd(DragEndDetails d) {
-      isDragging.value = false; // triggers rebuild → removes cursor overlay
-      dragRenderBox.value = null; // release cached reference
+      isDragging.value = false;
+      dragRenderBox.value = null;
       if (isCollapsed.value) {
         targetSize.value = 0;
       } else if (targetSize.value < minSize) {
@@ -148,28 +81,11 @@ class ResizeBox extends HookWidget {
     }
 
     void onDragUpdate(DragUpdateDetails d) {
-      // Convert mouse screen position to Stack-local coordinates.
-      // This gives us the real distance from the Stack's edges,
-      // eliminating cumulative errors from reset tracking.
       final renderBox = resolveRenderBox();
-      final localPos = renderBox.globalToLocal(d.globalPosition);
-
-      final double rawTarget;
-      switch (direction) {
-        case ResizeDirection.right:
-          rawTarget = localPos.dx;
-        case ResizeDirection.left:
-          rawTarget = renderBox.size.width - localPos.dx;
-        case ResizeDirection.bottom:
-          rawTarget = localPos.dy;
-        case ResizeDirection.top:
-          rawTarget = renderBox.size.height - localPos.dy;
-      }
+      final rawTarget = localCoord(renderBox, renderBox.globalToLocal(d.globalPosition));
       dragRawTarget.value = rawTarget;
 
       if (isCollapsed.value) {
-        // --- expanding from collapsed ---
-        // Stay collapsed until the user drags past minSize, then snap.
         if (rawTarget >= minSize) {
           isCollapsed.value = false;
           targetSize.value = rawTarget.clamp(minSize, maxSize);
@@ -178,10 +94,8 @@ class ResizeBox extends HookWidget {
           targetSize.value = 0;
         }
       } else {
-        // --- normal resize ---
         if (rawTarget < minSize) {
-          final excess = minSize - rawTarget;
-          if (excess >= collapseThreshold) {
+          if ((minSize - rawTarget) >= collapseThreshold) {
             isCollapsed.value = true;
             targetSize.value = 0;
             onCollapseChanged?.call(true);
@@ -204,190 +118,55 @@ class ResizeBox extends HookWidget {
       }
     }
 
-    // ---- sub-widget builders ----
-
+    // ---- build sized child ----
     Widget sizedChild() {
-      // During drag, read the raw target ref for frame-accurate tracking.
-      // Outside drag, use the committed targetSize.
       final raw = isDragging.value
           ? dragRawTarget.value.clamp(minSize, maxSize)
           : targetSize.value;
-
-      // Collapsed state overrides to 0 (isCollapsed is set synchronously in
-      // onDragUpdate, so it's current by the time build reads it).
       final size = isCollapsed.value ? targetSize.value : raw;
-
       final effective = size < 0.5 ? 0.0 : size;
-      Widget sized;
-      if (isHorizontal) {
-        sized = SizedBox(width: effective, child: child);
-      } else {
-        sized = SizedBox(height: effective, child: child);
-      }
-      return ClipRect(child: sized);
-    }
-
-    Widget resizeEdge() {
-      final collapsed = isCollapsed.value;
-      final showVisual = collapsed
-          ? (isHoveringEdge.value || isDragging.value)
-          : (isHoveringHandle.value || isDragging.value);
-      final handleColor = collapsed
-          ? custom.colors.accentHover
-          : custom.colors.accent;
-
-      double? left;
-      double? right;
-      double? top;
-      double? bottom;
-
-      // Handle position driven by raw drag target during drag (syncs to mouse
-      // immediately), or by targetSize when not dragging.
-      final rawForPos = (collapsed || !isDragging.value)
-          ? targetSize.value
-          : dragRawTarget.value;
-      final handlePos = rawForPos.clamp(minSize, maxSize);
-
-      if (collapsed) {
-        // at the very edge of the parent
-        switch (direction) {
-          case ResizeDirection.right:
-            left = 0;
-            top = 0;
-            bottom = 0;
-          case ResizeDirection.left:
-            right = 0;
-            top = 0;
-            bottom = 0;
-          case ResizeDirection.bottom:
-            top = 0;
-            left = 0;
-            right = 0;
-          case ResizeDirection.top:
-            bottom = 0;
-            left = 0;
-            right = 0;
-        }
-      } else {
-        // center the hit area on the panel edge (which equals the raw mouse
-        // position during drag), so the visual bar is right under the cursor
-        switch (direction) {
-          case ResizeDirection.right:
-            left = handlePos - handleOffset;
-            top = 0;
-            bottom = 0;
-          case ResizeDirection.left:
-            right = handlePos - handleOffset;
-            top = 0;
-            bottom = 0;
-          case ResizeDirection.bottom:
-            top = handlePos - handleOffset;
-            left = 0;
-            right = 0;
-          case ResizeDirection.top:
-            bottom = handlePos - handleOffset;
-            left = 0;
-            right = 0;
-        }
-      }
-
-      return Positioned(
-        left: left,
-        right: right,
-        top: top,
-        bottom: bottom,
-        width: isHorizontal ? _handleHitSize : null,
-        height: isHorizontal ? null : _handleHitSize,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: collapsed ? onExpandTap : null,
-          onHorizontalDragStart: isHorizontal ? onDragStart : null,
-          onHorizontalDragUpdate: isHorizontal ? onDragUpdate : null,
-          onHorizontalDragEnd: isHorizontal ? onDragEnd : null,
-          onVerticalDragStart: isHorizontal ? null : onDragStart,
-          onVerticalDragUpdate: isHorizontal ? null : onDragUpdate,
-          onVerticalDragEnd: isHorizontal ? null : onDragEnd,
-          child: MouseRegion(
-            cursor: isHorizontal
-                ? SystemMouseCursors.resizeLeftRight
-                : SystemMouseCursors.resizeUpDown,
-            onEnter: (_) {
-              hoverTimer.value?.cancel();
-              hoverTimer.value = Timer(_collapsedHoverDelay, () {
-                if (collapsed) {
-                  isHoveringEdge.value = true;
-                } else {
-                  isHoveringHandle.value = true;
-                }
-              });
-            },
-            onExit: (_) {
-              hoverTimer.value?.cancel();
-              hoverTimer.value = null;
-              if (collapsed) {
-                isHoveringEdge.value = false;
-              } else {
-                isHoveringHandle.value = false;
-              }
-            },
-            child: collapsed
-                ? Align(
-                    alignment: switch (direction) {
-                      ResizeDirection.right => Alignment.centerLeft,
-                      ResizeDirection.left => Alignment.centerRight,
-                      ResizeDirection.bottom => Alignment.topCenter,
-                      ResizeDirection.top => Alignment.bottomCenter,
-                    },
-                    child: Container(
-                      width: isHorizontal ? custom.spacing.xs : double.infinity,
-                      height: isHorizontal
-                          ? double.infinity
-                          : custom.spacing.xs,
-                      color: showVisual ? handleColor : Colors.transparent,
-                    ),
-                  )
-                : Center(
-                    child: Container(
-                      width: isHorizontal ? custom.spacing.xs : double.infinity,
-                      height: isHorizontal
-                          ? double.infinity
-                          : custom.spacing.xs,
-                      color: showVisual ? handleColor : Colors.transparent,
-                    ),
-                  ),
-          ),
-        ),
+      return ClipRect(
+        child: isHorizontal
+            ? SizedBox(width: effective, child: child)
+            : SizedBox(height: effective, child: child),
       );
     }
 
     // ---- layout ----
-
     return Stack(
       children: [
-        // main layout: Row or Column with child + other
         if (isHorizontal)
-          Row(
-            children: [
-              if (direction == ResizeDirection.right) sizedChild(),
-              if (direction == ResizeDirection.left) Expanded(child: other),
-              if (direction == ResizeDirection.left) sizedChild(),
-              if (direction == ResizeDirection.right) Expanded(child: other),
-            ],
-          )
+          Row(children: [
+            if (direction == ResizeDirection.right) sizedChild(),
+            if (direction == ResizeDirection.left) Expanded(child: other),
+            if (direction == ResizeDirection.left) sizedChild(),
+            if (direction == ResizeDirection.right) Expanded(child: other),
+          ])
         else
-          Column(
-            children: [
-              if (direction == ResizeDirection.bottom) sizedChild(),
-              if (direction == ResizeDirection.top) Expanded(child: other),
-              if (direction == ResizeDirection.top) sizedChild(),
-              if (direction == ResizeDirection.bottom) Expanded(child: other),
-            ],
-          ),
+          Column(children: [
+            if (direction == ResizeDirection.bottom) sizedChild(),
+            if (direction == ResizeDirection.top) Expanded(child: other),
+            if (direction == ResizeDirection.top) sizedChild(),
+            if (direction == ResizeDirection.bottom) Expanded(child: other),
+          ]),
 
-        // resize edge (handle when expanded, edge strip when collapsed)
-        resizeEdge(),
+        // Resize handle
+        _ResizeHandle(
+          direction: direction,
+          minSize: minSize,
+          maxSize: maxSize,
+          collapseThreshold: collapseThreshold,
+          isCollapsed: isCollapsed,
+          targetSize: targetSize,
+          dragRawTarget: dragRawTarget,
+          isDragging: isDragging,
+          onDragStart: onDragStart,
+          onDragUpdate: onDragUpdate,
+          onDragEnd: onDragEnd,
+          onExpandTap: onExpandTap,
+        ),
 
-        // full-screen cursor overlay during drag
+        // Cursor overlay during drag
         if (isDragging.value)
           Positioned.fill(
             child: MouseRegion(
@@ -400,4 +179,152 @@ class ResizeBox extends HookWidget {
       ],
     );
   }
+}
+
+/// The resize handle / edge strip rendered by [ResizeBox].
+///
+/// Owns its hover visuals and timer-based edge reveal when collapsed.
+class _ResizeHandle extends HookWidget {
+  final ResizeDirection direction;
+  final double minSize;
+  final double maxSize;
+  final double collapseThreshold;
+  final ValueNotifier<bool> isCollapsed;
+  final ValueNotifier<double> targetSize;
+  final dynamic dragRawTarget; // ValueRef<double> from useRef
+  final ValueNotifier<bool> isDragging;
+  final GestureDragStartCallback onDragStart;
+  final GestureDragUpdateCallback onDragUpdate;
+  final GestureDragEndCallback onDragEnd;
+  final VoidCallback onExpandTap;
+
+  const _ResizeHandle({
+    required this.direction,
+    required this.minSize,
+    required this.maxSize,
+    required this.collapseThreshold,
+    required this.isCollapsed,
+    required this.targetSize,
+    required this.dragRawTarget,
+    required this.isDragging,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onExpandTap,
+  });
+
+  static const Duration _collapsedHoverDelay = Duration(milliseconds: 300);
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    final isHorizontal = direction.isHorizontal;
+    final handleOffset = _ResizeHandleStatic.handleHitSize / 2;
+
+    final isHoveringHandle = useState(false);
+    final isHoveringEdge = useState(false);
+    final hoverTimer = useRef<Timer?>(null);
+
+    final collapsed = isCollapsed.value;
+    final showVisual = collapsed
+        ? (isHoveringEdge.value || isDragging.value)
+        : (isHoveringHandle.value || isDragging.value);
+    final handleColor = collapsed ? custom.colors.accentHover : custom.colors.accent;
+
+    final rawForPos = (collapsed || !isDragging.value)
+        ? targetSize.value
+        : (dragRawTarget as ValueNotifier<double>).value;
+    final handlePos = rawForPos.clamp(minSize, maxSize);
+
+    double? left, right, top, bottom;
+
+    if (collapsed) {
+      switch (direction) {
+        case ResizeDirection.right: left = 0; top = 0; bottom = 0;
+        case ResizeDirection.left:  right = 0; top = 0; bottom = 0;
+        case ResizeDirection.bottom: top = 0; left = 0; right = 0;
+        case ResizeDirection.top:   bottom = 0; left = 0; right = 0;
+      }
+    } else {
+      switch (direction) {
+        case ResizeDirection.right:
+          left = handlePos - handleOffset; top = 0; bottom = 0;
+        case ResizeDirection.left:
+          right = handlePos - handleOffset; top = 0; bottom = 0;
+        case ResizeDirection.bottom:
+          top = handlePos - handleOffset; left = 0; right = 0;
+        case ResizeDirection.top:
+          bottom = handlePos - handleOffset; left = 0; right = 0;
+      }
+    }
+
+    return Positioned(
+      left: left,
+      right: right,
+      top: top,
+      bottom: bottom,
+      width: isHorizontal ? _ResizeHandleStatic.handleHitSize : null,
+      height: isHorizontal ? null : _ResizeHandleStatic.handleHitSize,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: collapsed ? onExpandTap : null,
+        onHorizontalDragStart: isHorizontal ? onDragStart : null,
+        onHorizontalDragUpdate: isHorizontal ? onDragUpdate : null,
+        onHorizontalDragEnd: isHorizontal ? onDragEnd : null,
+        onVerticalDragStart: isHorizontal ? null : onDragStart,
+        onVerticalDragUpdate: isHorizontal ? null : onDragUpdate,
+        onVerticalDragEnd: isHorizontal ? null : onDragEnd,
+        child: MouseRegion(
+          cursor: isHorizontal
+              ? SystemMouseCursors.resizeLeftRight
+              : SystemMouseCursors.resizeUpDown,
+          onEnter: (_) {
+            hoverTimer.value?.cancel();
+            hoverTimer.value = Timer(_collapsedHoverDelay, () {
+              if (collapsed) {
+                isHoveringEdge.value = true;
+              } else {
+                isHoveringHandle.value = true;
+              }
+            });
+          },
+          onExit: (_) {
+            hoverTimer.value?.cancel();
+            hoverTimer.value = null;
+            if (collapsed) {
+              isHoveringEdge.value = false;
+            } else {
+              isHoveringHandle.value = false;
+            }
+          },
+          child: collapsed
+              ? Align(
+                  alignment: switch (direction) {
+                    ResizeDirection.right => Alignment.centerLeft,
+                    ResizeDirection.left => Alignment.centerRight,
+                    ResizeDirection.bottom => Alignment.topCenter,
+                    ResizeDirection.top => Alignment.bottomCenter,
+                  },
+                  child: _bar(isHorizontal, custom, showVisual, handleColor),
+                )
+              : Center(
+                  child: _bar(isHorizontal, custom, showVisual, handleColor),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bar(bool isHorizontal, CustomTheme custom, bool showVisual, Color handleColor) {
+    return Container(
+      width: isHorizontal ? custom.spacing.xs : double.infinity,
+      height: isHorizontal ? double.infinity : custom.spacing.xs,
+      color: showVisual ? handleColor : Colors.transparent,
+    );
+  }
+}
+
+/// Static constants shared by [_ResizeHandle].
+class _ResizeHandleStatic {
+  static const double handleHitSize = 10;
 }

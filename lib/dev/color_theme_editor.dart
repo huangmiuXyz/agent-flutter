@@ -4,7 +4,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
+import 'package:agent/widgets/button/app_text_button.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 const colorOptions = <Color>[
@@ -100,21 +102,17 @@ class ColorThemeEditor extends HookConsumerWidget {
         Row(
           children: [
             Expanded(
-              child: AppButton(
+              child: _buildBrightnessButton(
                 text: '亮色',
-                variant: editingBrightness.value == Brightness.light
-                    ? ButtonVariant.primary
-                    : ButtonVariant.secondary,
+                isActive: editingBrightness.value == Brightness.light,
                 onPressed: () => editingBrightness.value = Brightness.light,
               ),
             ),
             SizedBox(width: effective.spacing.sm),
             Expanded(
-              child: AppButton(
+              child: _buildBrightnessButton(
                 text: '暗色',
-                variant: editingBrightness.value == Brightness.dark
-                    ? ButtonVariant.primary
-                    : ButtonVariant.secondary,
+                isActive: editingBrightness.value == Brightness.dark,
                 onPressed: () => editingBrightness.value = Brightness.dark,
               ),
             ),
@@ -143,22 +141,31 @@ class ColorThemeEditor extends HookConsumerWidget {
         ),
         if (settings.hasColorOverrides) ...[
           SizedBox(height: effective.spacing.md),
-          AppButton(
+          AppSecondaryButton(
             text: '重置当前配色',
-            variant: ButtonVariant.secondary,
             onPressed: () => ref
                 .read(themeProvider.notifier)
                 .resetColors(brightness: editingBrightness.value),
           ),
         ],
         SizedBox(height: effective.spacing.sm),
-        AppButton(
+        AppTextButton(
           text: '恢复全部默认设置',
-          variant: ButtonVariant.text,
           onPressed: () => ref.read(themeProvider.notifier).resetAll(),
         ),
       ],
     );
+  }
+
+  Widget _buildBrightnessButton({
+    required String text,
+    required bool isActive,
+    required VoidCallback onPressed,
+  }) {
+    if (isActive) {
+      return AppPrimaryButton(text: text, onPressed: onPressed);
+    }
+    return AppSecondaryButton(text: text, onPressed: onPressed);
   }
 
   Widget _colorGroup(

@@ -4,8 +4,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/provider.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
+import 'package:agent/widgets/field/inline_field.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/dev/performance_monitor.dart';
 import 'package:agent/dev/button_demo.dart';
@@ -148,14 +149,13 @@ class DemoPage extends HookConsumerWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
-                        AppButton(
+                        AppIconButton(
                           icon: switch (config.themeMode) {
                             ThemeMode.system => 'sun',
                             ThemeMode.light => 'sun',
                             ThemeMode.dark => 'moon',
                           },
-                          variant: ButtonVariant.iconOnly,
-                          text: switch (config.themeMode) {
+                          tooltip: switch (config.themeMode) {
                             ThemeMode.system => '主题: 系统',
                             ThemeMode.light => '主题: 亮色',
                             ThemeMode.dark => '主题: 暗色',
@@ -288,8 +288,7 @@ class _SidebarInlineField extends HookWidget {
                   ),
                   SizedBox(width: custom.spacing.sm),
                   Expanded(
-                    child: AppField(
-                      variant: FieldVariant.inline,
+                    child: InlineField(
                       controller: controller,
                       size: FieldSize.md,
                     ),

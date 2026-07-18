@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
+import 'custom_theme.dart';
 
 @immutable
 class ThemeSettings {
@@ -39,4 +39,21 @@ class ThemeSettings {
     lightOverrides: lightOverrides ?? this.lightOverrides,
     darkOverrides: darkOverrides ?? this.darkOverrides,
   );
+}
+
+extension ThemeSettingsResolution on ThemeSettings {
+  CustomTheme get effectiveLight => CustomTheme.resolve(
+    Brightness.light,
+    colorOverrides: lightOverrides,
+    fontWeight: fontWeight,
+  );
+
+  CustomTheme get effectiveDark => CustomTheme.resolve(
+    Brightness.dark,
+    colorOverrides: darkOverrides,
+    fontWeight: fontWeight,
+  );
+
+  CustomTheme effectiveFor(Brightness brightness) =>
+      brightness == Brightness.dark ? effectiveDark : effectiveLight;
 }

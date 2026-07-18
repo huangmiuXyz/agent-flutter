@@ -76,6 +76,50 @@ List<_NavEntry> _collectNavEntries(List<Widget> children) {
   return result;
 }
 
+/// Shared keyboard navigation logic for arrow-up/down, enter, and escape.
+///
+/// Returns `true` if the key was consumed. Returns `false` to let the event
+/// propagate (escape resets the focus index but lets the parent handle it).
+bool _handleNavKey({
+  required LogicalKeyboardKey key,
+  required int focusedIdx,
+  required void Function(int) setFocusedIdx,
+  required List<_NavEntry> navEntries,
+  required VoidCallback scrollFocusedIntoView,
+}) {
+  if (navEntries.isEmpty) return false;
+
+  if (key == LogicalKeyboardKey.arrowDown) {
+    setFocusedIdx(focusedIdx < 0 ? 0 : (focusedIdx + 1) % navEntries.length);
+    scrollFocusedIntoView();
+    return true;
+  }
+
+  if (key == LogicalKeyboardKey.arrowUp) {
+    setFocusedIdx(
+      focusedIdx < 0
+          ? navEntries.length - 1
+          : (focusedIdx - 1 + navEntries.length) % navEntries.length,
+    );
+    scrollFocusedIntoView();
+    return true;
+  }
+
+  if ((key == LogicalKeyboardKey.enter ||
+       key == LogicalKeyboardKey.select) &&
+      focusedIdx >= 0) {
+    navEntries[focusedIdx].onTap?.call();
+    return true;
+  }
+
+  if (key == LogicalKeyboardKey.escape) {
+    setFocusedIdx(-1);
+    return false;
+  }
+
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // AppList
 // ---------------------------------------------------------------------------
@@ -168,42 +212,14 @@ class AppList extends HookWidget {
       if (!keyboardNavigable || autoFocus) return null;
 
       bool handler(KeyEvent event) {
-        if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-          return false;
-        }
-        if (navEntries.isEmpty) return false;
-
-        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-          if (focusedIdx.value < 0) {
-            focusedIdx.value = 0;
-          } else {
-            focusedIdx.value =
-                (focusedIdx.value + 1) % navEntries.length;
-          }
-          scrollFocusedIntoView();
-          return true;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-          if (focusedIdx.value < 0) {
-            focusedIdx.value = navEntries.length - 1;
-          } else {
-            focusedIdx.value =
-                (focusedIdx.value - 1 + navEntries.length) % navEntries.length;
-          }
-          scrollFocusedIntoView();
-          return true;
-        }
-        if ((event.logicalKey == LogicalKeyboardKey.enter ||
-             event.logicalKey == LogicalKeyboardKey.select) &&
-            focusedIdx.value >= 0) {
-          navEntries[focusedIdx.value].onTap?.call();
-          return true;
-        }
-        if (event.logicalKey == LogicalKeyboardKey.escape) {
-          focusedIdx.value = -1;
-          return false; // let caller decide to dismiss
-        }
-        return false;
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
+        return _handleNavKey(
+          key: event.logicalKey,
+          focusedIdx: focusedIdx.value,
+          setFocusedIdx: (v) => focusedIdx.value = v,
+          navEntries: navEntries,
+          scrollFocusedIntoView: scrollFocusedIntoView,
+        );
       }
 
       HardwareKeyboard.instance.addHandler(handler);
@@ -251,37 +267,17 @@ class AppList extends HookWidget {
         focusNode: focusNode,
         autofocus: true,
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent || event is KeyRepeatEvent) {
-            if (navEntries.isEmpty) return KeyEventResult.ignored;
-
-            if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              if (focusedIdx.value < 0) {
-                focusedIdx.value = 0;
-              } else {
-                focusedIdx.value =
-                    (focusedIdx.value + 1) % navEntries.length;
-              }
-              scrollFocusedIntoView();
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              if (focusedIdx.value < 0) {
-                focusedIdx.value = navEntries.length - 1;
-              } else {
-                focusedIdx.value =
-                    (focusedIdx.value - 1 + navEntries.length) % navEntries.length;
-              }
-              scrollFocusedIntoView();
-              return KeyEventResult.handled;
-            }
-            if ((event.logicalKey == LogicalKeyboardKey.enter ||
-                 event.logicalKey == LogicalKeyboardKey.select) &&
-                focusedIdx.value >= 0) {
-              navEntries[focusedIdx.value].onTap?.call();
-              return KeyEventResult.handled;
-            }
+          if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+            return KeyEventResult.ignored;
           }
-          return KeyEventResult.ignored;
+          final handled = _handleNavKey(
+            key: event.logicalKey,
+            focusedIdx: focusedIdx.value,
+            setFocusedIdx: (v) => focusedIdx.value = v,
+            navEntries: navEntries,
+            scrollFocusedIntoView: scrollFocusedIntoView,
+          );
+          return handled ? KeyEventResult.handled : KeyEventResult.ignored;
         },
         child: listBody,
       );

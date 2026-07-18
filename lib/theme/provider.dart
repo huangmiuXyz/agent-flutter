@@ -107,19 +107,3 @@ class PlatformBrightness extends _$PlatformBrightness
   }
 }
 
-extension ThemeSettingsResolution on ThemeSettings {
-  CustomTheme get effectiveLight => CustomTheme.resolve(
-    Brightness.light,
-    colorOverrides: lightOverrides,
-    fontWeight: fontWeight,
-  );
-
-  CustomTheme get effectiveDark => CustomTheme.resolve(
-    Brightness.dark,
-    colorOverrides: darkOverrides,
-    fontWeight: fontWeight,
-  );
-
-  CustomTheme effectiveFor(Brightness brightness) =>
-      brightness == Brightness.dark ? effectiveDark : effectiveLight;
-}

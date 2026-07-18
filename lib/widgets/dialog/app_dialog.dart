@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// A theme-aware modal dialog with header, scrollable body, and footer.
@@ -166,9 +169,8 @@ class _AppDialogRoot extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      AppButton(
+                      AppIconButton(
                         icon: 'x',
-                        variant: ButtonVariant.iconOnly,
                         size: ButtonSize.sm,
                         onPressed: () {
                           onCancel?.call();
@@ -211,18 +213,16 @@ class _AppDialogRoot extends StatelessWidget {
                       if (showCancel)
                         Padding(
                           padding: EdgeInsets.only(right: custom.spacing.sm),
-                          child: AppButton(
+                          child: AppSecondaryButton(
                             text: cancelText ?? '取消',
-                            variant: ButtonVariant.secondary,
                             onPressed: () {
                               onCancel?.call();
                               pop();
                             },
                           ),
                         ),
-                      AppButton(
+                      AppPrimaryButton(
                         text: okText ?? '确认',
-                        variant: ButtonVariant.primary,
                         onPressed: () {
                           onOk?.call();
                           pop();

@@ -21,7 +21,45 @@ void main() {
 
       expect(handled, isTrue);
       expect(controller.selection, isNull);
-      expect(output, ['\x1b[D', '\x7f']);
+      expect(output, ['\x7f']);
+    });
+
+    test('ignores terminal padding selected after the input cursor', () {
+      final terminal = Terminal();
+      final controller = TerminalController();
+      final output = <String>[];
+      terminal.onOutput = output.add;
+      terminal.write('12345678   \x1b[3D');
+      final cursorY = terminal.buffer.absoluteCursorY;
+      controller.setSelection(
+        terminal.buffer.createAnchor(4, cursorY),
+        terminal.buffer.createAnchor(4, cursorY + 1),
+      );
+
+      final handled = DeleteSelectionHandler().handle(terminal, controller);
+
+      expect(handled, isTrue);
+      expect(controller.selection, isNull);
+      expect(output, [...List.filled(3, '\x1b[3~'), ...List.filled(4, '\x7f')]);
+    });
+
+    test('does not delete a selection containing only trailing padding', () {
+      final terminal = Terminal();
+      final controller = TerminalController();
+      final output = <String>[];
+      terminal.onOutput = output.add;
+      terminal.write('12345678   \x1b[3D');
+      final cursorY = terminal.buffer.absoluteCursorY;
+      controller.setSelection(
+        terminal.buffer.createAnchor(8, cursorY),
+        terminal.buffer.createAnchor(4, cursorY + 1),
+      );
+
+      final handled = DeleteSelectionHandler().handle(terminal, controller);
+
+      expect(handled, isTrue);
+      expect(controller.selection, isNull);
+      expect(output, List.filled(3, '\x1b[3~'));
     });
 
     test('deletes a multiline selection without deleting trailing text', () {
@@ -42,21 +80,7 @@ void main() {
 
       expect(handled, isTrue);
       expect(controller.selection, isNull);
-      expect(output, [
-        '\x1b[C',
-        '\x1b[C',
-        '\x1b[C',
-        '\x1b[C',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-        '\x7f',
-      ]);
+      expect(output, [...List.filled(4, '\x1b[3~'), ...List.filled(5, '\x7f')]);
     });
   });
 

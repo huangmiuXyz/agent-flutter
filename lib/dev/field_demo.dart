@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/field/app_field.dart';
+import 'package:agent/widgets/field/inline_field.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Demo page section for showcasing field input variants.
@@ -196,24 +197,21 @@ class FieldDemo extends ConsumerWidget {
           children: [
             SizedBox(
               width: 200,
-              child: AppField(
-                variant: FieldVariant.inline,
+              child: InlineField(
                 placeholder: '双击编辑...',
                 size: FieldSize.sm,
               ),
             ),
             SizedBox(
               width: 200,
-              child: AppField(
-                variant: FieldVariant.inline,
+              child: InlineField(
                 placeholder: '双击编辑...',
                 size: FieldSize.md,
               ),
             ),
             SizedBox(
               width: 200,
-              child: AppField(
-                variant: FieldVariant.inline,
+              child: InlineField(
                 placeholder: '双击编辑...',
                 size: FieldSize.lg,
               ),
@@ -248,8 +246,7 @@ class _InlineEditWithValue extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final controller = useTextEditingController(text: '双击修改这段文字');
-    return AppField(
-      variant: FieldVariant.inline,
+    return InlineField(
       controller: controller,
       size: FieldSize.md,
     );

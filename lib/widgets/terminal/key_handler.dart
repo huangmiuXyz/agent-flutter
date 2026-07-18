@@ -10,46 +10,203 @@ class DeleteSelectionHandler {
   bool handle(Terminal terminal, TerminalController controller) {
     final sel = controller.selection;
     if (sel == null) return false;
-    controller.clearSelection();
 
-    final selection = sel.normalized;
     final buffer = terminal.buffer;
+    final cursor = CellOffset(buffer.cursorX, buffer.absoluteCursorY);
+    final plan = _buildPlan(buffer, sel.normalized, cursor);
+    controller.clearSelection();
+    if (plan == null) return true;
 
-    int count = 0;
-    CellOffset? selectionEnd;
-    for (final segment in selection.toSegments()) {
-      if (segment.line < 0 || segment.line >= buffer.height) continue;
-      final line = buffer.lines[segment.line];
-      final start = (segment.start ?? 0).clamp(0, buffer.viewWidth);
-      final end = (segment.end ?? buffer.viewWidth).clamp(
-        start,
-        buffer.viewWidth,
+    if (plan.end.isBeforeOrSame(cursor)) {
+      // The selection is wholly to the left of the cursor. Move to its end
+      // first so the intervening, unselected text is not removed.
+      _sendRepeated(
+        terminal,
+        TerminalKey.arrowLeft,
+        _countCharactersBetween(buffer, plan.end, cursor),
       );
-      for (int x = start; x < end; x++) {
-        if (line.getCodePoint(x) != 0) count++;
-      }
-      selectionEnd = CellOffset(end, segment.line);
-    }
-
-    if (count <= 0 || selectionEnd == null) return true;
-
-    final moveRequest = MoveCursorHandler().createRequest(
-      terminal,
-      selectionEnd,
-    );
-    if (moveRequest != null) {
-      final key = moveRequest.delta > 0
-          ? TerminalKey.arrowRight
-          : TerminalKey.arrowLeft;
-      for (int i = 0; i < moveRequest.delta.abs(); i++) {
-        terminal.keyInput(key);
-      }
-    }
-    for (int i = 0; i < count; i++) {
-      terminal.keyInput(TerminalKey.backspace);
+      _sendRepeated(terminal, TerminalKey.backspace, plan.leftCount);
+    } else if (plan.start.isAfterOrSame(cursor)) {
+      // The selection is wholly to the right of the cursor. Move to its start
+      // before using Delete.
+      _sendRepeated(
+        terminal,
+        TerminalKey.arrowRight,
+        _countCharactersBetween(buffer, cursor, plan.start),
+      );
+      _sendRepeated(terminal, TerminalKey.delete, plan.rightCount);
+    } else {
+      // The selection crosses the cursor. Delete the right side first; any
+      // terminal padding past the real shell buffer is safely clamped there.
+      _sendRepeated(terminal, TerminalKey.delete, plan.rightCount);
+      _sendRepeated(terminal, TerminalKey.backspace, plan.leftCount);
     }
     return true;
   }
+
+  _SelectionDeletePlan? _buildPlan(
+    Buffer buffer,
+    BufferRange selection,
+    CellOffset cursor,
+  ) {
+    final firstEditableLine = _wrappedLineStart(buffer, cursor.y);
+    final lastEditableLine = _wrappedLineEnd(buffer, cursor.y);
+    final tokens = <_SelectedToken>[];
+
+    for (final segment in selection.toSegments()) {
+      if (segment.line < firstEditableLine ||
+          segment.line > lastEditableLine ||
+          segment.line < 0 ||
+          segment.line >= buffer.height) {
+        continue;
+      }
+
+      final line = buffer.lines[segment.line];
+      var start = (segment.start ?? 0).clamp(0, buffer.viewWidth);
+      var end = (segment.end ?? buffer.viewWidth).clamp(
+        start,
+        buffer.viewWidth,
+      );
+
+      // Mouse selection normally snaps wide characters already. Normalize the
+      // endpoints as well because callers can construct ranges directly.
+      if (start > 0 &&
+          start < buffer.viewWidth &&
+          line.getWidth(start) == 0 &&
+          line.getWidth(start - 1) == 2) {
+        start--;
+      }
+      if (end > 0 &&
+          end < buffer.viewWidth &&
+          line.getWidth(end) == 0 &&
+          line.getWidth(end - 1) == 2) {
+        end++;
+      }
+
+      for (int x = start; x < end; x++) {
+        // A zero code point is either an empty cell or the continuation cell
+        // of a wide character. Neither represents another edit operation.
+        if (line.getCodePoint(x) == 0) continue;
+
+        final width = line.getWidth(x);
+        final tokenEnd = CellOffset(
+          (x + (width > 0 ? width : 1)).clamp(0, buffer.viewWidth),
+          segment.line,
+        );
+        tokens.add(
+          _SelectedToken(
+            start: CellOffset(x, segment.line),
+            end: tokenEnd,
+            codePoint: line.getCodePoint(x),
+          ),
+        );
+      }
+    }
+
+    // A terminal may leave explicit spaces behind while repainting a shorter
+    // command line. If the selected suffix is only whitespace to the right of
+    // the shell cursor, it is padding rather than editable input. Trim that
+    // suffix so Ctrl+X cannot turn it into extra deletion operations.
+    while (tokens.isNotEmpty &&
+        tokens.last.start.isAfterOrSame(cursor) &&
+        _isWhitespace(tokens.last.codePoint)) {
+      tokens.removeLast();
+    }
+
+    if (tokens.isEmpty) return null;
+
+    var leftCount = 0;
+    var rightCount = 0;
+    for (final token in tokens) {
+      if (token.end.isBeforeOrSame(cursor)) {
+        leftCount++;
+      } else if (token.start.isAfterOrSame(cursor)) {
+        rightCount++;
+      } else if (token.start.isBefore(cursor)) {
+        // A cursor should normally never split a wide character, but treat
+        // this case as left-sided rather than risking a right-side delete.
+        leftCount++;
+      } else {
+        rightCount++;
+      }
+    }
+
+    return _SelectionDeletePlan(
+      start: tokens.first.start,
+      end: tokens.last.end,
+      leftCount: leftCount,
+      rightCount: rightCount,
+    );
+  }
+
+  bool _isWhitespace(int codePoint) =>
+      String.fromCharCode(codePoint).trim().isEmpty;
+
+  void _sendRepeated(Terminal terminal, TerminalKey key, int count) {
+    for (var i = 0; i < count; i++) {
+      terminal.keyInput(key);
+    }
+  }
+
+  int _countCharactersBetween(Buffer buffer, CellOffset start, CellOffset end) {
+    if (end.isBeforeOrSame(start)) return 0;
+
+    var count = 0;
+    for (var lineIndex = start.y; lineIndex <= end.y; lineIndex++) {
+      if (lineIndex < 0 || lineIndex >= buffer.height) continue;
+      final line = buffer.lines[lineIndex];
+      final lineStart = lineIndex == start.y ? start.x : 0;
+      final lineEnd = lineIndex == end.y ? end.x : buffer.viewWidth;
+      final from = lineStart.clamp(0, buffer.viewWidth);
+      final to = lineEnd.clamp(from, buffer.viewWidth);
+      for (var x = from; x < to; x++) {
+        if (line.getCodePoint(x) != 0) count++;
+      }
+    }
+    return count;
+  }
+
+  int _wrappedLineStart(Buffer buffer, int line) {
+    var first = line;
+    while (first > 0 && buffer.lines[first].isWrapped) {
+      first--;
+    }
+    return first;
+  }
+
+  int _wrappedLineEnd(Buffer buffer, int line) {
+    var last = line;
+    while (last + 1 < buffer.height && buffer.lines[last + 1].isWrapped) {
+      last++;
+    }
+    return last;
+  }
+}
+
+class _SelectedToken {
+  const _SelectedToken({
+    required this.start,
+    required this.end,
+    required this.codePoint,
+  });
+
+  final CellOffset start;
+  final CellOffset end;
+  final int codePoint;
+}
+
+class _SelectionDeletePlan {
+  const _SelectionDeletePlan({
+    required this.start,
+    required this.end,
+    required this.leftCount,
+    required this.rightCount,
+  });
+
+  final CellOffset start;
+  final CellOffset end;
+  final int leftCount;
+  final int rightCount;
 }
 
 /// Processes a tap on the terminal to move the cursor.

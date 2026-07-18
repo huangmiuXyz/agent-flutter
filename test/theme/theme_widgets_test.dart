@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/button/app_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
 
@@ -33,7 +33,7 @@ void main() {
     expect(tester.widget<Icon>(find.byType(Icon)).color, iconColor);
   });
 
-  testWidgets('disabled AppButton uses custom disabled foreground', (
+  testWidgets('disabled AppPrimaryButton uses custom disabled foreground', (
     tester,
   ) async {
     final theme = CustomTheme.light;
@@ -41,7 +41,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(extensions: [theme]),
-        home: AppButton(text: 'Disabled', disabled: true, onPressed: () {}),
+        home: const AppPrimaryButton(text: 'Disabled', disabled: true, onPressed: null),
       ),
     );
 
