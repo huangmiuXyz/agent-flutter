@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:mcp_toolkit/mcp_toolkit.dart';
+
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
@@ -11,10 +11,6 @@ void main() async {
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      // 初始化 MCP Toolkit，让 AI 可以查看 Widget 树、截图、交互等
-      MCPToolkitBinding.instance
-        ..initialize()
-        ..initializeFlutterToolkit();
 
       await windowManager.ensureInitialized();
 
@@ -34,7 +30,7 @@ void main() async {
       runApp(const ProviderScope(child: AgentApp()));
     },
     (error, stack) {
-      MCPToolkitBinding.instance.handleZoneError(error, stack);
+      debugPrint('Unhandled error: $error');
     },
   );
 }

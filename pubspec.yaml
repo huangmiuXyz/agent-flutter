@@ -26,7 +26,6 @@ dependencies:
   ansi_strip: ^0.1.1+1
   desktop_drop: ^0.7.1
   streamdown: ^0.1.1
-  mcp_toolkit: ^3.0.0
   fleather: ^1.27.0
 
 dev_dependencies:
@@ -45,11 +44,3 @@ flutter:
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono/JetBrainsMono-Regular.ttf
-    - family: HarmonyOS Sans SC
-      fonts:
-        - asset: assets/fonts/HarmonyOSSans/HarmonyOS_Sans_SC.ttf
-          weight: 400
-    - family: HarmonyOS Sans
-      fonts:
-        - asset: assets/fonts/HarmonyOSSans/HarmonyOS_Sans.ttf
-          weight: 400
