@@ -7,6 +7,8 @@ import 'package:ansi_strip/ansi_strip.dart';
 /// Listens to the PTY output stream and waits for an OSC 633;D end-marker
 /// that the shell integration scripts emit after each command completes.
 class CommandRunner {
+  static final _oscEndMarker = RegExp(r'\x1B\]633;D;-?\d+(?:\x07|\x1B\\)');
+  static final _promptPattern = RegExp(r'^[%$#>]\s*$');
   final StreamController<String> _outputController =
       StreamController<String>.broadcast();
   final Set<StreamSubscription<String>> _execSubs = {};
@@ -26,7 +28,6 @@ class CommandRunner {
     required void Function(String text) sendInput,
     Duration timeout = const Duration(seconds: 30),
   }) async {
-    final oscEnd = RegExp(r'\x1B\]633;D;-?\d+(?:\x07|\x1B\\)');
     final completer = Completer<String>();
     final buffer = StringBuffer();
     StreamSubscription<String>? execSub;
@@ -45,7 +46,7 @@ class CommandRunner {
     execSub = _outputController.stream.listen((text) {
       buffer.write(text);
       final full = buffer.toString();
-      if (oscEnd.hasMatch(full)) {
+      if (_oscEndMarker.hasMatch(full)) {
         done();
         if (!completer.isCompleted) {
           final all = buffer.toString();
@@ -70,7 +71,7 @@ class CommandRunner {
               .replaceAll('\r', '\n')
               .trim();
           final resultLines = cleaned.split('\n')
-            ..retainWhere((l) => !RegExp(r'^[%$#>]\s*$').hasMatch(l.trim()));
+            ..retainWhere((l) => !_promptPattern.hasMatch(l.trim()));
           cleaned = resultLines.join('\n').trim();
 
           // 没有开始标记时，去掉开头的命令回显

@@ -51,8 +51,12 @@ class ResizeBox extends HookWidget {
     final dragRawTarget = useRef(0.0);
     final dragRenderBox = useRef<RenderBox?>(null);
 
-    RenderBox resolveRenderBox() =>
-        dragRenderBox.value ?? context.findRenderObject() as RenderBox;
+    RenderBox? resolveRenderBox() {
+      // onDragUpdate only fires after onDragStart sets dragRenderBox,
+      // so the cached value is always present during a drag gesture.
+      // The fallback is a defensive safety net.
+      return dragRenderBox.value ?? context.findRenderObject() as RenderBox?;
+    }
 
     double localCoord(RenderBox renderBox, Offset localPos) {
       return switch (direction) {
@@ -67,7 +71,10 @@ class ResizeBox extends HookWidget {
       isDragging.value = true;
       final renderBox = context.findRenderObject() as RenderBox;
       dragRenderBox.value = renderBox;
-      dragRawTarget.value = localCoord(renderBox, renderBox.globalToLocal(d.globalPosition));
+      dragRawTarget.value = localCoord(
+        renderBox,
+        renderBox.globalToLocal(d.globalPosition),
+      );
     }
 
     void onDragEnd(DragEndDetails d) {
@@ -82,7 +89,11 @@ class ResizeBox extends HookWidget {
 
     void onDragUpdate(DragUpdateDetails d) {
       final renderBox = resolveRenderBox();
-      final rawTarget = localCoord(renderBox, renderBox.globalToLocal(d.globalPosition));
+      if (renderBox == null) return;
+      final rawTarget = localCoord(
+        renderBox,
+        renderBox.globalToLocal(d.globalPosition),
+      );
       dragRawTarget.value = rawTarget;
 
       if (isCollapsed.value) {
@@ -136,19 +147,23 @@ class ResizeBox extends HookWidget {
     return Stack(
       children: [
         if (isHorizontal)
-          Row(children: [
-            if (direction == ResizeDirection.right) sizedChild(),
-            if (direction == ResizeDirection.left) Expanded(child: other),
-            if (direction == ResizeDirection.left) sizedChild(),
-            if (direction == ResizeDirection.right) Expanded(child: other),
-          ])
+          Row(
+            children: [
+              if (direction == ResizeDirection.right) sizedChild(),
+              if (direction == ResizeDirection.left) Expanded(child: other),
+              if (direction == ResizeDirection.left) sizedChild(),
+              if (direction == ResizeDirection.right) Expanded(child: other),
+            ],
+          )
         else
-          Column(children: [
-            if (direction == ResizeDirection.bottom) sizedChild(),
-            if (direction == ResizeDirection.top) Expanded(child: other),
-            if (direction == ResizeDirection.top) sizedChild(),
-            if (direction == ResizeDirection.bottom) Expanded(child: other),
-          ]),
+          Column(
+            children: [
+              if (direction == ResizeDirection.bottom) sizedChild(),
+              if (direction == ResizeDirection.top) Expanded(child: other),
+              if (direction == ResizeDirection.top) sizedChild(),
+              if (direction == ResizeDirection.bottom) Expanded(child: other),
+            ],
+          ),
 
         // Resize handle
         _ResizeHandle(
@@ -229,7 +244,9 @@ class _ResizeHandle extends HookWidget {
     final showVisual = collapsed
         ? (isHoveringEdge.value || isDragging.value)
         : (isHoveringHandle.value || isDragging.value);
-    final handleColor = collapsed ? custom.colors.accentHover : custom.colors.accent;
+    final handleColor = collapsed
+        ? custom.colors.accentHover
+        : custom.colors.accent;
 
     final rawForPos = (collapsed || !isDragging.value)
         ? targetSize.value
@@ -240,21 +257,41 @@ class _ResizeHandle extends HookWidget {
 
     if (collapsed) {
       switch (direction) {
-        case ResizeDirection.right: left = 0; top = 0; bottom = 0;
-        case ResizeDirection.left:  right = 0; top = 0; bottom = 0;
-        case ResizeDirection.bottom: top = 0; left = 0; right = 0;
-        case ResizeDirection.top:   bottom = 0; left = 0; right = 0;
+        case ResizeDirection.right:
+          left = 0;
+          top = 0;
+          bottom = 0;
+        case ResizeDirection.left:
+          right = 0;
+          top = 0;
+          bottom = 0;
+        case ResizeDirection.bottom:
+          top = 0;
+          left = 0;
+          right = 0;
+        case ResizeDirection.top:
+          bottom = 0;
+          left = 0;
+          right = 0;
       }
     } else {
       switch (direction) {
         case ResizeDirection.right:
-          left = handlePos - handleOffset; top = 0; bottom = 0;
+          left = handlePos - handleOffset;
+          top = 0;
+          bottom = 0;
         case ResizeDirection.left:
-          right = handlePos - handleOffset; top = 0; bottom = 0;
+          right = handlePos - handleOffset;
+          top = 0;
+          bottom = 0;
         case ResizeDirection.bottom:
-          top = handlePos - handleOffset; left = 0; right = 0;
+          top = handlePos - handleOffset;
+          left = 0;
+          right = 0;
         case ResizeDirection.top:
-          bottom = handlePos - handleOffset; left = 0; right = 0;
+          bottom = handlePos - handleOffset;
+          left = 0;
+          right = 0;
       }
     }
 
@@ -315,7 +352,12 @@ class _ResizeHandle extends HookWidget {
     );
   }
 
-  Widget _bar(bool isHorizontal, CustomTheme custom, bool showVisual, Color handleColor) {
+  Widget _bar(
+    bool isHorizontal,
+    CustomTheme custom,
+    bool showVisual,
+    Color handleColor,
+  ) {
     return Container(
       width: isHorizontal ? custom.spacing.xs : double.infinity,
       height: isHorizontal ? double.infinity : custom.spacing.xs,

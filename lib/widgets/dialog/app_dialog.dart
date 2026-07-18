@@ -216,16 +216,22 @@ class _AppDialogRoot extends StatelessWidget {
                           child: AppSecondaryButton(
                             text: cancelText ?? '取消',
                             onPressed: () {
-                              onCancel?.call();
-                              pop();
+                              try {
+                                onCancel?.call();
+                              } finally {
+                                pop();
+                              }
                             },
                           ),
                         ),
                       AppPrimaryButton(
                         text: okText ?? '确认',
                         onPressed: () {
-                          onOk?.call();
-                          pop();
+                          try {
+                            onOk?.call();
+                          } finally {
+                            pop();
+                          }
                         },
                       ),
                     ],

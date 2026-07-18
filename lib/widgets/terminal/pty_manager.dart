@@ -27,6 +27,7 @@ class PtyManager {
   StreamSubscription? _ptySub;
   String? _integrationPath;
   String? _cursorRequestPath;
+  bool _disposed = false;
   bool _started = false;
   bool _shellInputActive = false;
   String _shellMarkerTail = '';
@@ -57,6 +58,7 @@ class PtyManager {
 
   /// Starts the PTY with an optional [shell] override.
   void start({String shell = '', List<String> args = const []}) {
+    if (_disposed) return;
     if (_started) return;
     _started = true;
     _shellInputActive = false;
@@ -149,6 +151,7 @@ class PtyManager {
 
   /// Tears down the PTY and integration artifacts.
   void dispose() {
+    _disposed = true;
     _cleanup();
   }
 
@@ -247,6 +250,7 @@ class PtyManager {
   // ---------------------------------------------------------------------------
 
   void _scheduleRestart(int exitCode) {
+    if (_disposed) return;
     final now = DateTime.now();
     if (_lastExitTime != null &&
         now.difference(_lastExitTime!) < _crashWindow) {
@@ -326,6 +330,8 @@ class PtyManager {
     _started = false;
     _shellInputActive = false;
     _shellMarkerTail = '';
+    terminal.onOutput = null;
+    terminal.onResize = null;
     _cleanupIntegration();
   }
 

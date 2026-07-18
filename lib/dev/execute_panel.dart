@@ -44,9 +44,9 @@ class ExecutePanel extends HookConsumerWidget {
         final result = await ref
             .read(xtermManagerProvider(id).notifier)
             .execute(cmd);
-        output.value = result;
+        if (context.mounted) output.value = result;
       } catch (e) {
-        output.value = '[error: $e]';
+        if (context.mounted) output.value = '[error: $e]';
       } finally {
         if (context.mounted) running.value = false;
       }
