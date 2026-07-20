@@ -18,6 +18,20 @@ class LlmService {
     _initialized = true;
   }
 
+  // ─── 提供商 ─────────────────────────────────────────
+
+  /// 列出所有可用的 AI 提供商
+  Future<List<api.ProviderSummary>> listProviders({
+    required String configPath,
+  }) async {
+    _ensureInitialized();
+    try {
+      return await api.listProviders(configPath: configPath);
+    } catch (e) {
+      throw LlmException('获取提供商列表失败: $e');
+    }
+  }
+
   // ─── 模型 ───────────────────────────────────────────
 
   /// 列出指定厂商的可用模型
