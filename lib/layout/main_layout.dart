@@ -47,6 +47,7 @@ class MainLayout extends StatelessWidget {
 
     final brightness = custom.brightness;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kWindowCaptionHeight),
         child: Container(

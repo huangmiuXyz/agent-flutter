@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:agent/dev/demo_page.dart';
+import 'package:agent/features/chat/chat_page.dart';
 import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/layout/main_layout.dart';
 
@@ -27,7 +27,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.chat,
           builder: (BuildContext context, GoRouterState state) {
-            return const DemoPage();
+            return const ChatDemo();
           },
         ),
         GoRoute(

@@ -8,6 +8,19 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 
 void main() async {
+  // Silence Fleather's harmless assertion in childAtPosition when
+  // ballistic scroll races with document mutation.
+  final oldErrorHandler = FlutterError.onError;
+  FlutterError.onError = (details) {
+    if (details.exception is AssertionError &&
+        details.stack.toString().contains(
+          'RenderEditableContainerBox.childAtPosition',
+        )) {
+      return;
+    }
+    oldErrorHandler?.call(details);
+  };
+
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
