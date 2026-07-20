@@ -16,6 +16,14 @@ class MainLayout extends StatelessWidget {
     final custom = CustomTheme.of(context);
     final bgColor = custom.colors.panel;
 
+    final footer = Container(
+      height: custom.controls.footerHeight,
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: custom.colors.selected)),
+        color: bgColor,
+      ),
+    );
+
     if (Platform.isMacOS) {
       return Scaffold(
         appBar: PreferredSize(
@@ -33,6 +41,7 @@ class MainLayout extends StatelessWidget {
           ),
         ),
         body: child,
+        bottomNavigationBar: footer,
       );
     }
 
@@ -52,6 +61,7 @@ class MainLayout extends StatelessWidget {
         ),
       ),
       body: child,
+      bottomNavigationBar: footer,
     );
   }
 }
