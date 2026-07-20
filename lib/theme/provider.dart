@@ -106,4 +106,3 @@ class PlatformBrightness extends _$PlatformBrightness
     state = WidgetsBinding.instance.platformDispatcher.platformBrightness;
   }
 }
-

@@ -50,7 +50,11 @@ class AppPrimaryButton extends StatelessWidget {
     );
   }
 
-  Widget _buildChild(CustomTheme custom, double iconSize, Color foregroundColor) {
+  Widget _buildChild(
+    CustomTheme custom,
+    double iconSize,
+    Color foregroundColor,
+  ) {
     if (icon != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -82,14 +86,17 @@ class AppPrimaryButton extends StatelessWidget {
   WidgetStateProperty<Color?> _background(CustomTheme custom) {
     if (!hoverStyle) {
       return WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.disabled)) return custom.colors.panelElevated;
+        if (states.contains(WidgetState.disabled))
+          return custom.colors.panelElevated;
         return custom.colors.accent;
       });
     }
     return WidgetStateProperty.resolveWith((states) {
-      if (states.contains(WidgetState.disabled)) return custom.colors.panelElevated;
+      if (states.contains(WidgetState.disabled))
+        return custom.colors.panelElevated;
       if (states.contains(WidgetState.pressed)) return custom.colors.selected;
-      if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+      if (states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused)) {
         return custom.colors.accentHover;
       }
       return custom.colors.accent;

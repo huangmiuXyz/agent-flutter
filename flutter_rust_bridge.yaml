@@ -1,0 +1,6 @@
+# flutter_rust_bridge 配置文件
+# 详见: https://fzyzcjy.github.io/flutter_rust_bridge/
+
+rust_input: crate::api
+rust_root: ../agent-flutter-cli/
+dart_output: lib/rust_bridge/

@@ -7,7 +7,11 @@ class _NoScrollbarBehavior extends ScrollBehavior {
   const _NoScrollbarBehavior();
 
   @override
-  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
 }
 
 /// A styled card container used for context menus, dropdowns, tooltips,

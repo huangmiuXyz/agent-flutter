@@ -27,7 +27,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: AppRoutes.chat,
           builder: (BuildContext context, GoRouterState state) {
-            return const ChatPage();
+            return const ChatDemo();
           },
         ),
         GoRoute(

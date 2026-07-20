@@ -24,8 +24,6 @@ class _FleatherDemoState extends State<FleatherDemo> {
   String _mentionQuery = '';
   bool get _showMentionSuggestions => _mentionStartIndex != null;
 
-
-
   /// Mock users for @mention suggestions.
   final List<String> _users = const [
     'Alice Wang',
@@ -147,8 +145,9 @@ class _FleatherDemoState extends State<FleatherDemo> {
     }
 
     final renderBox = editorState.renderEditor as RenderBox;
-    final endpoints = editorState.renderEditor
-        .getEndpointsForSelection(selection);
+    final endpoints = editorState.renderEditor.getEndpointsForSelection(
+      selection,
+    );
     if (endpoints.isEmpty) {
       ContextMenu.dismiss();
       return;
@@ -263,7 +262,8 @@ class _FleatherDemoState extends State<FleatherDemo> {
               spellCheckConfiguration: SpellCheckConfiguration(
                 spellCheckService: DefaultSpellCheckService(),
                 misspelledSelectionColor: Colors.red,
-                misspelledTextStyle: theme.textTheme.bodyMedium ?? const TextStyle(),
+                misspelledTextStyle:
+                    theme.textTheme.bodyMedium ?? const TextStyle(),
               ),
             ),
           ),
@@ -356,8 +356,11 @@ class _MentionClipboardManager extends ClipboardManager {
         (u) => u.toLowerCase() == matchedName.toLowerCase(),
       );
       delta.insert(
-        EmbeddableObject('mention', inline: true, data: {'user': canonicalName})
-            .toJson(),
+        EmbeddableObject(
+          'mention',
+          inline: true,
+          data: {'user': canonicalName},
+        ).toJson(),
       );
       last = m.end;
     }
@@ -386,15 +389,16 @@ class _MentionTag extends SingleChildRenderObjectWidget {
   }
 
   @override
-  void updateRenderObject(BuildContext context, _MentionTagRenderBox renderObject) {
+  void updateRenderObject(
+    BuildContext context,
+    _MentionTagRenderBox renderObject,
+  ) {
     renderObject.color = color;
   }
 }
 
 class _MentionTagRenderBox extends RenderShiftedBox {
-  _MentionTagRenderBox({required Color color})
-      : _color = color,
-        super(null);
+  _MentionTagRenderBox({required this._color}) : super(null);
 
   Color _color;
 
@@ -442,7 +446,8 @@ class _MentionTagRenderBox extends RenderShiftedBox {
   /// Baseline = child baseline + topPadding (for parent layout inquiries).
   @override
   double computeDistanceToActualBaseline(TextBaseline baselineType) {
-    final childBaseline = child?.computeDistanceToActualBaseline(baselineType) ?? 0;
+    final childBaseline =
+        child?.computeDistanceToActualBaseline(baselineType) ?? 0;
     return childBaseline + _topPadding;
   }
 }

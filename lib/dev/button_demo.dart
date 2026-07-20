@@ -43,9 +43,17 @@ class ButtonDemo extends ConsumerWidget {
           runSpacing: 8,
           children: [
             AppSecondaryButton(onPressed: () {}, text: '次要'),
-            AppSecondaryButton(onPressed: () {}, text: '小', size: ButtonSize.sm),
+            AppSecondaryButton(
+              onPressed: () {},
+              text: '小',
+              size: ButtonSize.sm,
+            ),
             AppSecondaryButton(onPressed: () {}, text: '中'),
-            AppSecondaryButton(onPressed: () {}, text: '大', size: ButtonSize.lg),
+            AppSecondaryButton(
+              onPressed: () {},
+              text: '大',
+              size: ButtonSize.lg,
+            ),
           ],
         ),
         const SizedBox(height: 32),
@@ -63,9 +71,17 @@ class ButtonDemo extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            AppIconButton(icon: 'settings', onPressed: () {}, size: ButtonSize.sm),
+            AppIconButton(
+              icon: 'settings',
+              onPressed: () {},
+              size: ButtonSize.sm,
+            ),
             AppIconButton(icon: 'settings', onPressed: () {}),
-            AppIconButton(icon: 'settings', onPressed: () {}, size: ButtonSize.lg),
+            AppIconButton(
+              icon: 'settings',
+              onPressed: () {},
+              size: ButtonSize.lg,
+            ),
           ],
         ),
         const SizedBox(height: 12),

@@ -38,17 +38,28 @@ class AppTextButton extends StatelessWidget {
 
     final button = TextButton(
       onPressed: isDisabled ? null : onPressed,
-      style: _buildStyle(custom, sizing, defaultFg, hoverFg, disabledFg).merge(style),
-      child: _buildChild(custom, sizing.iconSize, isDisabled ? disabledFg : defaultFg),
+      style: _buildStyle(
+        custom,
+        sizing,
+        defaultFg,
+        hoverFg,
+        disabledFg,
+      ).merge(style),
+      child: _buildChild(
+        custom,
+        sizing.iconSize,
+        isDisabled ? disabledFg : defaultFg,
+      ),
     );
 
-    return UnconstrainedBox(
-      alignment: Alignment.centerLeft,
-      child: button,
-    );
+    return UnconstrainedBox(alignment: Alignment.centerLeft, child: button);
   }
 
-  Widget _buildChild(CustomTheme custom, double iconSize, Color foregroundColor) {
+  Widget _buildChild(
+    CustomTheme custom,
+    double iconSize,
+    Color foregroundColor,
+  ) {
     if (icon != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -75,13 +86,17 @@ class AppTextButton extends StatelessWidget {
       overlayColor: WidgetStateProperty.all(Colors.transparent),
       foregroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.disabled)) return disabledFg;
-        if (states.contains(WidgetState.hovered) || states.contains(WidgetState.focused)) {
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
           return hoverFg;
         }
         return defaultFg;
       }),
       padding: WidgetStateProperty.all(
-        EdgeInsets.symmetric(horizontal: custom.spacing.xs, vertical: custom.spacing.xs),
+        EdgeInsets.symmetric(
+          horizontal: custom.spacing.xs,
+          vertical: custom.spacing.xs,
+        ),
       ),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: sizing.borderRadius),

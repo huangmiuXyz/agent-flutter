@@ -119,10 +119,26 @@ class AppControls {
         switchLgHeight: lerpDouble(a.switchLgHeight, b.switchLgHeight, t)!,
         switchLgWidth: lerpDouble(a.switchLgWidth, b.switchLgWidth, t)!,
         dialogWidth: lerpDouble(a.dialogWidth, b.dialogWidth, t)!,
-        contextMenuMinWidth: lerpDouble(a.contextMenuMinWidth, b.contextMenuMinWidth, t)!,
-        contextMenuSubmenuWidth: lerpDouble(a.contextMenuSubmenuWidth, b.contextMenuSubmenuWidth, t)!,
-        tabAddButtonWidth: lerpDouble(a.tabAddButtonWidth, b.tabAddButtonWidth, t)!,
-        executePanelHeight: lerpDouble(a.executePanelHeight, b.executePanelHeight, t)!,
+        contextMenuMinWidth: lerpDouble(
+          a.contextMenuMinWidth,
+          b.contextMenuMinWidth,
+          t,
+        )!,
+        contextMenuSubmenuWidth: lerpDouble(
+          a.contextMenuSubmenuWidth,
+          b.contextMenuSubmenuWidth,
+          t,
+        )!,
+        tabAddButtonWidth: lerpDouble(
+          a.tabAddButtonWidth,
+          b.tabAddButtonWidth,
+          t,
+        )!,
+        executePanelHeight: lerpDouble(
+          a.executePanelHeight,
+          b.executePanelHeight,
+          t,
+        )!,
       );
 }
 

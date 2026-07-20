@@ -197,24 +197,15 @@ class FieldDemo extends ConsumerWidget {
           children: [
             SizedBox(
               width: 200,
-              child: InlineField(
-                placeholder: '双击编辑...',
-                size: FieldSize.sm,
-              ),
+              child: InlineField(placeholder: '双击编辑...', size: FieldSize.sm),
             ),
             SizedBox(
               width: 200,
-              child: InlineField(
-                placeholder: '双击编辑...',
-                size: FieldSize.md,
-              ),
+              child: InlineField(placeholder: '双击编辑...', size: FieldSize.md),
             ),
             SizedBox(
               width: 200,
-              child: InlineField(
-                placeholder: '双击编辑...',
-                size: FieldSize.lg,
-              ),
+              child: InlineField(placeholder: '双击编辑...', size: FieldSize.lg),
             ),
             const SizedBox(width: 200, child: _InlineEditWithValue()),
           ],
@@ -246,9 +237,6 @@ class _InlineEditWithValue extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final controller = useTextEditingController(text: '双击修改这段文字');
-    return InlineField(
-      controller: controller,
-      size: FieldSize.md,
-    );
+    return InlineField(controller: controller, size: FieldSize.md);
   }
 }

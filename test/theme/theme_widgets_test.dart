@@ -41,7 +41,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(extensions: [theme]),
-        home: const AppPrimaryButton(text: 'Disabled', disabled: true, onPressed: null),
+        home: const AppPrimaryButton(
+          text: 'Disabled',
+          disabled: true,
+          onPressed: null,
+        ),
       ),
     );
 

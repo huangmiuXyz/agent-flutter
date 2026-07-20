@@ -33,5 +33,9 @@ ButtonSizing resolveButtonSizing(CustomTheme custom, ButtonSize size) {
     ButtonSize.sm || ButtonSize.md => custom.radii.xs,
     ButtonSize.lg => custom.radii.sm,
   };
-  return ButtonSizing(height: height, iconSize: iconSize, borderRadius: borderRadius);
+  return ButtonSizing(
+    height: height,
+    iconSize: iconSize,
+    borderRadius: borderRadius,
+  );
 }

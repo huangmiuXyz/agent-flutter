@@ -37,6 +37,19 @@ migrate_working_dir/
 *.freezed.dart
 *.g.dart
 
+# flutter_rust_bridge 自动生成（运行 flutter_rust_bridge_codegen generate 后生成）
+/lib/rust_bridge/
+/lib/src/rust/
+/rust/
+/rust_builder/
+
+# CocoaPods 安装的依赖（可重新生成）
+/macos/Pods/
+
+# Gradle 缓存（Android 构建临时文件）
+/android/.gradle/
+/android/local.properties
+
 # Symbolication related
 app.*.symbols
 
