@@ -24,7 +24,7 @@ dependencies:
   nanoid: ^1.0.0
   ansi_strip: ^0.1.1+1
   desktop_drop: ^0.7.1
-  flutter_rust_bridge: ^2.12.0
+  flutter_rust_bridge: 2.13.0-beta.5
   streamdown: ^0.1.1
   fleather: ^1.27.0
   freezed_annotation: ^3.0.0
