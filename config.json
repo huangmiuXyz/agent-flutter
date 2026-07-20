@@ -1,0 +1,7 @@
+{
+  "$schema": "./config.schema.json",
+  "language_models": {
+    "openai_compatible": {},
+    "anthropic": {}
+  }
+}
