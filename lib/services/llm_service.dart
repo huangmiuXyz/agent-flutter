@@ -115,6 +115,24 @@ class LlmService {
     }
   }
 
+  /// 重命名会话
+  Future<api.SessionInfo> renameSession({
+    required String dbPath,
+    required String sessionId,
+    required String name,
+  }) async {
+    _ensureInitialized();
+    try {
+      return await api.renameSession(
+        dbPath: dbPath,
+        sessionId: sessionId,
+        name: name,
+      );
+    } catch (e) {
+      throw LlmException('重命名会话失败: $e');
+    }
+  }
+
   /// 删除会话
   Future<void> deleteSession({
     required String dbPath,
@@ -188,7 +206,10 @@ class LlmService {
   }) async {
     _ensureInitialized();
     try {
-      return await api.listMessagesBySession(dbPath: dbPath, sessionId: sessionId);
+      return await api.listMessagesBySession(
+        dbPath: dbPath,
+        sessionId: sessionId,
+      );
     } catch (e) {
       throw LlmException('获取消息列表失败: $e');
     }

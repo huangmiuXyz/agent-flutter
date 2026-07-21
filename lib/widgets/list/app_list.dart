@@ -449,12 +449,20 @@ class AppListItem extends HookWidget {
   /// Override the label text variant.
   final AppTextVariant? labelVariant;
 
+  /// When provided, replaces the default [AppText] label with a custom widget.
+  /// The widget is placed inside an [Expanded] and inherits the item's foreground color.
+  final Widget? labelWidget;
+
   /// When true, the item height is determined by its content (padding + text)
   /// instead of a fixed [itemHeight] or the default [CustomTheme.controls.mediumHeight].
   final bool? intrinsicHeight;
 
   /// Called when hover state changes. Provides the item's RenderBox.
   final void Function(bool isHovered, RenderBox renderBox)? onHover;
+
+  /// Optional widgets shown on the trailing side only when the item is hovered.
+  /// Useful for action buttons like delete or edit that appear on hover.
+  final List<Widget>? hoverActions;
 
   /// Visual density. Inherits from parent [AppList] or [AppListGroup] when not set.
   final AppListSize? size;
@@ -476,8 +484,10 @@ class AppListItem extends HookWidget {
     this.iconLabelGap,
     this.trailingWidget,
     this.labelVariant,
+    this.labelWidget,
     this.intrinsicHeight,
     this.onHover,
+    this.hoverActions,
     this.size,
   });
 
@@ -560,28 +570,82 @@ class AppListItem extends HookWidget {
                   SizedBox(width: gap),
                 ],
                 Expanded(
-                  child: AppText(
-                    label,
-                    variant: effectiveLabelVariant,
-                    color: foreground,
-                  ),
+                  child:
+                      labelWidget ??
+                      AppText(
+                        label,
+                        variant: effectiveLabelVariant,
+                        color: foreground,
+                      ),
                 ),
-                if (trailing != null)
-                  Padding(
-                    padding: EdgeInsets.only(left: custom.spacing.sm),
-                    child: AppText(
-                      trailing!,
-                      variant: AppTextVariant.caption,
-                      color: enabled
-                          ? custom.colors.textSecondary
-                          : custom.colors.textDisabled,
+                // Build trailing content with hover actions floating on top
+                () {
+                  final trailingChildren = <Widget>[];
+                  if (trailing != null) {
+                    trailingChildren.add(
+                      Padding(
+                        padding: EdgeInsets.only(left: custom.spacing.sm),
+                        child: AppText(
+                          trailing!,
+                          variant: AppTextVariant.caption,
+                          color: enabled
+                              ? custom.colors.textSecondary
+                              : custom.colors.textDisabled,
+                        ),
+                      ),
+                    );
+                  }
+                  if (trailingWidget != null) {
+                    trailingChildren.add(
+                      Padding(
+                        padding: EdgeInsets.only(left: custom.spacing.sm),
+                        child: trailingWidget,
+                      ),
+                    );
+                  }
+
+                  if (trailingChildren.isEmpty) return const SizedBox.shrink();
+
+                  // Hide trailing content on hover when hoverActions are present
+                  // (use Opacity so layout space is preserved for the floating button)
+                  final hideTrailing = hoverActions != null && isHovered.value;
+                  Widget content = Opacity(
+                    opacity: hideTrailing ? 0.0 : 1.0,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: trailingChildren,
                     ),
-                  ),
-                if (trailingWidget != null)
-                  Padding(
-                    padding: EdgeInsets.only(left: custom.spacing.sm),
-                    child: trailingWidget,
-                  ),
+                  );
+
+                  if (hoverActions != null) {
+                    content = Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        content,
+                        if (isHovered.value)
+                          Positioned(
+                            right: 0,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: hoverActions!
+                                  .map(
+                                    (action) => Padding(
+                                      padding: EdgeInsets.only(
+                                        left: custom.spacing.xs,
+                                      ),
+                                      child: action,
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                      ],
+                    );
+                  }
+
+                  return content;
+                }(),
               ],
             ),
           ),

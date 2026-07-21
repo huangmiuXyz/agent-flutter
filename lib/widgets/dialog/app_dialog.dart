@@ -126,7 +126,6 @@ class _AppDialogRoot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    void pop() => Navigator.of(context).pop();
 
     final effectiveWidth = width ?? custom.controls.dialogWidth;
 
@@ -174,7 +173,7 @@ class _AppDialogRoot extends StatelessWidget {
                         size: ButtonSize.sm,
                         onPressed: () {
                           onCancel?.call();
-                          pop();
+                          Navigator.of(context).pop(false);
                         },
                       ),
                     ],
@@ -219,7 +218,7 @@ class _AppDialogRoot extends StatelessWidget {
                               try {
                                 onCancel?.call();
                               } finally {
-                                pop();
+                                Navigator.of(context).pop(false);
                               }
                             },
                           ),
@@ -230,7 +229,7 @@ class _AppDialogRoot extends StatelessWidget {
                           try {
                             onOk?.call();
                           } finally {
-                            pop();
+                            Navigator.of(context).pop(true);
                           }
                         },
                       ),
