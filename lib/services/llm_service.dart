@@ -151,6 +151,62 @@ class LlmService {
     }
   }
 
+  // ─── 实时订阅 ───────────────────────────────────────
+
+  /// 订阅一个会话的实时事件
+  Stream<api.StreamEvent> subscribeSession({
+    required String dbPath,
+    required String sessionId,
+  }) {
+    _ensureInitialized();
+    try {
+      return api.subscribeSession(dbPath: dbPath, sessionId: sessionId);
+    } catch (e) {
+      return Stream.value(api.StreamEvent.error('订阅失败: $e'));
+    }
+  }
+
+  // ─── 数据读取 ───────────────────────────────────────
+
+  /// 读取单个 part 的完整内容
+  Future<String> readPart({
+    required String dbPath,
+    required String partId,
+  }) async {
+    _ensureInitialized();
+    try {
+      return await api.readPart(dbPath: dbPath, partId: partId);
+    } catch (e) {
+      throw LlmException('读取 part 失败: $e');
+    }
+  }
+
+  /// 列出某个会话的所有 messages
+  Future<List<api.MessageInfo>> listMessagesBySession({
+    required String dbPath,
+    required String sessionId,
+  }) async {
+    _ensureInitialized();
+    try {
+      return await api.listMessagesBySession(dbPath: dbPath, sessionId: sessionId);
+    } catch (e) {
+      throw LlmException('获取消息列表失败: $e');
+    }
+  }
+
+  /// 列出某个会话的所有 parts（含完整内容）
+  Future<List<api.PartInfo>> listPartsBySession({
+    required String dbPath,
+    required String sessionId,
+  }) async {
+    _ensureInitialized();
+    try {
+      return await api.listPartsBySession(dbPath: dbPath, sessionId: sessionId);
+    } catch (e) {
+      throw LlmException('获取 part 列表失败: $e');
+    }
+  }
+
   // ─── 内部辅助 ───────────────────────────────────────
 
   void _ensureInitialized() {

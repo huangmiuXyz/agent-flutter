@@ -5,11 +5,13 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 
 import 'llm_service.dart';
+import 'session_manager.dart';
 
 part 'llm_providers.g.dart';
 
@@ -59,3 +61,16 @@ class SelectedSession extends _$SelectedSession {
 
   void select(String? sessionId) => state = sessionId;
 }
+
+/// SessionManager 全局单例
+final sessionManagerProvider = StateNotifierProvider<SessionManager, Map<String, SessionState>>((ref) {
+  return SessionManager(ref);
+});
+
+/// 当前活跃会话的 state（方便 UI 监听）
+final activeSessionStateProvider = Provider<SessionState?>((ref) {
+  final selectedId = ref.watch(selectedSessionProvider);
+  final allStates = ref.watch(sessionManagerProvider);
+  if (selectedId == null) return null;
+  return allStates[selectedId];
+});
