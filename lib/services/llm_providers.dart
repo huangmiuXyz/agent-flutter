@@ -76,3 +76,47 @@ final activeSessionStateProvider = Provider<SessionState?>((ref) {
   final manager = ref.watch(sessionManagerProvider);
   return manager.state[selectedId];
 });
+
+/// 当前使用的 LLM 提供商
+class _CurrentProvider extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void select(String provider) => state = provider;
+}
+
+final currentProviderProvider = NotifierProvider<_CurrentProvider, String>(
+  _CurrentProvider.new,
+);
+
+/// 当前使用的 LLM 模型
+class _CurrentModel extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void select(String model) => state = model;
+}
+
+final currentModelProvider = NotifierProvider<_CurrentModel, String>(
+  _CurrentModel.new,
+);
+
+/// 可用提供商列表（自动加载）
+final providersListProvider = FutureProvider<List<api.ProviderSummary>>((
+  ref,
+) async {
+  final service = ref.watch(llmServiceProvider);
+  final configPath = ref.watch(configPathProvider);
+  await ref.watch(llmInitProvider.future);
+  return service.listProviders(configPath: configPath);
+});
+
+/// 当前提供商下的可用模型列表（自动加载）
+final modelsListProvider = FutureProvider<List<String>>((ref) async {
+  final provider = ref.watch(currentProviderProvider);
+  if (provider.isEmpty) return [];
+  final service = ref.watch(llmServiceProvider);
+  final configPath = ref.watch(configPathProvider);
+  await ref.watch(llmInitProvider.future);
+  return service.listModels(provider: provider, configPath: configPath);
+});
