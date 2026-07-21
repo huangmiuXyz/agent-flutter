@@ -26,6 +26,7 @@ enum AppColorRole {
   cardBorder,
   success,
   warning,
+  bottomPanel,
 }
 
 @immutable
@@ -62,6 +63,7 @@ class AppColors {
   Color get cardBorder => _colors[AppColorRole.cardBorder]!;
   Color get success => _colors[AppColorRole.success]!;
   Color get warning => _colors[AppColorRole.warning]!;
+  Color get bottomPanel => _colors[AppColorRole.bottomPanel]!;
 
   static final light = AppColors._fromMap({
     AppColorRole.background: const Color(0xFFF9F9F9),
@@ -89,6 +91,7 @@ class AppColors {
     AppColorRole.cardBorder: const Color(0xFFE6E6E6),
     AppColorRole.success: const Color(0xFF198844),
     AppColorRole.warning: const Color(0xFFC47F00),
+    AppColorRole.bottomPanel: const Color(0xFF131313),
   });
 
   static final dark = AppColors._fromMap({
@@ -117,6 +120,7 @@ class AppColors {
     AppColorRole.cardBorder: const Color(0xFF49454F),
     AppColorRole.success: const Color(0xFF4ADE80),
     AppColorRole.warning: const Color(0xFFFBBF24),
+    AppColorRole.bottomPanel: const Color(0xFF131313),
   });
 
   Color colorFor(AppColorRole role) => _colors[role]!;

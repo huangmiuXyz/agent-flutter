@@ -63,14 +63,16 @@ class SelectedSession extends _$SelectedSession {
 }
 
 /// SessionManager 全局单例
-final sessionManagerProvider = StateNotifierProvider<SessionManager, Map<String, SessionState>>((ref) {
-  return SessionManager(ref);
+final sessionManagerProvider = Provider<SessionManager>((ref) {
+  final manager = SessionManager(ref);
+  ref.onDispose(() => manager.dispose());
+  return manager;
 });
 
 /// 当前活跃会话的 state（方便 UI 监听）
 final activeSessionStateProvider = Provider<SessionState?>((ref) {
   final selectedId = ref.watch(selectedSessionProvider);
-  final allStates = ref.watch(sessionManagerProvider);
   if (selectedId == null) return null;
-  return allStates[selectedId];
+  final manager = ref.watch(sessionManagerProvider);
+  return manager.state[selectedId];
 });

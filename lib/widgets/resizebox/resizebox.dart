@@ -30,6 +30,7 @@ class ResizeBox extends HookWidget {
     this.maxSize = 600,
     this.initialSize = 256,
     this.collapseThreshold = 80,
+    this.initialCollapsed = false,
     this.onCollapseChanged,
   });
 
@@ -40,13 +41,16 @@ class ResizeBox extends HookWidget {
   final double maxSize;
   final double initialSize;
   final double collapseThreshold;
+  final bool initialCollapsed;
   final ValueChanged<bool>? onCollapseChanged;
 
   @override
   Widget build(BuildContext context) {
     final isHorizontal = direction.isHorizontal;
-    final targetSize = useState(initialSize.clamp(minSize, maxSize));
-    final isCollapsed = useState(false);
+    final targetSize = useState(
+      initialCollapsed ? 0.0 : initialSize.clamp(minSize, maxSize),
+    );
+    final isCollapsed = useState(initialCollapsed);
     final isDragging = useState(false);
     final dragRawTarget = useRef(0.0);
     final dragRenderBox = useRef<RenderBox?>(null);
@@ -136,10 +140,31 @@ class ResizeBox extends HookWidget {
           : targetSize.value;
       final size = isCollapsed.value ? targetSize.value : raw;
       final effective = size < 0.5 ? 0.0 : size;
+
+      final custom = CustomTheme.of(context);
+      final border = switch (direction) {
+        ResizeDirection.right => Border(
+          right: BorderSide(color: custom.colors.border),
+        ),
+        ResizeDirection.left => Border(
+          left: BorderSide(color: custom.colors.border),
+        ),
+        ResizeDirection.bottom => Border(
+          bottom: BorderSide(color: custom.colors.border),
+        ),
+        ResizeDirection.top => Border(
+          top: BorderSide(color: custom.colors.border),
+        ),
+      };
+      final borderedChild = Container(
+        decoration: BoxDecoration(border: border),
+        child: child,
+      );
+
       return ClipRect(
         child: isHorizontal
-            ? SizedBox(width: effective, child: child)
-            : SizedBox(height: effective, child: child),
+            ? SizedBox(width: effective, child: borderedChild)
+            : SizedBox(height: effective, child: borderedChild),
       );
     }
 

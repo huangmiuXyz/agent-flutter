@@ -2,9 +2,9 @@
 library;
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/llm_service.dart';
 import 'llm_providers.dart';
 
 // ─── SessionState ───
@@ -43,13 +43,13 @@ class SessionState {
   }
 
   /// 通过 part_id + total_len 判断是否已有数据
-  bool isTextRedundant(String partId, int totalLen) {
+  bool isTextRedundant(String partId, BigInt totalLen) {
     final known = partLens[partId] ?? 0;
-    return totalLen <= known;
+    return totalLen.toInt() <= known;
   }
 
-  void trackTextLength(String partId, int totalLen) {
-    partLens[partId] = totalLen;
+  void trackTextLength(String partId, BigInt totalLen) {
+    partLens[partId] = totalLen.toInt();
   }
 
   void markStreaming(bool v) {
@@ -79,12 +79,22 @@ class SessionState {
 // ─── SessionManager ───
 
 /// 会话管理器
-class SessionManager extends StateNotifier<Map<String, SessionState>> {
+///
+/// 通过 [ChangeNotifier] 通知状态变更，UI 层可用 [useListenable] 监听。
+class SessionManager extends ChangeNotifier {
   final Ref _ref;
+  Map<String, SessionState> _state = {};
   StreamSubscription<api.StreamEvent>? _activeSubscription;
-  String? _activeSessionId;
 
-  SessionManager(this._ref) : super({});
+  SessionManager(this._ref);
+
+  /// 当前所有会话状态
+  Map<String, SessionState> get state => _state;
+
+  void _emit(Map<String, SessionState> next) {
+    _state = next;
+    notifyListeners();
+  }
 
   /// 切换到指定会话
   Future<void> switchTo(String sessionId) async {
@@ -93,22 +103,26 @@ class SessionManager extends StateNotifier<Map<String, SessionState>> {
     final service = _ref.read(llmServiceProvider);
     final dbPath = _ref.read(dbPathProvider);
 
-    state[sessionId] ??= SessionState(sessionId);
-    state = Map.from(state);
+    _state[sessionId] ??= SessionState(sessionId);
+    _emit(Map.from(_state));
 
     // ── 1. 订阅 + buffer ──
     final buffer = <api.StreamEvent>[];
     StreamSubscription<api.StreamEvent>? bufferSub;
     try {
-      bufferSub = service.subscribeSession(dbPath: dbPath, sessionId: sessionId)
+      bufferSub = service
+          .subscribeSession(dbPath: dbPath, sessionId: sessionId)
           .listen((e) => buffer.add(e), onError: (_) {});
     } catch (_) {}
 
     // ── 2. 读 DB ──
     try {
-      final parts = await service.listPartsBySession(dbPath: dbPath, sessionId: sessionId);
-      state[sessionId]!.loadFromParts(parts);
-      state = Map.from(state);
+      final parts = await service.listPartsBySession(
+        dbPath: dbPath,
+        sessionId: sessionId,
+      );
+      _state[sessionId]!.loadFromParts(parts);
+      _emit(Map.from(_state));
     } catch (_) {}
 
     // ── 3. 回放 buffer（total_len 去重） ──
@@ -120,7 +134,7 @@ class SessionManager extends StateNotifier<Map<String, SessionState>> {
     // ── 4. gap 检测：buffer 中 Text / ToolCallFragment 的 part 不完整时从 DB 补 ──
     for (final event in buffer) {
       String partId;
-      int totalLen;
+      BigInt totalLen;
       if (event is api.StreamEvent_Text) {
         partId = event.partId;
         totalLen = event.totalLen;
@@ -130,13 +144,13 @@ class SessionManager extends StateNotifier<Map<String, SessionState>> {
       } else {
         continue;
       }
-      if (partId.isEmpty || totalLen == 0) continue;
+      if (partId.isEmpty || totalLen == BigInt.zero) continue;
 
       bool hasFullContent = false;
-      for (final parts in state[sessionId]!.partsByMsg.values) {
+      for (final parts in _state[sessionId]!.partsByMsg.values) {
         for (final part in parts) {
           if (part.id == partId) {
-            hasFullContent = part.content.length >= totalLen;
+            hasFullContent = part.content.length >= totalLen.toInt();
             break;
           }
         }
@@ -144,31 +158,33 @@ class SessionManager extends StateNotifier<Map<String, SessionState>> {
       }
       if (!hasFullContent) {
         try {
-          final fullContent = await service.readPart(dbPath: dbPath, partId: partId);
-          state[sessionId]!.updatePartContent(partId, fullContent);
+          final fullContent = await service.readPart(
+            dbPath: dbPath,
+            partId: partId,
+          );
+          _state[sessionId]!.updatePartContent(partId, fullContent);
         } catch (_) {}
       }
     }
 
     // ── 5. 实时模式 ──
-    if (state[sessionId]!.isStreaming) {
+    if (_state[sessionId]!.isStreaming) {
       try {
-        _activeSubscription = service.subscribeSession(dbPath: dbPath, sessionId: sessionId)
+        _activeSubscription = service
+            .subscribeSession(dbPath: dbPath, sessionId: sessionId)
             .listen((event) {
-          _applyEvent(sessionId, event);
-          state = Map.from(state);
-        }, onError: (_) {});
+              _applyEvent(sessionId, event);
+              _emit(Map.from(_state));
+            }, onError: (_) {});
       } catch (_) {}
     }
 
-    _activeSessionId = sessionId;
-    state = Map.from(state);
+    _emit(Map.from(_state));
   }
 
   void switchAway() {
     _activeSubscription?.cancel();
     _activeSubscription = null;
-    _activeSessionId = null;
   }
 
   Future<void> sendMessage({
@@ -181,9 +197,9 @@ class SessionManager extends StateNotifier<Map<String, SessionState>> {
     final dbPath = _ref.read(dbPathProvider);
     final configPath = _ref.read(configPathProvider);
 
-    state.putIfAbsent(sessionId, () => SessionState(sessionId));
-    state[sessionId]!.markStreaming(true);
-    state = Map.from(state);
+    _state.putIfAbsent(sessionId, () => SessionState(sessionId));
+    _state[sessionId]!.markStreaming(true);
+    _emit(Map.from(_state));
 
     service.chatStream(
       configPath: configPath,
@@ -196,7 +212,7 @@ class SessionManager extends StateNotifier<Map<String, SessionState>> {
   }
 
   void _applyEvent(String sid, api.StreamEvent event) {
-    final s = state[sid];
+    final s = _state[sid];
     if (s == null) return;
 
     if (event is api.StreamEvent_Text) {
