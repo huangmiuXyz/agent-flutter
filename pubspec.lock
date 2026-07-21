@@ -1181,10 +1181,10 @@ packages:
     dependency: "direct main"
     description:
       name: xterm2
-      sha256: "09e6c3796769da5d266bc5358823088feb94888ececa7a55597026ccca895f43"
+      sha256: "6bed86e9cc62559714dd7ee93710a9fe200112a1a48fe1f0e97c80b9692a706b"
       url: "https://pub.dev"
     source: hosted
-    version: "5.0.0"
+    version: "5.1.0"
   yaml:
     dependency: transitive
     description:

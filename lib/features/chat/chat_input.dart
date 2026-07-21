@@ -16,7 +16,12 @@ class ChatInput extends ConsumerWidget {
     final physicalHeight = 130.0 / MediaQuery.of(context).devicePixelRatio;
     final readingWidth = ref.watch(readingWidthProvider);
     return Padding(
-      padding: EdgeInsets.all(custom.spacing.sm),
+      padding: EdgeInsets.fromLTRB(
+        custom.spacing.sm,
+        custom.spacing.xs,
+        custom.spacing.sm,
+        custom.spacing.sm,
+      ),
       child: SizedBox(
         width: readingWidth,
         height: physicalHeight,
@@ -28,14 +33,14 @@ class ChatInput extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                    AppIconButton(
-                      icon: 'arrowUpRight',
-                      size: ButtonSize.sm,
-                      backgroundColor: custom.colors.hover,
-                      onPressed: () {
-                        // TODO: Send message
-                      },
-                    ),
+                  AppIconButton(
+                    icon: 'arrowUpRight',
+                    size: ButtonSize.sm,
+                    backgroundColor: custom.colors.hover,
+                    onPressed: () {
+                      // TODO: Send message
+                    },
+                  ),
                 ],
               ),
             ),

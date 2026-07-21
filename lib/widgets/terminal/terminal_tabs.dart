@@ -17,7 +17,9 @@ class TerminalTabs extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = useState<List<_TabState>>([_TabState(id: nanoid(8))]);
+    final tabs = useState<List<_TabState>>([
+      _TabState(id: nanoid(8), shell: resolveShell()),
+    ]);
     final activeIndex = useState(0);
     final custom = CustomTheme.of(context);
 
