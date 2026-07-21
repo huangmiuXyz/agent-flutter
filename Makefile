@@ -3,22 +3,33 @@
 CLI_MANIFEST = ../agent-flutter-cli/Cargo.toml
 CLI_DIR = ../agent-flutter-cli
 
-# Detect OS
+# Detect OS (uname returns MINGW64_NT/MSYS_NT on Git Bash; Windows_NT on real Windows)
 UNAME_S := $(shell uname -s)
+IS_WINDOWS := $(findstring NT,$(UNAME_S))
 
 # 全部重新生成（FRB + build_runner + 编译 Rust）+ 启动 app
 run:
+ifneq ($(IS_WINDOWS),)
+	MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat flutter_rust_bridge_codegen generate"
+else
 	flutter_rust_bridge_codegen generate
+endif
 	dart run build_runner build --delete-conflicting-outputs
-	cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
-ifeq ($(UNAME_S),Windows_NT)
+ifneq ($(IS_WINDOWS),)
+	MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent"
 	cp $(CLI_DIR)/target/release/rust_lib_agent.dll build/windows/x64/runner/Debug/
+else
+	cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
 endif
 	flutter run
 
 # flutter_rust_bridge 代码生成（单独执行）
 codegen:
+ifneq ($(IS_WINDOWS),)
+	MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat flutter_rust_bridge_codegen generate"
+else
 	flutter_rust_bridge_codegen generate
+endif
 
 # 仅重新生成 Dart 代码（freezed/riverpod 等）
 build:
