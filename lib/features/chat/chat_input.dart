@@ -72,7 +72,7 @@ class _ConfigBar extends ConsumerWidget {
     final selectors = <Widget>[
       providersAsync.when(
         loading: () => _buildChipPlaceholder(context, '选择提供商'),
-        error: (_, __) => _buildChipPlaceholder(context, '选择提供商'),
+        error: (_, _) => _buildChipPlaceholder(context, '选择提供商'),
         data: (providers) => PanelSelector<String>(
           value: currentProvider.isEmpty ? null : currentProvider,
           placeholder: '选择提供商',
@@ -95,7 +95,7 @@ class _ConfigBar extends ConsumerWidget {
       if (currentProvider.isNotEmpty)
         modelsAsync.when(
           loading: () => _buildChipPlaceholder(context, '选择模型'),
-          error: (_, __) => _buildChipPlaceholder(context, '选择模型'),
+          error: (_, _) => _buildChipPlaceholder(context, '选择模型'),
           data: (models) => PanelSelector<String>(
             value: currentModel.isEmpty ? null : currentModel,
             placeholder: '选择模型',

@@ -63,7 +63,7 @@ class SessionList extends ConsumerWidget {
 
         // Sort by updatedAt descending (newest first)
         final sorted = List<api.SessionInfo>.from(sessions)
-          ..sort((a, b) => (b.updatedAt as int).compareTo(a.updatedAt as int));
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
         return SingleChildScrollView(
           child: AppList(
@@ -80,8 +80,9 @@ class SessionList extends ConsumerWidget {
                   size: FieldSize.sm,
                   onSubmitted: (newName) async {
                     if (newName.trim().isEmpty ||
-                        newName.trim() == session.name)
+                        newName.trim() == session.name) {
                       return;
+                    }
                     final service = ref.read(llmServiceProvider);
                     final dbPath = ref.read(dbPathProvider);
                     await service.renameSession(
@@ -92,7 +93,7 @@ class SessionList extends ConsumerWidget {
                     ref.invalidate(sessionsProvider);
                   },
                 ),
-                trailing: _formatSessionTime(session.updatedAt as int),
+                trailing: _formatSessionTime(session.updatedAt),
                 active: isSelected,
                 intrinsicHeight: true,
                 itemRadius: BorderRadius.zero,

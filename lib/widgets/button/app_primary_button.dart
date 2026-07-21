@@ -86,14 +86,16 @@ class AppPrimaryButton extends StatelessWidget {
   WidgetStateProperty<Color?> _background(CustomTheme custom) {
     if (!hoverStyle) {
       return WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.disabled))
+        if (states.contains(WidgetState.disabled)) {
           return custom.colors.panelElevated;
+        }
         return custom.colors.accent;
       });
     }
     return WidgetStateProperty.resolveWith((states) {
-      if (states.contains(WidgetState.disabled))
+      if (states.contains(WidgetState.disabled)) {
         return custom.colors.panelElevated;
+      }
       if (states.contains(WidgetState.pressed)) return custom.colors.selected;
       if (states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused)) {

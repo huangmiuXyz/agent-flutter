@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:agent/theme/app_tokens.dart';
 import 'package:agent/theme/custom_theme.dart';
 
 enum AppTextVariant { caption, body, subtitle, title, h2, h1 }
