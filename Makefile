@@ -1,19 +1,24 @@
 .PHONY: run build watch clean codegen
 
-MSVC = cmd //c "tools\\msvc_cmd.bat"
 CLI_MANIFEST = ../agent-flutter-cli/Cargo.toml
+CLI_DIR = ../agent-flutter-cli
+
+# Detect OS
+UNAME_S := $(shell uname -s)
 
 # 全部重新生成（FRB + build_runner + 编译 Rust）+ 启动 app
 run:
-	$(MSVC) flutter_rust_bridge_codegen generate
+	flutter_rust_bridge_codegen generate
 	dart run build_runner build --delete-conflicting-outputs
-	$(MSVC) cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
-	cp ../agent-flutter-cli/target/release/rust_lib_agent.dll build/windows/x64/runner/Debug/
+	cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
+ifeq ($(UNAME_S),Windows_NT)
+	cp $(CLI_DIR)/target/release/rust_lib_agent.dll build/windows/x64/runner/Debug/
+endif
 	flutter run
 
 # flutter_rust_bridge 代码生成（单独执行）
 codegen:
-	$(MSVC) flutter_rust_bridge_codegen generate
+	flutter_rust_bridge_codegen generate
 
 # 仅重新生成 Dart 代码（freezed/riverpod 等）
 build:

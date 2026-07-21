@@ -4,6 +4,39 @@ import 'package:flutter/material.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
+/// Scroll physics that completely eliminates any bounce/overscroll effect.
+/// Overrides all relevant methods to ensure strict boundary clamping.
+class _NoBounceScrollPhysics extends ScrollPhysics {
+  const _NoBounceScrollPhysics({super.parent});
+
+  @override
+  _NoBounceScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _NoBounceScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    // Strict clamping: never allow going past boundaries
+    if (value < position.minScrollExtent) {
+      return value - position.minScrollExtent;
+    }
+    if (value > position.maxScrollExtent) {
+      return value - position.maxScrollExtent;
+    }
+    return 0.0;
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+      ScrollMetrics position, double velocity) {
+    // No ballistic scrolling at all — stops immediately
+    return null;
+  }
+
+  @override
+  bool get allowImplicitScrolling => false;
+}
+
 class ChatFleather extends StatefulWidget {
   const ChatFleather({super.key});
 
@@ -58,11 +91,17 @@ class _ChatFleatherState extends State<ChatFleather> {
             final paragraphTop = fleatherTheme.paragraph.spacing.top;
             return Stack(
               children: [
-                FleatherEditor(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  expands: true,
-                  scrollPhysics: const ClampingScrollPhysics(),
+                ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    overscroll: false,
+                    physics: const _NoBounceScrollPhysics(),
+                  ),
+                  child: FleatherEditor(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    expands: true,
+                    scrollPhysics: const _NoBounceScrollPhysics(),
+                  ),
                 ),
                 // Placeholder shown when content is empty
                 if (_isEmpty)

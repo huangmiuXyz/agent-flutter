@@ -13,6 +13,7 @@ class AppIconButton extends StatelessWidget {
   final bool disabled;
   final bool hoverStyle;
   final ButtonSize size;
+  final Color? backgroundColor;
 
   const AppIconButton({
     super.key,
@@ -23,6 +24,7 @@ class AppIconButton extends StatelessWidget {
     this.disabled = false,
     this.hoverStyle = true,
     this.size = ButtonSize.md,
+    this.backgroundColor,
   });
 
   @override
@@ -62,7 +64,7 @@ class AppIconButton extends StatelessWidget {
       height: sizing.height,
       child: TextButton(
         onPressed: isDisabled ? null : onPressed,
-        style: _buildStyle(custom, sizing).merge(style),
+        style: _buildStyle(custom, sizing, backgroundColor).merge(style),
         child: iconWidget,
       ),
     );
@@ -70,10 +72,14 @@ class AppIconButton extends StatelessWidget {
     return UnconstrainedBox(child: button);
   }
 
-  ButtonStyle _buildStyle(CustomTheme custom, ButtonSizing sizing) {
-    if (!hoverStyle) {
+  ButtonStyle _buildStyle(
+    CustomTheme custom,
+    ButtonSizing sizing,
+    Color? backgroundColorOverride,
+  ) {
+    if (backgroundColorOverride != null) {
       return ButtonStyle(
-        backgroundColor: WidgetStateProperty.all(Colors.transparent),
+        backgroundColor: WidgetStateProperty.all(backgroundColorOverride),
         overlayColor: WidgetStateProperty.all(Colors.transparent),
         padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacing.xs)),
         shape: WidgetStateProperty.all(
