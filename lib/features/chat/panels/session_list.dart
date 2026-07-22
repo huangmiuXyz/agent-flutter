@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/services/llm_providers.dart';
+import 'package:agent/services/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -90,7 +91,9 @@ class SessionList extends ConsumerWidget {
                       sessionId: session.id,
                       name: newName.trim(),
                     );
-                    ref.invalidate(sessionsProvider);
+                    ref
+                        .read(sessionsProvider.notifier)
+                        .rename(session.id, newName.trim());
                   },
                 ),
                 trailing: _formatSessionTime(session.updatedAt),
@@ -98,7 +101,12 @@ class SessionList extends ConsumerWidget {
                 intrinsicHeight: true,
                 itemRadius: BorderRadius.zero,
                 onTap: () async {
-                  await ref.read(sessionManagerProvider).switchTo(session.id);
+                  await SessionManager.instance.switchTo(
+                    session.id,
+                    service: ref.read(llmServiceProvider),
+                    dbPath: ref.read(dbPathProvider),
+                  );
+                  SessionManager.instance.selectedId.value = session.id;
                   ref.read(selectedSessionProvider.notifier).select(session.id);
                 },
                 hoverActions: [
@@ -122,11 +130,12 @@ class SessionList extends ConsumerWidget {
                           sessionId: session.id,
                         );
                         if (selectedId == session.id) {
+                          SessionManager.instance.selectedId.value = null;
                           ref
                               .read(selectedSessionProvider.notifier)
                               .select(null);
                         }
-                        ref.invalidate(sessionsProvider);
+                        ref.read(sessionsProvider.notifier).remove(session.id);
                       }
                     },
                   ),

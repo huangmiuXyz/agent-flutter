@@ -1,9 +1,11 @@
+import 'package:fleather/fleather.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/services/llm_providers.dart';
+import 'package:agent/services/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart';
 
@@ -12,10 +14,9 @@ import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
-class ChatInput extends ConsumerWidget {
+class ChatInput extends HookConsumerWidget {
   const ChatInput({super.key, this.fullHeight = false});
 
-  /// 当为 true 时，输入框高度不固定，填充父容器可用空间
   final bool fullHeight;
 
   @override
@@ -23,6 +24,45 @@ class ChatInput extends ConsumerWidget {
     final custom = CustomTheme.of(context);
     final physicalHeight = 130.0 / MediaQuery.of(context).devicePixelRatio;
     final readingWidth = ref.watch(readingWidthProvider);
+    final controller = useMemoized(() => FleatherController());
+    final sending = useState(false);
+
+    Future<void> send() async {
+      final text = controller.document
+          .toPlainText()
+          .replaceAll('\n', '')
+          .trim();
+      if (text.isEmpty) return;
+
+      final sessionId = SessionManager.instance.selectedId.value;
+      if (sessionId == null) return;
+
+      final provider = ref.read(currentProviderProvider);
+      final model = ref.read(currentModelProvider);
+      if (provider.isEmpty || model.isEmpty) return;
+
+      sending.value = true;
+      controller.clear();
+      try {
+        await SessionManager.instance.switchTo(
+          sessionId,
+          service: ref.read(llmServiceProvider),
+          dbPath: ref.read(dbPathProvider),
+        );
+        await SessionManager.instance.sendMessage(
+          sessionId: sessionId,
+          provider: provider,
+          model: model,
+          prompt: text,
+          service: ref.read(llmServiceProvider),
+          dbPath: ref.read(dbPathProvider),
+          configPath: ref.read(configPathProvider),
+        );
+      } finally {
+        sending.value = false;
+      }
+    }
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         custom.spacing.sm,
@@ -35,7 +75,7 @@ class ChatInput extends ConsumerWidget {
         height: fullHeight ? null : physicalHeight,
         child: Column(
           children: [
-            const Expanded(child: ChatFleather()),
+            Expanded(child: ChatFleather(controller: controller)),
             SizedBox(
               height: custom.spacing.lg,
               child: Row(
@@ -48,9 +88,8 @@ class ChatInput extends ConsumerWidget {
                     icon: 'arrowUpRight',
                     size: ButtonSize.sm,
                     backgroundColor: custom.colors.hover,
-                    onPressed: () {
-                      // TODO: Send message
-                    },
+                    disabled: sending.value,
+                    onPressed: send,
                   ),
                 ],
               ),

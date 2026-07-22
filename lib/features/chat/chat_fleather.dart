@@ -28,7 +28,9 @@ class _NoBounceScrollPhysics extends ScrollPhysics {
 
   @override
   Simulation? createBallisticSimulation(
-      ScrollMetrics position, double velocity) {
+    ScrollMetrics position,
+    double velocity,
+  ) {
     // No ballistic scrolling at all — stops immediately
     return null;
   }
@@ -38,7 +40,10 @@ class _NoBounceScrollPhysics extends ScrollPhysics {
 }
 
 class ChatFleather extends StatefulWidget {
-  const ChatFleather({super.key});
+  const ChatFleather({super.key, this.controller});
+
+  /// 外部传入的 controller，为空则内部自动创建
+  final FleatherController? controller;
 
   @override
   State<ChatFleather> createState() => _ChatFleatherState();
@@ -51,7 +56,7 @@ class _ChatFleatherState extends State<ChatFleather> {
   @override
   void initState() {
     super.initState();
-    _controller = FleatherController();
+    _controller = widget.controller ?? FleatherController();
     _controller.addListener(_onControllerChanged);
   }
 

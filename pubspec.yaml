@@ -28,6 +28,8 @@ dependencies:
   streamdown: ^0.1.1
   fleather: ^1.27.0
   freezed_annotation: ^3.0.0
+  signals: ^7.1.0
+  signals_flutter: ^7.1.0
 
 dev_dependencies:
   flutter_test:

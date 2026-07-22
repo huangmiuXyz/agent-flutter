@@ -1,12 +1,11 @@
-/// SessionManager — 多会话并发管理器
+/// SessionManager — 多会话并发管理器（信号版）
 library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'llm_providers.dart';
+import 'llm_service.dart';
 
 // ─── SessionState ───
 
@@ -27,12 +26,6 @@ class SessionState {
   /// part_id → 已知内容长度（用于 total_len 去重）
   final Map<String, int> partLens = {};
 
-  /// part_id → 流式累积的文本内容（用于实时 UI 显示）
-  final Map<String, String> streamingContent = {};
-
-  /// 内部 StringBuffer，避免 1000次/s 的字符串拼接产生大量 GC
-  final Map<String, StringBuffer> _streamingBufs = {};
-
   /// msg_id → role（"user", "assistant", "tool" 等）
   final Map<String, String> messageRoles = {};
 
@@ -51,7 +44,6 @@ class SessionState {
     partsByMsg.clear();
     messageOrder.clear();
     partLens.clear();
-    streamingContent.clear();
 
     for (final part in parts) {
       partsByMsg.putIfAbsent(part.msgId, () => []).add(part);
@@ -104,50 +96,50 @@ class SessionState {
 
 // ─── SessionManager ───
 
-/// 会话管理器
+/// 会话管理器 — 纯信号驱动
 ///
-/// 通过 [ChangeNotifier] 通知状态变更，UI 层可直接用 [useListenable] 监听。
-/// 流式内容更新通过 [streamingNotifier] 单独通知，避免触发全量重建。
-class SessionManager extends ChangeNotifier {
-  final Ref _ref;
-  Map<String, SessionState> _state = {};
+/// 所有可观察状态都是 [signal]，UI 层通过 [SignalBuilder] 自动追踪依赖，
+/// 不再需要 ChangeNotifier / ValueNotifier / useListenable。
+class SessionManager {
+  static final instance = SessionManager._();
+  SessionManager._();
+
+  // ── 响应式状态 ──
+
+  /// 所有会话的状态
+  final allStates = signal(<String, SessionState>{});
+
+  /// 当前选中的会话 ID
+  final selectedId = signal<String?>(null);
+
+  /// 快速访问当前会话的状态
+  SessionState? stateFor(String? sessionId) =>
+      sessionId != null ? allStates.value[sessionId] : null;
+
+  // ── 内部 ──
   StreamSubscription<api.StreamEvent>? _activeSubscription;
-  bool _disposed = false;
 
-  /// 结构变更通知（新增/删除消息）— 触发消息列表整体重建
-  final structureNotifier = ValueNotifier<int>(0);
-
-  /// 流式内容更新通知 — 携带变化的 partId，UI 层可据此只重建对应的消息组件。
-  final streamingNotifier = ValueNotifier<String?>(null);
-
-  SessionManager(this._ref);
-
-  /// 当前所有会话状态
-  Map<String, SessionState> get state => _state;
-
-  /// 结构变更（新增/删除消息）→ structureNotifier + ChangeNotifier
-  void _emit(Map<String, SessionState> next) {
-    if (_disposed) return;
-    _state = next;
-    structureNotifier.value++;
-    notifyListeners();
+  /// 全量变更（新增/删除消息 / 流完成）
+  void _emit() {
+    allStates.value = Map.from(allStates.value);
   }
 
-  /// 流式内容更新（仅 streamingContent 变化）→ streamingNotifier
-  void _emitStreaming(String partId) {
-    if (_disposed) return;
-    streamingNotifier.value = partId;
-  }
+  // ── 操作 ──
 
   /// 切换到指定会话
-  Future<void> switchTo(String sessionId) async {
+  Future<void> switchTo(
+    String sessionId, {
+    required LlmService service,
+    required String dbPath,
+  }) async {
     _activeSubscription?.cancel();
 
-    final service = _ref.read(llmServiceProvider);
-    final dbPath = _ref.read(dbPathProvider);
-
-    _state[sessionId] ??= SessionState(sessionId);
-    _emit(Map.from(_state));
+    if (!allStates.value.containsKey(sessionId)) {
+      allStates.value = {
+        ...allStates.value,
+        sessionId: SessionState(sessionId),
+      };
+    }
 
     // ── 1. 订阅 + buffer ──
     final buffer = <api.StreamEvent>[];
@@ -164,7 +156,7 @@ class SessionManager extends ChangeNotifier {
         dbPath: dbPath,
         sessionId: sessionId,
       );
-      _state[sessionId]!.loadFromMessages(messages);
+      allStates.value[sessionId]!.loadFromMessages(messages);
     } catch (_) {}
 
     try {
@@ -172,8 +164,8 @@ class SessionManager extends ChangeNotifier {
         dbPath: dbPath,
         sessionId: sessionId,
       );
-      _state[sessionId]!.loadFromParts(parts);
-      _emit(Map.from(_state));
+      allStates.value[sessionId]!.loadFromParts(parts);
+      _emit();
     } catch (_) {}
 
     // ── 3. 回放 buffer（total_len 去重） ──
@@ -182,7 +174,7 @@ class SessionManager extends ChangeNotifier {
       _applyEvent(sessionId, event);
     }
 
-    // ── 4. gap 检测：buffer 中 Text / ToolCallFragment 的 part 不完整时从 DB 补 ──
+    // ── 4. gap 检测 ──
     for (final event in buffer) {
       String partId;
       BigInt totalLen;
@@ -197,8 +189,9 @@ class SessionManager extends ChangeNotifier {
       }
       if (partId.isEmpty || totalLen == BigInt.zero) continue;
 
+      final s = allStates.value[sessionId]!;
       bool hasFullContent = false;
-      for (final parts in _state[sessionId]!.partsByMsg.values) {
+      for (final parts in s.partsByMsg.values) {
         for (final part in parts) {
           if (part.id == partId) {
             hasFullContent = part.content.length >= totalLen.toInt();
@@ -213,24 +206,24 @@ class SessionManager extends ChangeNotifier {
             dbPath: dbPath,
             partId: partId,
           );
-          _state[sessionId]!.updatePartContent(partId, fullContent);
+          s.updatePartContent(partId, fullContent);
         } catch (_) {}
       }
     }
 
     // ── 5. 实时模式 ──
-    if (_state[sessionId]!.isStreaming) {
+    if (allStates.value[sessionId]!.isStreaming) {
       try {
         _activeSubscription = service
             .subscribeSession(dbPath: dbPath, sessionId: sessionId)
             .listen((event) {
               _applyEvent(sessionId, event);
-              _emit(Map.from(_state));
+              _emit();
             }, onError: (_) {});
       } catch (_) {}
     }
 
-    _emit(Map.from(_state));
+    _emit();
   }
 
   void switchAway() {
@@ -243,14 +236,36 @@ class SessionManager extends ChangeNotifier {
     required String provider,
     required String model,
     required String prompt,
+    required LlmService service,
+    required String dbPath,
+    required String configPath,
   }) async {
-    final service = _ref.read(llmServiceProvider);
-    final dbPath = _ref.read(dbPathProvider);
-    final configPath = _ref.read(configPathProvider);
+    final s = _ensureState(sessionId);
 
-    _state.putIfAbsent(sessionId, () => SessionState(sessionId));
-    _state[sessionId]!.markStreaming(true);
-    _emit(Map.from(_state));
+    // ── 用户消息直接显示 ──
+    final userMsgId =
+        '${sessionId}_user_${DateTime.now().millisecondsSinceEpoch}';
+    s.messageOrder.add(userMsgId);
+    s.partsByMsg[userMsgId] = [
+      api.PartInfo(
+        id: '${userMsgId}_part',
+        msgId: userMsgId,
+        seq: 0,
+        partType: 'text',
+        content: prompt,
+      ),
+    ];
+    s.messageRoles[userMsgId] = 'user';
+
+    // ── 预留助理消息位置（partId 用 Rust 流里的，首次 Text 事件再填入） ──
+    String? assistantPartId;
+    final assistantMsgId =
+        '${sessionId}_asst_${DateTime.now().millisecondsSinceEpoch}';
+    s.messageOrder.add(assistantMsgId);
+    s.messageRoles[assistantMsgId] = 'assistant';
+
+    s.markStreaming(true);
+    _emit();
 
     try {
       final stream = service.chatStream(
@@ -262,31 +277,42 @@ class SessionManager extends ChangeNotifier {
         sessionId: sessionId,
       );
 
-      // ⭐ 消费返回的 Stream — 这是主要的事件来源
       await for (final event in stream) {
         _applyEvent(sessionId, event);
-        if (event is api.StreamEvent_Text) {
-          // 文本增量 — 只通知 streamingNotifier，不触发全量 rebuild
-          _emitStreaming(event.partId);
-        } else if (event is api.StreamEvent_ToolCallFragment) {
-          // ToolCallFragment 同时要做两件事：
-          //   1. _emitStreaming  → 该消息组件内的渐进内容更新
-          //   2. _emit           → _MessageList 重建，捡起新加到 partsByMsg 的 tool_call_frag
-          _emitStreaming(event.partId);
-          _emit(Map.from(_state));
-        } else {
-          // 结构变化（ToolCall, Done, Error）走全量通知
-          _emit(Map.from(_state));
+
+        // 首次 Text 事件：用 Rust 的 partId 填入助理消息
+        if (event is api.StreamEvent_Text && assistantPartId == null) {
+          assistantPartId = event.partId;
+          s.partsByMsg[assistantMsgId] = [
+            api.PartInfo(
+              id: assistantPartId,
+              msgId: assistantMsgId,
+              seq: 0,
+              partType: 'text',
+              content: '',
+            ),
+          ];
         }
+        _emit();
       }
     } finally {
-      _state[sessionId]?.markStreaming(false);
-      _emit(Map.from(_state));
+      s.markStreaming(false);
+      _emit();
     }
   }
 
+  SessionState _ensureState(String sessionId) {
+    if (!allStates.value.containsKey(sessionId)) {
+      allStates.value = {
+        ...allStates.value,
+        sessionId: SessionState(sessionId),
+      };
+    }
+    return allStates.value[sessionId]!;
+  }
+
   void _applyEvent(String sid, api.StreamEvent event) {
-    final s = _state[sid];
+    final s = allStates.value[sid];
     if (s == null) return;
 
     if (event is api.StreamEvent_Text) {
@@ -294,59 +320,24 @@ class SessionManager extends ChangeNotifier {
       s.trackTextLength(event.partId, event.totalLen);
       s.markStreaming(true);
 
-      // 累积流式文本到 streamingContent，供 UI 实时渲染
       if (event.content.isNotEmpty && event.partId.isNotEmpty) {
-        final buf = s._streamingBufs.putIfAbsent(event.partId, () => StringBuffer());
-        buf.write(event.content);
-        s.streamingContent[event.partId] = buf.toString();
+        // 找到 partId 对应的 part，追加文本内容
+        _appendPartContent(s, event.partId, event.content);
       }
     } else if (event is api.StreamEvent_ToolCallFragment) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
       s.markStreaming(true);
 
-      // 累积 tool_call_frag 内容到 streamingContent，供 UI 渐进渲染
-      final prev = s.streamingContent[event.partId] ?? '';
-      final parsed = prev.isNotEmpty
-          ? (jsonDecode(prev) as Map<String, dynamic>)
-          : <String, dynamic>{};
-      if (event.id != null) parsed['id'] = event.id;
-      if (event.name != null) parsed['name'] = event.name;
-      if (event.arguments != null) {
-        parsed['arguments'] = (parsed['arguments'] as String? ?? '') + event.arguments!;
-      }
-      s.streamingContent[event.partId] = jsonEncode(parsed);
+      // 累积 tool_call_frag 内容
+      final existing = _findPartContent(s, event.partId);
+      final prev = existing ?? '';
+      final merged = _mergeToolCallFrag(prev, event);
+      _appendPartContent(s, event.partId, merged);
 
-      // 动态添加 tool_call_frag 到 partsByMsg（如果尚未存在）
-      bool partExists = false;
-      for (final entry in s.partsByMsg.entries) {
-        if (entry.value.any((p) => p.id == event.partId)) {
-          partExists = true;
-          break;
-        }
-      }
-      if (!partExists) {
-        // partId 格式: tcf_{msgId}_{index}
-        final segs = event.partId.split('_');
-        if (segs.length >= 3 && segs[0] == 'tcf') {
-          final last = int.tryParse(segs.last);
-          if (last != null) {
-            // 重建 msgId: 去掉 'tcf_' 前缀和末尾的 index
-            final msgId = segs.sublist(1, segs.length - 1).join('_');
-            if (msgId.isNotEmpty) {
-              s.partsByMsg.putIfAbsent(msgId, () => []).add(api.PartInfo(
-                id: event.partId,
-                msgId: msgId,
-                seq: event.index,
-                partType: 'tool_call_frag',
-                content: '',
-              ));
-              if (!s.messageOrder.contains(msgId)) {
-                s.messageOrder.add(msgId);
-              }
-            }
-          }
-        }
+      // 如果 part 还不存在，动态添加到 partsByMsg
+      if (existing == null) {
+        _addToolCallFragPart(s, event);
       }
     } else if (event is api.StreamEvent_ToolCall) {
       s.markStreaming(true);
@@ -357,12 +348,85 @@ class SessionManager extends ChangeNotifier {
     }
   }
 
-  @override
+  /// 在 partsByMsg 中找到 partId 对应的 part，追加文本
+  void _appendPartContent(SessionState s, String partId, String text) {
+    for (final parts in s.partsByMsg.values) {
+      for (int i = 0; i < parts.length; i++) {
+        if (parts[i].id == partId) {
+          final old = parts[i];
+          parts[i] = api.PartInfo(
+            id: old.id,
+            msgId: old.msgId,
+            seq: old.seq,
+            partType: old.partType,
+            content: old.content + text,
+          );
+          return;
+        }
+      }
+    }
+  }
+
+  /// 在 partsByMsg 中查找 partId 对应的 content，找不到返回 null
+  String? _findPartContent(SessionState s, String partId) {
+    for (final parts in s.partsByMsg.values) {
+      for (final part in parts) {
+        if (part.id == partId) {
+          return part.content;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// 合并新的 tool_call_frag 事件到已有内容中
+  String _mergeToolCallFrag(
+    String prev,
+    api.StreamEvent_ToolCallFragment event,
+  ) {
+    final parsed = prev.isNotEmpty
+        ? (jsonDecode(prev) as Map<String, dynamic>)
+        : <String, dynamic>{};
+    if (event.id != null) parsed['id'] = event.id;
+    if (event.name != null) parsed['name'] = event.name;
+    if (event.arguments != null) {
+      parsed['arguments'] =
+          (parsed['arguments'] as String? ?? '') + event.arguments!;
+    }
+    return jsonEncode(parsed);
+  }
+
+  /// 动态添加 tool_call_frag 到 partsByMsg
+  void _addToolCallFragPart(
+    SessionState s,
+    api.StreamEvent_ToolCallFragment event,
+  ) {
+    final segs = event.partId.split('_');
+    if (segs.length >= 3 && segs[0] == 'tcf') {
+      final last = int.tryParse(segs.last);
+      if (last != null) {
+        final msgId = segs.sublist(1, segs.length - 1).join('_');
+        if (msgId.isNotEmpty) {
+          s.partsByMsg
+              .putIfAbsent(msgId, () => [])
+              .add(
+                api.PartInfo(
+                  id: event.partId,
+                  msgId: msgId,
+                  seq: event.index,
+                  partType: 'tool_call_frag',
+                  content: '',
+                ),
+              );
+          if (!s.messageOrder.contains(msgId)) {
+            s.messageOrder.add(msgId);
+          }
+        }
+      }
+    }
+  }
+
   void dispose() {
-    _disposed = true;
     _activeSubscription?.cancel();
-    structureNotifier.dispose();
-    streamingNotifier.dispose();
-    super.dispose();
   }
 }

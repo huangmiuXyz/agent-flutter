@@ -24,6 +24,7 @@ import 'package:agent/dev/select_demo.dart';
 import 'package:agent/dev/switch_demo.dart';
 import 'package:agent/dev/dialog_demo.dart';
 import 'package:agent/dev/fleather_demo.dart';
+import 'package:agent/dev/signals_demo.dart';
 import 'package:agent/features/chat/chat_page.dart';
 
 import 'package:agent/widgets/resizebox/resizebox.dart';
@@ -60,6 +61,7 @@ class DemoPage extends HookConsumerWidget {
                   const SwitchDemo(),
                   const DialogDemo(),
                   const FleatherDemo(),
+                  const SignalsDemo(),
                   const ChatDemo(),
                 ],
               ),
@@ -145,6 +147,12 @@ class DemoPage extends HookConsumerWidget {
                       AppListItem(
                         icon: 'terminalSquare',
                         label: 'Chat',
+                        active: selectedIndex.value == 13,
+                        onTap: () => selectedIndex.value = 13,
+                      ),
+                      AppListItem(
+                        icon: 'activity',
+                        label: 'Signals',
                         active: selectedIndex.value == 12,
                         onTap: () => selectedIndex.value = 12,
                       ),

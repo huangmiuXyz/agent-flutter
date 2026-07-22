@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:agent/features/chat/panels/session_list.dart';
 import 'package:agent/services/llm_providers.dart';
+import 'package:agent/services/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -64,9 +65,14 @@ class LeftPanel extends ConsumerWidget {
         '新对话 ${now.month}/${now.day} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     try {
       final session = await service.createSession(dbPath: dbPath, name: name);
-      ref.invalidate(sessionsProvider);
+      ref.read(sessionsProvider.notifier).add(session);
+      SessionManager.instance.selectedId.value = session.id;
       ref.read(selectedSessionProvider.notifier).select(session.id);
-      await ref.read(sessionManagerProvider).switchTo(session.id);
+      await SessionManager.instance.switchTo(
+        session.id,
+        service: ref.read(llmServiceProvider),
+        dbPath: ref.read(dbPathProvider),
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(

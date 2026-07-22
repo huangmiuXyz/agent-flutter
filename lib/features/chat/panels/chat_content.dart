@@ -1,31 +1,33 @@
 import 'dart:convert';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/llm_providers.dart';
+import 'package:agent/services/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/layout_utils.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 
 /// 聊天内容区 — 消息列表（虚拟滚动）+ 输入框
-class ChatContent extends HookConsumerWidget {
+class ChatContent extends StatelessWidget {
   const ChatContent({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedId = ref.watch(selectedSessionProvider);
-
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Expanded(
-          child: selectedId != null
-              ? _MessageList(sessionId: selectedId)
-              : const SizedBox.shrink(),
+          child: SignalBuilder(
+            builder: (_) {
+              final selectedId = SessionManager.instance.selectedId.value;
+              return selectedId != null
+                  ? _MessageList(sessionId: selectedId)
+                  : const SizedBox.shrink();
+            },
+          ),
         ),
         const AppDivider(extent: 1, thickness: 1),
         const ChatInput(),
@@ -35,61 +37,67 @@ class ChatContent extends HookConsumerWidget {
 }
 
 /// 消息列表 — 只监听结构变更，流式更新穿透到单个消息组件
-class _MessageList extends HookConsumerWidget {
+class _MessageList extends StatelessWidget {
   final String sessionId;
 
   const _MessageList({required this.sessionId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final manager = ref.watch(sessionManagerProvider);
 
-    // 只监听结构变更（useListenable + ValueNotifier），不监听流式更新
-    useListenable(manager.structureNotifier);
+    // SignalBuilder 自动追踪 inside 读取的信号。
+    // 读取 allStates 使本组件在结构变更时重建。
+    // streamingPartId 不在这里读取，确保流式更新不会触发全量重建。
+    return SignalBuilder(
+      builder: (_) {
+        final mgr = SessionManager.instance;
+        final allStates = mgr.allStates.value;
+        final sessionState = allStates[sessionId];
+        if (sessionState == null) return const SizedBox.shrink();
 
-    final sessionState = manager.state[sessionId];
-    if (sessionState == null) return const SizedBox.shrink();
+        final messageOrder = sessionState.messageOrder;
+        final partsByMsg = sessionState.partsByMsg;
+        final messageRoles = sessionState.messageRoles;
 
-    final messageOrder = sessionState.messageOrder;
-    final partsByMsg = sessionState.partsByMsg;
-    final messageRoles = sessionState.messageRoles;
+        final toolCallResults = _buildToolCallResults(partsByMsg);
 
-    final toolCallResults = _buildToolCallResults(partsByMsg);
+        if (messageOrder.isEmpty) return const SizedBox.shrink();
 
-    if (messageOrder.isEmpty) return const SizedBox.shrink();
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: _readingWidth(),
+            child: ListView.builder(
+              padding: EdgeInsets.only(bottom: custom.spacing.sm),
+              itemCount: messageOrder.length,
+              itemBuilder: (context, index) {
+                final msgId = messageOrder[index];
+                final parts = partsByMsg[msgId] ?? [];
+                final role = messageRoles[msgId] ?? '';
 
-    final readingWidth = ref.watch(readingWidthProvider);
+                if (parts.isNotEmpty &&
+                    parts.every(
+                      (p) =>
+                          p.partType == 'tool_result' ||
+                          p.partType == 'tool_call_frag',
+                    )) {
+                  return const SizedBox.shrink();
+                }
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: readingWidth,
-        child: ListView.builder(
-          padding: EdgeInsets.only(bottom: custom.spacing.sm),
-          itemCount: messageOrder.length,
-          itemBuilder: (context, index) {
-            final msgId = messageOrder[index];
-            final parts = partsByMsg[msgId] ?? [];
-            final role = messageRoles[msgId] ?? '';
-
-            // 跳过纯 tool_result/tool_call_frag 的消息（内容已合并到 tool_call 中）
-            if (parts.isNotEmpty &&
-                parts.every((p) => p.partType == 'tool_result' || p.partType == 'tool_call_frag')) {
-              return const SizedBox.shrink();
-            }
-
-            return ChatMessageItem(
-              key: ValueKey(msgId),
-              sessionId: sessionId,
-              msgId: msgId,
-              role: role,
-              parts: parts,
-              toolCallResults: toolCallResults,
-            );
-          },
-        ),
-      ),
+                return ChatMessageItem(
+                  key: ValueKey(msgId),
+                  sessionId: sessionId,
+                  msgId: msgId,
+                  role: role,
+                  parts: parts,
+                  toolCallResults: toolCallResults,
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -104,9 +112,9 @@ class _MessageList extends HookConsumerWidget {
             final json = jsonDecode(part.content) as Map<String, dynamic>;
             final toolCallId = json['tool_call_id'] as String?;
             if (toolCallId != null && toolCallId.isNotEmpty) {
-              // 只提取实际结果 content，不存 tool_call_id / name 等元数据
               final resultContent = json['content'] as String?;
-              results[toolCallId] = (resultContent != null && resultContent.isNotEmpty)
+              results[toolCallId] =
+                  (resultContent != null && resultContent.isNotEmpty)
                   ? resultContent
                   : part.content;
             }
@@ -116,4 +124,11 @@ class _MessageList extends HookConsumerWidget {
     }
     return results;
   }
+}
+
+/// 读取宽度 — 主屏物理宽度的一半
+/// 等价于原 readingWidthProvider 的计算逻辑
+double _readingWidth() {
+  final display = PlatformDispatcher.instance.displays.first;
+  return display.size.width / display.devicePixelRatio / 2;
 }
