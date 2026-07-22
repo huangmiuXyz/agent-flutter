@@ -23,6 +23,9 @@ class SessionState {
   /// part_id → 已知内容长度（用于 total_len 去重）
   final Map<String, int> partLens = {};
 
+  /// part_id → 流式累积的文本内容（用于实时 UI 显示）
+  final Map<String, String> streamingContent = {};
+
   SessionState(this.sessionId);
 
   /// 从 DB 读取的 parts 加载状态
@@ -30,6 +33,7 @@ class SessionState {
     partsByMsg.clear();
     messageOrder.clear();
     partLens.clear();
+    streamingContent.clear();
 
     for (final part in parts) {
       partsByMsg.putIfAbsent(part.msgId, () => []).add(part);
@@ -201,14 +205,25 @@ class SessionManager extends ChangeNotifier {
     _state[sessionId]!.markStreaming(true);
     _emit(Map.from(_state));
 
-    service.chatStream(
-      configPath: configPath,
-      provider: provider,
-      model: model,
-      prompt: prompt,
-      dbPath: dbPath,
-      sessionId: sessionId,
-    );
+    try {
+      final stream = service.chatStream(
+        configPath: configPath,
+        provider: provider,
+        model: model,
+        prompt: prompt,
+        dbPath: dbPath,
+        sessionId: sessionId,
+      );
+
+      // ⭐ 消费返回的 Stream — 这是主要的事件来源
+      await for (final event in stream) {
+        _applyEvent(sessionId, event);
+        _emit(Map.from(_state));
+      }
+    } finally {
+      _state[sessionId]?.markStreaming(false);
+      _emit(Map.from(_state));
+    }
   }
 
   void _applyEvent(String sid, api.StreamEvent event) {
@@ -219,6 +234,12 @@ class SessionManager extends ChangeNotifier {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
       s.markStreaming(true);
+
+      // 累积流式文本到 streamingContent，供 UI 实时渲染
+      if (event.content.isNotEmpty && event.partId.isNotEmpty) {
+        s.streamingContent[event.partId] =
+            (s.streamingContent[event.partId] ?? '') + event.content;
+      }
     } else if (event is api.StreamEvent_ToolCallFragment) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
@@ -226,6 +247,8 @@ class SessionManager extends ChangeNotifier {
     } else if (event is api.StreamEvent_ToolCall) {
       s.markStreaming(true);
     } else if (event is api.StreamEvent_Done) {
+      s.markStreaming(false);
+    } else if (event is api.StreamEvent_Error) {
       s.markStreaming(false);
     }
   }
