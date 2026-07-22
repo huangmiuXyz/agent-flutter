@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'package:agent/theme/provider.dart';
+
+part 'terminal_palette.g.dart';
 
 extension on TerminalTheme {
   TerminalTheme copyWith({
@@ -111,7 +114,8 @@ final _lightTheme = TerminalTheme(
   searchHitForeground: Color(0xFFFFFFFF),
 );
 
-final xtermThemeProvider = Provider<TerminalTheme>((ref) {
+@riverpod
+TerminalTheme xtermTheme(Ref ref) {
   final settings = ref.watch(themeProvider);
   final brightness = ref.watch(effectiveBrightnessProvider);
   final effective = settings.effectiveFor(brightness);
@@ -119,4 +123,4 @@ final xtermThemeProvider = Provider<TerminalTheme>((ref) {
     foreground: effective.colors.textPrimary,
     background: effective.colors.background,
   );
-});
+}

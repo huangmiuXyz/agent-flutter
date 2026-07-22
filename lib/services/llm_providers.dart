@@ -5,11 +5,13 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 
+export 'config_service.dart';
+
+import 'config_service.dart';
 import 'llm_service.dart';
 import 'session_manager.dart';
 
@@ -28,20 +30,6 @@ class LlmInit extends _$LlmInit {
   Future<void> build() async {
     await ref.read(llmServiceProvider).init();
   }
-}
-
-/// 配置路径（可外部覆盖）
-@riverpod
-class ConfigPath extends _$ConfigPath {
-  @override
-  String build() => 'config.json';
-}
-
-/// 数据库路径（可外部覆盖）
-@riverpod
-class DbPath extends _$DbPath {
-  @override
-  String build() => './data/data';
 }
 
 /// 会话列表
@@ -63,60 +51,68 @@ class SelectedSession extends _$SelectedSession {
 }
 
 /// SessionManager 全局单例
-final sessionManagerProvider = Provider<SessionManager>((ref) {
+@riverpod
+SessionManager sessionManager(Ref ref) {
   final manager = SessionManager(ref);
   ref.onDispose(() => manager.dispose());
   return manager;
-});
+}
 
 /// 当前活跃会话的 state（方便 UI 监听）
-final activeSessionStateProvider = Provider<SessionState?>((ref) {
+@riverpod
+SessionState? activeSessionState(Ref ref) {
   final selectedId = ref.watch(selectedSessionProvider);
   if (selectedId == null) return null;
   final manager = ref.watch(sessionManagerProvider);
   return manager.state[selectedId];
-});
+}
 
-/// 当前使用的 LLM 提供商
-class _CurrentProvider extends Notifier<String> {
+/// 当前使用的 LLM 提供商（启动时从 DefaultModel store 读取默认值）
+@riverpod
+class CurrentProvider extends _$CurrentProvider {
   @override
-  String build() => '';
+  String build() {
+    final config = ref.read(defaultModelProvider);
+    if (config != null) {
+      return config['provider']!;
+    }
+    return '';
+  }
 
   void select(String provider) => state = provider;
 }
 
-final currentProviderProvider = NotifierProvider<_CurrentProvider, String>(
-  _CurrentProvider.new,
-);
-
-/// 当前使用的 LLM 模型
-class _CurrentModel extends Notifier<String> {
+/// 当前使用的 LLM 模型（启动时从 DefaultModel store 读取默认值）
+@riverpod
+class CurrentModel extends _$CurrentModel {
   @override
-  String build() => '';
+  String build() {
+    final config = ref.read(defaultModelProvider);
+    if (config != null) {
+      return config['model']!;
+    }
+    return '';
+  }
 
   void select(String model) => state = model;
 }
 
-final currentModelProvider = NotifierProvider<_CurrentModel, String>(
-  _CurrentModel.new,
-);
-
 /// 可用提供商列表（自动加载）
-final providersListProvider = FutureProvider<List<api.ProviderSummary>>((
-  ref,
-) async {
+@riverpod
+Future<List<api.ProviderSummary>> providersList(Ref ref) async {
   final service = ref.watch(llmServiceProvider);
   final configPath = ref.watch(configPathProvider);
   await ref.watch(llmInitProvider.future);
   return service.listProviders(configPath: configPath);
-});
+}
 
 /// 当前提供商下的可用模型列表（自动加载）
-final modelsListProvider = FutureProvider<List<String>>((ref) async {
+@riverpod
+Future<List<String>> modelsList(Ref ref) async {
   final provider = ref.watch(currentProviderProvider);
   if (provider.isEmpty) return [];
   final service = ref.watch(llmServiceProvider);
   final configPath = ref.watch(configPathProvider);
   await ref.watch(llmInitProvider.future);
   return service.listModels(provider: provider, configPath: configPath);
-});
+}

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:xterm2/xterm.dart';
 
@@ -26,7 +25,8 @@ class XtermRegistry {
   void remove(String id) => _ids.remove(id);
 }
 
-final xtermRegistryProvider = Provider<XtermRegistry>((ref) => XtermRegistry());
+@riverpod
+XtermRegistry xtermRegistry(Ref ref) => XtermRegistry();
 
 // ---------------------------------------------------------------------------
 // Per-terminal provider

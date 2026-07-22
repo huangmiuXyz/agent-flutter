@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/services/llm_providers.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart';
+
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
@@ -58,7 +60,7 @@ class ChatInput extends ConsumerWidget {
 }
 
 /// 配置栏 — 提供商/模型选择
-class _ConfigBar extends ConsumerWidget {
+class _ConfigBar extends HookConsumerWidget {
   const _ConfigBar();
 
   @override
@@ -68,6 +70,19 @@ class _ConfigBar extends ConsumerWidget {
     final currentModel = ref.watch(currentModelProvider);
     final providersAsync = ref.watch(providersListProvider);
     final modelsAsync = ref.watch(modelsListProvider);
+
+    final onProviderChanged = useCallback((String? val) {
+      if (val == null) return;
+      ref.read(currentProviderProvider.notifier).select(val);
+      ref.read(currentModelProvider.notifier).select('');
+      saveDefaultProvider(ref, val);
+    }, []);
+
+    final onModelChanged = useCallback((String? val) {
+      if (val == null) return;
+      ref.read(currentModelProvider.notifier).select(val);
+      saveDefaultModel(ref, val);
+    }, []);
 
     final selectors = <Widget>[
       providersAsync.when(
@@ -84,12 +99,7 @@ class _ConfigBar extends ConsumerWidget {
                 ),
               )
               .toList(),
-          onChanged: (val) {
-            if (val != null) {
-              ref.read(currentProviderProvider.notifier).select(val);
-              ref.read(currentModelProvider.notifier).select('');
-            }
-          },
+          onChanged: onProviderChanged,
         ),
       ),
       if (currentProvider.isNotEmpty)
@@ -102,11 +112,7 @@ class _ConfigBar extends ConsumerWidget {
             options: models
                 .map((m) => PanelSelectorOption(value: m, label: m))
                 .toList(),
-            onChanged: (val) {
-              if (val != null) {
-                ref.read(currentModelProvider.notifier).select(val);
-              }
-            },
+            onChanged: onModelChanged,
           ),
         ),
     ];
