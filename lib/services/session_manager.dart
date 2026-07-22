@@ -1,100 +1,30 @@
 /// SessionManager — 多会话并发管理器（信号版）
+///
+/// 职责：会话生命周期编排、响应式信号暴露。
+/// 数据模型见 [SessionState]，流事件处理见 [StreamEventProcessor]。
 library;
 
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
+
 import 'llm_service.dart';
-
-// ─── SessionState ───
-
-/// 单个会话的内存状态
-class SessionState {
-  final String sessionId;
-
-  /// 按 msg_id 分组的 parts
-  final Map<String, List<api.PartInfo>> partsByMsg = {};
-
-  /// msg_id 的顺序列表
-  final List<String> messageOrder = [];
-
-  /// part_id → 已知内容长度（用于 total_len 去重）
-  final Map<String, int> partLens = {};
-
-  /// msg_id → role（"user", "assistant", "tool" 等）
-  final Map<String, String> messageRoles = {};
-
-  SessionState(this.sessionId);
-
-  /// 从 DB 读取的消息角色加载
-  void loadFromMessages(List<api.MessageInfo> messages) {
-    messageRoles.clear();
-    for (final msg in messages) {
-      messageRoles[msg.id] = msg.role;
-    }
-  }
-
-  /// 从 DB 读取的 parts 加载状态
-  void loadFromParts(List<api.PartInfo> parts) {
-    partsByMsg.clear();
-    messageOrder.clear();
-    partLens.clear();
-
-    for (final part in parts) {
-      partsByMsg.putIfAbsent(part.msgId, () => []).add(part);
-      if (!messageOrder.contains(part.msgId)) {
-        messageOrder.add(part.msgId);
-      }
-      if (part.partType == 'text') {
-        partLens[part.id] = part.content.length;
-      }
-    }
-  }
-
-  /// 通过 part_id + total_len 判断是否已有数据
-  bool isTextRedundant(String partId, BigInt totalLen) {
-    final known = partLens[partId] ?? 0;
-    return totalLen.toInt() <= known;
-  }
-
-  void trackTextLength(String partId, BigInt totalLen) {
-    partLens[partId] = totalLen.toInt();
-  }
-
-  /// 更新 part 的完整内容（用于 gap 修复后）
-  void updatePartContent(String partId, String content) {
-    for (final entry in partsByMsg.entries) {
-      for (int i = 0; i < entry.value.length; i++) {
-        if (entry.value[i].id == partId) {
-          final old = entry.value[i];
-          entry.value[i] = api.PartInfo(
-            id: old.id,
-            msgId: old.msgId,
-            seq: old.seq,
-            partType: old.partType,
-            content: content,
-          );
-          return;
-        }
-      }
-    }
-  }
-}
+import 'session_state.dart';
+import 'stream_event_processor.dart';
 
 // ─── SessionManager ───
 
 /// 会话管理器 — 纯信号驱动
 ///
-/// 所有可观察状态都是 [signal]，UI 层通过 [SignalBuilder] 自动追踪依赖，
-/// 不再需要 ChangeNotifier / ValueNotifier / useListenable。
+/// 所有可观察状态都是 [signal]，UI 层通过 [SignalBuilder] 自动追踪依赖。
 class SessionManager {
   static final instance = SessionManager._();
   SessionManager._();
 
   // ── 响应式状态 ──
 
-  /// 所有会话的状态
+  /// 所有会话的状态树
   final sessions = signal(<String, SessionState>{});
 
   /// 当前选中的会话 ID
@@ -206,7 +136,7 @@ class SessionManager {
     // ── 3. 回放 buffer（total_len 去重） ──
     bufferSub?.cancel();
     for (final event in buffer) {
-      _applyEvent(sessionId, event);
+      StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
     }
 
     // ── 4. gap 检测 ──
@@ -249,7 +179,6 @@ class SessionManager {
     _emit();
   }
 
-  /// 全量变更
   Future<void> sendMessage({
     required String sessionId,
     required String provider,
@@ -291,13 +220,13 @@ class SessionManager {
       await for (final event in stream) {
         // 错误事件：追加到助理消息
         if (event is api.StreamEvent_Error) {
-          _appendPartContent(
+          StreamEventProcessor.appendPartContent(
             s,
             'err_${DateTime.now().millisecondsSinceEpoch}',
             '[错误] ${event.field0}',
           );
         }
-        _applyEvent(sessionId, event);
+        StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
         _emit();
       }
     } finally {
@@ -310,125 +239,6 @@ class SessionManager {
       sessions.value = {...sessions.value, sessionId: SessionState(sessionId)};
     }
     return sessions.value[sessionId]!;
-  }
-
-  void _applyEvent(String sid, api.StreamEvent event) {
-    final s = sessions.value[sid];
-    if (s == null) return;
-
-    if (event is api.StreamEvent_Text) {
-      if (s.isTextRedundant(event.partId, event.totalLen)) return;
-      s.trackTextLength(event.partId, event.totalLen);
-
-      if (event.content.isNotEmpty && event.partId.isNotEmpty) {
-        _appendPartContent(s, event.partId, event.content);
-      }
-    } else if (event is api.StreamEvent_ToolCallFragment) {
-      if (s.isTextRedundant(event.partId, event.totalLen)) return;
-      s.trackTextLength(event.partId, event.totalLen);
-
-      final existing = _findPartContent(s, event.partId);
-      final prev = existing ?? '';
-      final merged = _mergeToolCallFrag(prev, event);
-      _appendPartContent(s, event.partId, merged);
-
-      if (existing == null) {
-        _addToolCallFragPart(s, event);
-      }
-    }
-  }
-
-  /// 在 partsByMsg 中找到 partId 对应的 part，追加文本
-  /// 找不到时自动创建新消息
-  void _appendPartContent(SessionState s, String partId, String text) {
-    for (final parts in s.partsByMsg.values) {
-      for (int i = 0; i < parts.length; i++) {
-        if (parts[i].id == partId) {
-          final old = parts[i];
-          parts[i] = api.PartInfo(
-            id: old.id,
-            msgId: old.msgId,
-            seq: old.seq,
-            partType: old.partType,
-            content: old.content + text,
-          );
-          return;
-        }
-      }
-    }
-    // 找不到 part（工具调用后 Rust 发了新的 stream，partId 是新的）
-    // 创建新消息
-    final msgId = '${partId}_msg';
-    s.messageOrder.add(msgId);
-    s.partsByMsg[msgId] = [
-      api.PartInfo(
-        id: partId,
-        msgId: msgId,
-        seq: 0,
-        partType: 'text',
-        content: text,
-      ),
-    ];
-    s.messageRoles[msgId] = 'assistant';
-  }
-
-  /// 在 partsByMsg 中查找 partId 对应的 content，找不到返回 null
-  String? _findPartContent(SessionState s, String partId) {
-    for (final parts in s.partsByMsg.values) {
-      for (final part in parts) {
-        if (part.id == partId) {
-          return part.content;
-        }
-      }
-    }
-    return null;
-  }
-
-  /// 合并新的 tool_call_frag 事件到已有内容中
-  String _mergeToolCallFrag(
-    String prev,
-    api.StreamEvent_ToolCallFragment event,
-  ) {
-    final parsed = prev.isNotEmpty
-        ? (jsonDecode(prev) as Map<String, dynamic>)
-        : <String, dynamic>{};
-    if (event.id != null) parsed['id'] = event.id;
-    if (event.name != null) parsed['name'] = event.name;
-    if (event.arguments != null) {
-      parsed['arguments'] =
-          (parsed['arguments'] as String? ?? '') + event.arguments!;
-    }
-    return jsonEncode(parsed);
-  }
-
-  /// 动态添加 tool_call_frag 到 partsByMsg
-  void _addToolCallFragPart(
-    SessionState s,
-    api.StreamEvent_ToolCallFragment event,
-  ) {
-    final segs = event.partId.split('_');
-    if (segs.length >= 3 && segs[0] == 'tcf') {
-      final last = int.tryParse(segs.last);
-      if (last != null) {
-        final msgId = segs.sublist(1, segs.length - 1).join('_');
-        if (msgId.isNotEmpty) {
-          s.partsByMsg
-              .putIfAbsent(msgId, () => [])
-              .add(
-                api.PartInfo(
-                  id: event.partId,
-                  msgId: msgId,
-                  seq: event.index,
-                  partType: 'tool_call_frag',
-                  content: '',
-                ),
-              );
-          if (!s.messageOrder.contains(msgId)) {
-            s.messageOrder.add(msgId);
-          }
-        }
-      }
-    }
   }
 
   void dispose() {}
