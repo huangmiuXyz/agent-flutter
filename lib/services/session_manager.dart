@@ -12,10 +12,6 @@ import 'llm_service.dart';
 /// 单个会话的内存状态
 class SessionState {
   final String sessionId;
-  int _streamingCount = 0;
-
-  /// 是否有正在进行的流
-  bool get isStreaming => _streamingCount > 0;
 
   /// 按 msg_id 分组的 parts
   final Map<String, List<api.PartInfo>> partsByMsg = {};
@@ -66,14 +62,6 @@ class SessionState {
     partLens[partId] = totalLen.toInt();
   }
 
-  void markStreaming(bool v) {
-    if (v) {
-      _streamingCount++;
-    } else {
-      _streamingCount = (_streamingCount - 1).clamp(0, _streamingCount);
-    }
-  }
-
   /// 更新 part 的完整内容（用于 gap 修复后）
   void updatePartContent(String partId, String content) {
     for (final entry in partsByMsg.entries) {
@@ -107,21 +95,23 @@ class SessionManager {
   // ── 响应式状态 ──
 
   /// 所有会话的状态
-  final allStates = signal(<String, SessionState>{});
+  final sessions = signal(<String, SessionState>{});
 
   /// 当前选中的会话 ID
   final selectedId = signal<String?>(null);
 
+  /// 变更通知计数器 — 每次状态变更时递增，供 SignalBuilder 追踪
+  final tick = signal(0);
+
   /// 快速访问当前会话的状态
   SessionState? stateFor(String? sessionId) =>
-      sessionId != null ? allStates.value[sessionId] : null;
+      sessionId != null ? sessions.value[sessionId] : null;
 
   // ── 内部 ──
-  StreamSubscription<api.StreamEvent>? _activeSubscription;
 
   /// 全量变更（新增/删除消息 / 流完成）
   void _emit() {
-    allStates.value = Map.from(allStates.value);
+    tick.value++;
   }
 
   // ── 操作 ──
@@ -132,13 +122,8 @@ class SessionManager {
     required LlmService service,
     required String dbPath,
   }) async {
-    _activeSubscription?.cancel();
-
-    if (!allStates.value.containsKey(sessionId)) {
-      allStates.value = {
-        ...allStates.value,
-        sessionId: SessionState(sessionId),
-      };
+    if (!sessions.value.containsKey(sessionId)) {
+      sessions.value = {...sessions.value, sessionId: SessionState(sessionId)};
     }
 
     // ── 1. 订阅 + buffer ──
@@ -156,7 +141,7 @@ class SessionManager {
         dbPath: dbPath,
         sessionId: sessionId,
       );
-      allStates.value[sessionId]!.loadFromMessages(messages);
+      sessions.value[sessionId]!.loadFromMessages(messages);
     } catch (_) {}
 
     try {
@@ -164,7 +149,7 @@ class SessionManager {
         dbPath: dbPath,
         sessionId: sessionId,
       );
-      allStates.value[sessionId]!.loadFromParts(parts);
+      sessions.value[sessionId]!.loadFromParts(parts);
       _emit();
     } catch (_) {}
 
@@ -189,7 +174,7 @@ class SessionManager {
       }
       if (partId.isEmpty || totalLen == BigInt.zero) continue;
 
-      final s = allStates.value[sessionId]!;
+      final s = sessions.value[sessionId]!;
       bool hasFullContent = false;
       for (final parts in s.partsByMsg.values) {
         for (final part in parts) {
@@ -211,26 +196,10 @@ class SessionManager {
       }
     }
 
-    // ── 5. 实时模式 ──
-    if (allStates.value[sessionId]!.isStreaming) {
-      try {
-        _activeSubscription = service
-            .subscribeSession(dbPath: dbPath, sessionId: sessionId)
-            .listen((event) {
-              _applyEvent(sessionId, event);
-              _emit();
-            }, onError: (_) {});
-      } catch (_) {}
-    }
-
     _emit();
   }
 
-  void switchAway() {
-    _activeSubscription?.cancel();
-    _activeSubscription = null;
-  }
-
+  /// 全量变更
   Future<void> sendMessage({
     required String sessionId,
     required String provider,
@@ -264,7 +233,6 @@ class SessionManager {
     s.messageOrder.add(assistantMsgId);
     s.messageRoles[assistantMsgId] = 'assistant';
 
-    s.markStreaming(true);
     _emit();
 
     try {
@@ -278,9 +246,7 @@ class SessionManager {
       );
 
       await for (final event in stream) {
-        _applyEvent(sessionId, event);
-
-        // 首次 Text 事件：用 Rust 的 partId 填入助理消息
+        // 首次 Text 事件：先填入助理消息的 part，再 apply
         if (event is api.StreamEvent_Text && assistantPartId == null) {
           assistantPartId = event.partId;
           s.partsByMsg[assistantMsgId] = [
@@ -293,58 +259,50 @@ class SessionManager {
             ),
           ];
         }
+        _applyEvent(sessionId, event);
         _emit();
       }
     } finally {
-      s.markStreaming(false);
       _emit();
     }
   }
 
   SessionState _ensureState(String sessionId) {
-    if (!allStates.value.containsKey(sessionId)) {
-      allStates.value = {
-        ...allStates.value,
-        sessionId: SessionState(sessionId),
-      };
+    if (!sessions.value.containsKey(sessionId)) {
+      sessions.value = {...sessions.value, sessionId: SessionState(sessionId)};
     }
-    return allStates.value[sessionId]!;
+    return sessions.value[sessionId]!;
   }
 
   void _applyEvent(String sid, api.StreamEvent event) {
-    final s = allStates.value[sid];
+    final s = sessions.value[sid];
     if (s == null) return;
 
     if (event is api.StreamEvent_Text) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
-      s.markStreaming(true);
 
       if (event.content.isNotEmpty && event.partId.isNotEmpty) {
-        // 找到 partId 对应的 part，追加文本内容
         _appendPartContent(s, event.partId, event.content);
       }
     } else if (event is api.StreamEvent_ToolCallFragment) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
-      s.markStreaming(true);
 
-      // 累积 tool_call_frag 内容
       final existing = _findPartContent(s, event.partId);
       final prev = existing ?? '';
       final merged = _mergeToolCallFrag(prev, event);
       _appendPartContent(s, event.partId, merged);
 
-      // 如果 part 还不存在，动态添加到 partsByMsg
       if (existing == null) {
         _addToolCallFragPart(s, event);
       }
     } else if (event is api.StreamEvent_ToolCall) {
-      s.markStreaming(true);
+      // no-op
     } else if (event is api.StreamEvent_Done) {
-      s.markStreaming(false);
+      // no-op
     } else if (event is api.StreamEvent_Error) {
-      s.markStreaming(false);
+      // no-op
     }
   }
 
@@ -426,7 +384,5 @@ class SessionManager {
     }
   }
 
-  void dispose() {
-    _activeSubscription?.cancel();
-  }
+  void dispose() {}
 }
