@@ -88,6 +88,17 @@ class AppIconButton extends StatelessWidget {
         elevation: WidgetStateProperty.all(0),
       );
     }
+    if (!hoverStyle) {
+      return ButtonStyle(
+        backgroundColor: WidgetStateProperty.all(Colors.transparent),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        padding: WidgetStateProperty.all(EdgeInsets.all(custom.spacing.xs)),
+        shape: WidgetStateProperty.all(
+          RoundedRectangleBorder(borderRadius: sizing.borderRadius),
+        ),
+        elevation: WidgetStateProperty.all(0),
+      );
+    }
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered) ||

@@ -105,6 +105,7 @@ class SessionList extends ConsumerWidget {
                   AppIconButton(
                     icon: 'trash2',
                     size: ButtonSize.sm,
+                    hoverStyle: false,
                     tooltip: '删除会话',
                     onPressed: () async {
                       final confirmed = await AppDialog.show(

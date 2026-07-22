@@ -1,0 +1,6 @@
+{
+  "default_model": {
+    "provider": "deepseek",
+    "model": "deepseek-v4-flash"
+  }
+}

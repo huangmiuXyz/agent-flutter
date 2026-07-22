@@ -618,29 +618,35 @@ class AppListItem extends HookWidget {
                   );
 
                   if (hoverActions != null) {
-                    content = Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
-                      children: [
-                        content,
-                        if (isHovered.value)
-                          Positioned(
-                            right: 0,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: hoverActions!
-                                  .map(
-                                    (action) => Padding(
-                                      padding: EdgeInsets.only(
-                                        left: custom.spacing.xs,
+                    final minHoverHeight = isSmall
+                        ? custom.controls.smallHeight
+                        : custom.controls.mediumHeight;
+                    content = ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: minHoverHeight),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        clipBehavior: Clip.none,
+                        children: [
+                          content,
+                          if (isHovered.value)
+                            Positioned(
+                              right: 0,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: hoverActions!
+                                    .map(
+                                      (action) => Padding(
+                                        padding: EdgeInsets.only(
+                                          left: custom.spacing.xs,
+                                        ),
+                                        child: action,
                                       ),
-                                      child: action,
-                                    ),
-                                  )
-                                  .toList(),
+                                    )
+                                    .toList(),
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     );
                   }
 
