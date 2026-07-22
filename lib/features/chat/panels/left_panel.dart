@@ -66,6 +66,7 @@ class LeftPanel extends ConsumerWidget {
       final session = await service.createSession(dbPath: dbPath, name: name);
       ref.invalidate(sessionsProvider);
       ref.read(selectedSessionProvider.notifier).select(session.id);
+      await ref.read(sessionManagerProvider).switchTo(session.id);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(

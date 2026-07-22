@@ -91,6 +91,9 @@ class AppControls {
     // Execute panel
     this.executePanelHeight = 200,
     this.footerHeight = 26,
+    // Chat part card sizing
+    this.chatPartCollapsedHeight = 32,
+    this.chatPartExpandedMaxHeight = 320,
   });
 
   final double smallHeight;
@@ -108,6 +111,8 @@ class AppControls {
   final double tabAddButtonWidth;
   final double executePanelHeight;
   final double footerHeight;
+  final double chatPartCollapsedHeight;
+  final double chatPartExpandedMaxHeight;
 
   static AppControls lerp(AppControls a, AppControls b, double t) =>
       AppControls(
@@ -142,6 +147,16 @@ class AppControls {
           t,
         )!,
         footerHeight: lerpDouble(a.footerHeight, b.footerHeight, t)!,
+        chatPartCollapsedHeight: lerpDouble(
+          a.chatPartCollapsedHeight,
+          b.chatPartCollapsedHeight,
+          t,
+        )!,
+        chatPartExpandedMaxHeight: lerpDouble(
+          a.chatPartExpandedMaxHeight,
+          b.chatPartExpandedMaxHeight,
+          t,
+        )!,
       );
 }
 

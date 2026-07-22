@@ -97,7 +97,8 @@ class SessionList extends ConsumerWidget {
                 active: isSelected,
                 intrinsicHeight: true,
                 itemRadius: BorderRadius.zero,
-                onTap: () {
+                onTap: () async {
+                  await ref.read(sessionManagerProvider).switchTo(session.id);
                   ref.read(selectedSessionProvider.notifier).select(session.id);
                 },
                 hoverActions: [

@@ -59,6 +59,8 @@ SessionManager sessionManager(Ref ref) {
 }
 
 /// 当前活跃会话的 state（方便 UI 监听）
+///
+/// 仅 watch 会话切换，数据变更由 UI 层通过 [useListenable] 监听 [SessionManager] 自身。
 @riverpod
 SessionState? activeSessionState(Ref ref) {
   final selectedId = ref.watch(selectedSessionProvider);

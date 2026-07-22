@@ -13,7 +13,10 @@ import 'package:agent/widgets/select/panel_selector.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 class ChatInput extends ConsumerWidget {
-  const ChatInput({super.key});
+  const ChatInput({super.key, this.fullHeight = false});
+
+  /// 当为 true 时，输入框高度不固定，填充父容器可用空间
+  final bool fullHeight;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,7 +32,7 @@ class ChatInput extends ConsumerWidget {
       ),
       child: SizedBox(
         width: readingWidth,
-        height: physicalHeight,
+        height: fullHeight ? null : physicalHeight,
         child: Column(
           children: [
             const Expanded(child: ChatFleather()),

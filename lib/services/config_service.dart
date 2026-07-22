@@ -16,9 +16,22 @@ part 'config_service.g.dart';
 
 // ─── 配置路径 ───────────────────────────────────────────────────
 
+/// 当前是否在项目源码目录（开发环境）
+///
+/// 通过检查项目根目录标识文件判断，避免将生产环境的 cwd 误判为开发目录。
+bool _inProjectDir() {
+  return File('./config.json').existsSync() ||
+      File('./pubspec.yaml').existsSync() ||
+      Directory('./data').existsSync();
+}
+
 /// 配置路径
 ///
-/// 优先级：--dart-define=CONFIG_PATH > 环境变量 AGENT_CONFIG_PATH > 默认值
+/// 优先级：
+/// 1. --dart-define=CONFIG_PATH 编译时指定
+/// 2. AGENT_CONFIG_PATH 环境变量
+/// 3. 开发环境（项目目录下）→ ./config.json
+/// 4. 生产环境 → 平台标准数据目录
 @riverpod
 class ConfigPath extends _$ConfigPath {
   @override
@@ -29,15 +42,37 @@ class ConfigPath extends _$ConfigPath {
     final runtimeEnv = Platform.environment['AGENT_CONFIG_PATH'];
     if (runtimeEnv != null && runtimeEnv.isNotEmpty) return runtimeEnv;
 
+    if (_inProjectDir()) {
+      return './config.json';
+    }
+
     return appDataDir(['agent', 'config.json']);
   }
 }
 
 /// 数据库路径（可外部覆盖）
+///
+/// 优先级：
+/// 1. --dart-define=DB_PATH 编译时指定
+/// 2. AGENT_DB_PATH 环境变量
+/// 3. 开发环境 → 使用后端的目录（agent-flutter-cli/data/data）
+/// 4. 生产环境 → 平台标准数据目录
 @riverpod
 class DbPath extends _$DbPath {
   @override
-  String build() => './data/data';
+  String build() {
+    const compileEnv = String.fromEnvironment('DB_PATH');
+    if (compileEnv.isNotEmpty) return compileEnv;
+
+    final runtimeEnv = Platform.environment['AGENT_DB_PATH'];
+    if (runtimeEnv != null && runtimeEnv.isNotEmpty) return runtimeEnv;
+
+    if (_inProjectDir()) {
+      return '../agent-flutter-cli/data/data';
+    }
+
+    return appDataDir(['agent', 'data', 'data']);
+  }
 }
 
 // ─── 底层 JSON 文件读写 ─────────────────────────────────────────
