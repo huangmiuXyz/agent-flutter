@@ -32,48 +32,6 @@ class LlmInit extends _$LlmInit {
   }
 }
 
-/// 会话列表
-@riverpod
-class Sessions extends _$Sessions {
-  @override
-  Future<List<api.SessionInfo>> build() async {
-    final service = ref.watch(llmServiceProvider);
-    final dbPath = ref.watch(dbPathProvider);
-    await ref.watch(llmInitProvider.future);
-    return service.listSessions(dbPath: dbPath);
-  }
-
-  /// 创建成功 → 直接追加头部，不查 DB
-  void add(api.SessionInfo session) {
-    final current = state.asData?.value ?? [];
-    state = AsyncData([session, ...current]);
-  }
-
-  /// 删除成功 → 直接移除，不查 DB
-  void remove(String id) {
-    final current = state.asData?.value ?? [];
-    state = AsyncData(current.where((s) => s.id != id).toList());
-  }
-
-  /// 重命名成功 → 直接改内容，不查 DB
-  void rename(String id, String newName) {
-    final current = state.asData?.value;
-    if (current == null) return;
-    state = AsyncData([
-      for (final s in current)
-        if (s.id == id)
-          api.SessionInfo(
-            id: s.id,
-            name: newName,
-            createdAt: s.createdAt,
-            updatedAt: s.updatedAt,
-          )
-        else
-          s,
-    ]);
-  }
-}
-
 /// 当前选中的会话 ID
 @riverpod
 class SelectedSession extends _$SelectedSession {

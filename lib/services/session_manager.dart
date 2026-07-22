@@ -100,8 +100,45 @@ class SessionManager {
   /// 当前选中的会话 ID
   final selectedId = signal<String?>(null);
 
-  /// 变更通知计数器 — 每次状态变更时递增，供 SignalBuilder 追踪
-  final tick = signal(0);
+  /// 会话列表
+  final sessionList = signal(<api.SessionInfo>[]);
+  final sessionListLoading = signal(true);
+
+  /// 加载会话列表
+  Future<void> loadSessions({
+    required LlmService service,
+    required String dbPath,
+  }) async {
+    sessionListLoading.value = true;
+    try {
+      sessionList.value = await service.listSessions(dbPath: dbPath);
+    } finally {
+      sessionListLoading.value = false;
+    }
+  }
+
+  void addSession(api.SessionInfo session) {
+    sessionList.value = [session, ...sessionList.value];
+  }
+
+  void removeSession(String id) {
+    sessionList.value = sessionList.value.where((s) => s.id != id).toList();
+  }
+
+  void renameSession(String id, String newName) {
+    sessionList.value = [
+      for (final s in sessionList.value)
+        if (s.id == id)
+          api.SessionInfo(
+            id: s.id,
+            name: newName,
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
+          )
+        else
+          s,
+    ];
+  }
 
   /// 快速访问当前会话的状态
   SessionState? stateFor(String? sessionId) =>
@@ -111,12 +148,25 @@ class SessionManager {
 
   /// 全量变更（新增/删除消息 / 流完成）
   void _emit() {
-    tick.value++;
+    sessions.value = Map.from(sessions.value);
   }
 
   // ── 操作 ──
 
-  /// 切换到指定会话
+  /// 创建新会话并设为当前会话
+  Future<String> createSession({
+    required LlmService service,
+    required String dbPath,
+  }) async {
+    final now = DateTime.now();
+    final name =
+        '新对话 ${now.month}/${now.day} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final session = await service.createSession(dbPath: dbPath, name: name);
+    addSession(session);
+    selectedId.value = session.id;
+    return session.id;
+  }
+
   Future<void> switchTo(
     String sessionId, {
     required LlmService service,
@@ -226,13 +276,6 @@ class SessionManager {
     ];
     s.messageRoles[userMsgId] = 'user';
 
-    // ── 预留助理消息位置（partId 用 Rust 流里的，首次 Text 事件再填入） ──
-    String? assistantPartId;
-    final assistantMsgId =
-        '${sessionId}_asst_${DateTime.now().millisecondsSinceEpoch}';
-    s.messageOrder.add(assistantMsgId);
-    s.messageRoles[assistantMsgId] = 'assistant';
-
     _emit();
 
     try {
@@ -246,18 +289,13 @@ class SessionManager {
       );
 
       await for (final event in stream) {
-        // 首次 Text 事件：先填入助理消息的 part，再 apply
-        if (event is api.StreamEvent_Text && assistantPartId == null) {
-          assistantPartId = event.partId;
-          s.partsByMsg[assistantMsgId] = [
-            api.PartInfo(
-              id: assistantPartId,
-              msgId: assistantMsgId,
-              seq: 0,
-              partType: 'text',
-              content: '',
-            ),
-          ];
+        // 错误事件：追加到助理消息
+        if (event is api.StreamEvent_Error) {
+          _appendPartContent(
+            s,
+            'err_${DateTime.now().millisecondsSinceEpoch}',
+            '[错误] ${event.field0}',
+          );
         }
         _applyEvent(sessionId, event);
         _emit();
@@ -297,16 +335,11 @@ class SessionManager {
       if (existing == null) {
         _addToolCallFragPart(s, event);
       }
-    } else if (event is api.StreamEvent_ToolCall) {
-      // no-op
-    } else if (event is api.StreamEvent_Done) {
-      // no-op
-    } else if (event is api.StreamEvent_Error) {
-      // no-op
     }
   }
 
   /// 在 partsByMsg 中找到 partId 对应的 part，追加文本
+  /// 找不到时自动创建新消息
   void _appendPartContent(SessionState s, String partId, String text) {
     for (final parts in s.partsByMsg.values) {
       for (int i = 0; i < parts.length; i++) {
@@ -323,6 +356,20 @@ class SessionManager {
         }
       }
     }
+    // 找不到 part（工具调用后 Rust 发了新的 stream，partId 是新的）
+    // 创建新消息
+    final msgId = '${partId}_msg';
+    s.messageOrder.add(msgId);
+    s.partsByMsg[msgId] = [
+      api.PartInfo(
+        id: partId,
+        msgId: msgId,
+        seq: 0,
+        partType: 'text',
+        content: text,
+      ),
+    ];
+    s.messageRoles[msgId] = 'assistant';
   }
 
   /// 在 partsByMsg 中查找 partId 对应的 content，找不到返回 null

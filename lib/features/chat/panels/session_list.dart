@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/services/llm_providers.dart';
@@ -26,32 +28,38 @@ String _formatSessionTime(int timestampMs) {
 }
 
 /// 左侧面板 — 会话列表
-class SessionList extends ConsumerWidget {
+class SessionList extends HookConsumerWidget {
   const SessionList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sessionsAsync = ref.watch(sessionsProvider);
-    final selectedId = ref.watch(selectedSessionProvider);
-    final custom = CustomTheme.of(context);
+    // 首次加载会话列表
+    useEffect(() {
+      SessionManager.instance.loadSessions(
+        service: ref.read(llmServiceProvider),
+        dbPath: ref.read(dbPathProvider),
+      );
+      return null;
+    }, []);
 
-    return sessionsAsync.when(
-      loading: () => const Center(
-        child: SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-      error: (err, stack) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        child: AppText(
-          '加载失败: ${err.toString()}',
-          variant: AppTextVariant.caption,
-          color: custom.colors.textSecondary,
-        ),
-      ),
-      data: (sessions) {
+    return SignalBuilder(
+      builder: (context) {
+        final mgr = SessionManager.instance;
+        final sessions = mgr.sessionList.value;
+        final loading = mgr.sessionListLoading.value;
+        final selectedId = mgr.selectedId.value;
+        final custom = CustomTheme.of(context);
+
+        if (loading) {
+          return const Center(
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
         if (sessions.isEmpty) {
           return Center(
             child: AppText(
@@ -62,7 +70,6 @@ class SessionList extends ConsumerWidget {
           );
         }
 
-        // Sort by updatedAt descending (newest first)
         final sorted = List<api.SessionInfo>.from(sessions)
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
@@ -81,9 +88,8 @@ class SessionList extends ConsumerWidget {
                   size: FieldSize.sm,
                   onSubmitted: (newName) async {
                     if (newName.trim().isEmpty ||
-                        newName.trim() == session.name) {
+                        newName.trim() == session.name)
                       return;
-                    }
                     final service = ref.read(llmServiceProvider);
                     final dbPath = ref.read(dbPathProvider);
                     await service.renameSession(
@@ -91,9 +97,10 @@ class SessionList extends ConsumerWidget {
                       sessionId: session.id,
                       name: newName.trim(),
                     );
-                    ref
-                        .read(sessionsProvider.notifier)
-                        .rename(session.id, newName.trim());
+                    SessionManager.instance.renameSession(
+                      session.id,
+                      newName.trim(),
+                    );
                   },
                 ),
                 trailing: _formatSessionTime(session.updatedAt),
@@ -107,7 +114,6 @@ class SessionList extends ConsumerWidget {
                     dbPath: ref.read(dbPathProvider),
                   );
                   SessionManager.instance.selectedId.value = session.id;
-                  ref.read(selectedSessionProvider.notifier).select(session.id);
                 },
                 hoverActions: [
                   AppIconButton(
@@ -131,11 +137,8 @@ class SessionList extends ConsumerWidget {
                         );
                         if (selectedId == session.id) {
                           SessionManager.instance.selectedId.value = null;
-                          ref
-                              .read(selectedSessionProvider.notifier)
-                              .select(null);
                         }
-                        ref.read(sessionsProvider.notifier).remove(session.id);
+                        SessionManager.instance.removeSession(session.id);
                       }
                     },
                   ),

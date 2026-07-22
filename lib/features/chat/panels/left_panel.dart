@@ -57,19 +57,13 @@ class LeftPanel extends ConsumerWidget {
   }
 
   Future<void> _createSession(BuildContext context, WidgetRef ref) async {
-    final service = ref.read(llmServiceProvider);
-    final dbPath = ref.read(dbPathProvider);
-    // Generate a default name with timestamp
-    final now = DateTime.now();
-    final name =
-        '新对话 ${now.month}/${now.day} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     try {
-      final session = await service.createSession(dbPath: dbPath, name: name);
-      ref.read(sessionsProvider.notifier).add(session);
-      SessionManager.instance.selectedId.value = session.id;
-      ref.read(selectedSessionProvider.notifier).select(session.id);
+      final sessionId = await SessionManager.instance.createSession(
+        service: ref.read(llmServiceProvider),
+        dbPath: ref.read(dbPathProvider),
+      );
       await SessionManager.instance.switchTo(
-        session.id,
+        sessionId,
         service: ref.read(llmServiceProvider),
         dbPath: ref.read(dbPathProvider),
       );

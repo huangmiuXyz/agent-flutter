@@ -48,11 +48,9 @@ class _MessageList extends StatelessWidget {
 
     // SignalBuilder 自动追踪 inside 读取的信号。
     // 读取 sessions 使本组件在结构变更时重建。
-    // streamingPartId 不在这里读取，确保流式更新不会触发全量重建。
     return SignalBuilder(
       builder: (_) {
         final mgr = SessionManager.instance;
-        mgr.tick.value; // 追踪变更通知
         final sessionState = mgr.sessions.value[sessionId];
         if (sessionState == null) return const SizedBox.shrink();
 

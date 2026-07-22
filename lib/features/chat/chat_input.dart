@@ -34,21 +34,21 @@ class ChatInput extends HookConsumerWidget {
           .trim();
       if (text.isEmpty) return;
 
-      final sessionId = SessionManager.instance.selectedId.value;
-      if (sessionId == null) return;
-
       final provider = ref.read(currentProviderProvider);
       final model = ref.read(currentModelProvider);
       if (provider.isEmpty || model.isEmpty) return;
 
       sending.value = true;
       controller.clear();
+
+      String sessionId =
+          SessionManager.instance.selectedId.value ??
+          await SessionManager.instance.createSession(
+            service: ref.read(llmServiceProvider),
+            dbPath: ref.read(dbPathProvider),
+          );
+
       try {
-        await SessionManager.instance.switchTo(
-          sessionId,
-          service: ref.read(llmServiceProvider),
-          dbPath: ref.read(dbPathProvider),
-        );
         await SessionManager.instance.sendMessage(
           sessionId: sessionId,
           provider: provider,
