@@ -12,7 +12,10 @@ import 'llm_providers.dart';
 /// 单个会话的内存状态
 class SessionState {
   final String sessionId;
-  bool isStreaming = false;
+  int _streamingCount = 0;
+
+  /// 是否有正在进行的流
+  bool get isStreaming => _streamingCount > 0;
 
   /// 按 msg_id 分组的 parts
   final Map<String, List<api.PartInfo>> partsByMsg = {};
@@ -57,7 +60,11 @@ class SessionState {
   }
 
   void markStreaming(bool v) {
-    isStreaming = v;
+    if (v) {
+      _streamingCount++;
+    } else {
+      _streamingCount = (_streamingCount - 1).clamp(0, _streamingCount);
+    }
   }
 
   /// 更新 part 的完整内容（用于 gap 修复后）
