@@ -151,9 +151,15 @@ class ChatMessageItem extends StatelessWidget {
   String? _lookupResult(String content) {
     try {
       final json = jsonDecode(content) as Map<String, dynamic>;
+      // 从 DB 加载后的路径：按 tool_call_id 查找 tool_result
       final id = json['id'] as String?;
       if (id != null && toolCallResults.containsKey(id)) {
         return toolCallResults[id];
+      }
+      // 流式路径：检查内联的 _result（由 StreamEventProcessor.handleToolCall 写入）
+      final inlineResult = json['_result'] as String?;
+      if (inlineResult != null && inlineResult.isNotEmpty) {
+        return inlineResult;
       }
     } catch (_) {}
     return null;

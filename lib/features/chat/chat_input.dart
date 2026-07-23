@@ -4,8 +4,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/features/chat/chat_fleather.dart';
-import 'package:agent/services/llm_providers.dart';
-import 'package:agent/services/session_manager.dart';
+import 'package:agent/services/llm/llm_providers.dart';
+import 'package:agent/services/session/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart';
 

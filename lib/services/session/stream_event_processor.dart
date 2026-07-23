@@ -28,7 +28,8 @@ class StreamEventProcessor {
       s.trackTextLength(event.partId, event.totalLen);
 
       if (event.content.isNotEmpty && event.partId.isNotEmpty) {
-        appendPartContent(s, event.partId, event.content);
+        appendPartContent(s, event.partId, event.content,
+            msgId: event.msgId.isNotEmpty ? event.msgId : null);
       }
     } else if (event is api.StreamEvent_ToolCallFragment) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
@@ -37,17 +38,23 @@ class StreamEventProcessor {
       final existing = findPartContent(s, event.partId);
       final prev = existing ?? '';
       final merged = mergeToolCallFrag(prev, event);
-      appendPartContent(s, event.partId, merged);
 
-      if (existing == null) {
-        addToolCallFragPart(s, event);
+      if (existing != null) {
+        // 已有 part，更新合并后的内容
+        s.updatePartContent(event.partId, merged);
+      } else {
+        // 新建 tool_call_frag part，带初始合并内容
+        addToolCallFragPart(s, event, merged);
       }
+    } else if (event is api.StreamEvent_ToolCall) {
+      handleToolCall(s, event.msgId, event.name, event.arguments, event.result);
     }
   }
 
   /// 在 partsByMsg 中找到 partId 对应的 part，追加文本。
   /// 找不到时自动创建新消息。
-  static void appendPartContent(SessionState s, String partId, String text) {
+  static void appendPartContent(SessionState s, String partId, String text,
+      {String? msgId}) {
     for (final parts in s.partsByMsg.values) {
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].id == partId) {
@@ -64,19 +71,59 @@ class StreamEventProcessor {
       }
     }
     // 找不到 part（工具调用后 Rust 发了新的 stream，partId 是新的）
-    // 创建新消息
-    final msgId = '${partId}_msg';
-    s.messageOrder.add(msgId);
-    s.partsByMsg[msgId] = [
+    // 创建新消息，优先使用 Rust 侧传过来的 msgId
+    final newMsgId = msgId ?? '${partId}_msg';
+    s.messageOrder.add(newMsgId);
+    s.partsByMsg[newMsgId] = [
       api.PartInfo(
         id: partId,
-        msgId: msgId,
+        msgId: newMsgId,
         seq: 0,
         partType: 'text',
         content: text,
       ),
     ];
+    s.messageRoles[newMsgId] = 'assistant';
+  }
+
+  /// 处理工具调用完成事件，将 tool_call part 添加到对应消息
+  static void handleToolCall(
+      SessionState s, String msgId, String name, String arguments, String result) {
+    if (msgId.isEmpty) return;
+    _ensureMessageExists(s, msgId);
+
+    // 移除该消息下的所有 tool_call_frag，因为已收到完整的 tool_call
+    s.partsByMsg[msgId]!.removeWhere((p) => p.partType == 'tool_call_frag');
+
+    // 添加 tool_call part，内联结果以便流式渲染时可直接显示
+    final toolCallJson = jsonEncode({
+      'id': 'tc_$msgId',
+      'function': {
+        'name': name,
+        'arguments': arguments,
+      },
+      '_result': result,
+    });
+
+    s.partsByMsg[msgId]!.add(api.PartInfo(
+      id: 'tc_${msgId}_${s.partsByMsg[msgId]!.length}',
+      msgId: msgId,
+      seq: s.partsByMsg[msgId]!.length,
+      partType: 'tool_call',
+      content: toolCallJson,
+    ));
+
     s.messageRoles[msgId] = 'assistant';
+  }
+
+  /// 确保消息存在
+  static void _ensureMessageExists(SessionState s, String msgId) {
+    if (!s.partsByMsg.containsKey(msgId)) {
+      s.partsByMsg[msgId] = [];
+      if (!s.messageOrder.contains(msgId)) {
+        s.messageOrder.add(msgId);
+      }
+    }
   }
 
   /// 在 partsByMsg 中查找 partId 对应的 content，找不到返回 null
@@ -112,6 +159,7 @@ class StreamEventProcessor {
   static void addToolCallFragPart(
     SessionState s,
     api.StreamEvent_ToolCallFragment event,
+    String initialContent,
   ) {
     final segs = event.partId.split('_');
     if (segs.length >= 3 && segs[0] == 'tcf') {
@@ -127,12 +175,13 @@ class StreamEventProcessor {
                   msgId: msgId,
                   seq: event.index,
                   partType: 'tool_call_frag',
-                  content: '',
+                  content: initialContent,
                 ),
               );
           if (!s.messageOrder.contains(msgId)) {
             s.messageOrder.add(msgId);
           }
+          s.messageRoles[msgId] = 'assistant';
         }
       }
     }

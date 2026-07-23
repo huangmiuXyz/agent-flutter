@@ -9,7 +9,7 @@ import 'dart:async';
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 
-import 'llm_service.dart';
+import '../llm/llm_service.dart';
 import 'session_state.dart';
 import 'stream_event_processor.dart';
 

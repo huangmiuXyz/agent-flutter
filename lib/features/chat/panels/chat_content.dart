@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/session_manager.dart';
+import 'package:agent/services/session/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';

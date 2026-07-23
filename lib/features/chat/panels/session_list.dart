@@ -4,8 +4,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/llm_providers.dart';
-import 'package:agent/services/session_manager.dart';
+import 'package:agent/services/llm/llm_providers.dart';
+import 'package:agent/services/session/session_manager.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -35,10 +35,12 @@ class SessionList extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 首次加载会话列表
     useEffect(() {
-      SessionManager.instance.loadSessions(
-        service: ref.read(llmServiceProvider),
-        dbPath: ref.read(dbPathProvider),
-      );
+      ref.read(llmInitProvider.future).then((_) {
+        SessionManager.instance.loadSessions(
+          service: ref.read(llmServiceProvider),
+          dbPath: ref.read(dbPathProvider),
+        );
+      });
       return null;
     }, []);
 

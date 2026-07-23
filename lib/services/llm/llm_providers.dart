@@ -9,9 +9,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 
-export 'config_service.dart';
+export '../config_service.dart';
 
-import 'config_service.dart';
+import '../config_service.dart';
 import 'llm_service.dart';
 // import 'session_manager.dart';
 
