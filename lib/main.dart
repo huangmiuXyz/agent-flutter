@@ -34,11 +34,16 @@ void main() async {
       try {
         final controller = await WindowController.fromCurrentEngine();
         if (controller.arguments == 'settings') {
-          // Center the window after the first frame renders.
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             await windowManager.ensureInitialized();
             await windowManager.center();
             await windowManager.focus();
+            // Prevent close — hide instead of destroy so the gear
+            // button can bring the window back to front later.
+            await windowManager.setPreventClose(true);
+            windowManager.addListener(
+              WindowCloseIntercept(() => windowManager.hide()),
+            );
           });
           runApp(const ProviderScope(child: _SettingsWindow()));
           return;
@@ -89,6 +94,16 @@ void main() async {
       );
     },
   );
+}
+
+/// Intercepts the native close event and runs [onClose] instead.
+class WindowCloseIntercept with WindowListener {
+  final VoidCallback onClose;
+
+  WindowCloseIntercept(this.onClose);
+
+  @override
+  void onWindowClose() => onClose();
 }
 
 /// A minimal app shell for the settings child window.
