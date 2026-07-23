@@ -12,6 +12,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
+import 'package:agent/features/settings/pages/model_list_page.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/services/config_service.dart';
 import 'package:agent/services/llm/llm_providers.dart';
@@ -21,10 +22,12 @@ import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/field/app_field.dart';
-import 'package:agent/widgets/select/app_select.dart';
+import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen config form for a single provider.
+///
+/// Manages navigation between the config form and model management page.
 class ProviderConfigPage extends HookConsumerWidget {
   final ProviderInfo provider;
 
@@ -39,15 +42,41 @@ class ProviderConfigPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final showModels = useState(false);
+
+    return showModels.value
+        ? ModelListPage(
+            provider: provider,
+            onBack: () => showModels.value = false,
+          )
+        : _ConfigForm(
+            provider: provider,
+            onBack: onBack,
+            onManageModels: () => showModels.value = true,
+          );
+  }
+}
+
+/// The config form body (extracted to avoid conditional hooks).
+class _ConfigForm extends HookConsumerWidget {
+  final ProviderInfo provider;
+  final VoidCallback onBack;
+  final VoidCallback onManageModels;
+
+  const _ConfigForm({
+    required this.provider,
+    required this.onBack,
+    required this.onManageModels,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final apiKeyCtrl = useTextEditingController();
     final endpointCtrl = useTextEditingController(text: provider.baseUrl ?? '');
-    final selectedModel = useState<String?>(null);
-
     // Detect protocol from provider type
     final protocol = _protocolFor(provider.name);
 
     // ── Load existing config on mount ──
-    // Load existing config on mount
     useEffect(() {
       Future<void> load() async {
         try {
@@ -81,8 +110,8 @@ class ProviderConfigPage extends HookConsumerWidget {
     }, [provider.name]);
 
     final custom = CustomTheme.of(context);
+
     // ── Save handler ──
-    // Save handler
     Future<void> handleSave() async {
       try {
         final cfgPath = ref.read(configPathProvider);
@@ -101,14 +130,19 @@ class ProviderConfigPage extends HookConsumerWidget {
           );
         }
         ref.invalidate(providersListProvider);
-        debugPrint('Saved provider config: $keyPrefix');
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('配置保存成功')));
+        }
       } catch (e) {
-        debugPrint('Save failed: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+        }
       }
     }
-
-    // Mock model list — real data comes from [modelsList] provider
-    final models = [AppSelectOption(value: 'default', label: '默认模型')];
 
     return ContentFrame(
       child: SizedBox(
@@ -153,26 +187,21 @@ class ProviderConfigPage extends HookConsumerWidget {
               placeholder: provider.baseUrl ?? 'https://api.example.com/v1',
               controller: endpointCtrl,
             ),
-            SizedBox(height: custom.spacing.md),
-
-            // ---- Default Model ----
-            AppSelect<String>(
-              label: '默认模型',
-              placeholder: '选择默认模型',
-              value: selectedModel.value,
-              options: models,
-              onChanged: (v) => selectedModel.value = v,
-            ),
             SizedBox(height: custom.spacing.lg + 4),
 
             // ---- Actions ----
             Row(
               children: [
                 AppPrimaryButton(text: '保存', onPressed: handleSave),
-                SizedBox(width: custom.spacing.sm),
-                AppSecondaryButton(text: '测试连接', onPressed: () {}),
                 const Spacer(),
-                AppSecondaryButton(text: '删除配置', onPressed: () {}),
+                if (provider.configured)
+                  AppSecondaryButton(text: '管理模型', onPressed: onManageModels),
+                if (provider.configured) SizedBox(width: custom.spacing.sm),
+                if (provider.configured)
+                  AppSecondaryButton(
+                    text: '删除配置',
+                    onPressed: () => _handleDelete(context, ref),
+                  ),
               ],
             ),
           ],
@@ -181,12 +210,60 @@ class ProviderConfigPage extends HookConsumerWidget {
     );
   }
 
-  /// Map provider name to the protocol used in config.json.
-  ///
-  /// - Anthropic → "anthropic"
-  /// - Everything else → "openai_compatible"
-  String _protocolFor(String name) {
-    if (name == 'Anthropic') return 'anthropic';
-    return 'openai_compatible';
+  Future<void> _handleDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await AppDialog.show(
+      context: context,
+      title: '确认删除',
+      okText: '删除',
+      child: AppText('确定要删除 ${provider.label} 的配置吗？\n\n此操作不可撤销。'),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final store = ref.read(configFileStoreProvider);
+      final data = store.readAll();
+
+      // Remove the provider's config section if it exists
+      final protocol = _protocolFor(provider.name);
+      final models = data['language_models'] as Map<String, dynamic>?;
+      if (models != null) {
+        final protocolConfig = models[protocol] as Map<String, dynamic>?;
+        if (protocolConfig != null) {
+          protocolConfig.remove(provider.name);
+          if (protocolConfig.isEmpty) {
+            models.remove(protocol);
+          }
+        }
+        if (models.isEmpty) {
+          data.remove('language_models');
+        }
+      }
+
+      await store.writeAll(data);
+      ref.invalidate(providersListProvider);
+      debugPrint('Deleted provider config: $protocol.${provider.name}');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('配置已删除')));
+        onBack();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+      }
+    }
   }
+}
+
+/// Map provider name to the protocol used in config.json.
+///
+/// - Anthropic → "anthropic"
+/// - Everything else → "openai_compatible"
+String _protocolFor(String name) {
+  if (name == 'Anthropic') return 'anthropic';
+  return 'openai_compatible';
 }

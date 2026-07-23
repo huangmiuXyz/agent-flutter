@@ -72,10 +72,9 @@ class AppBigRow extends HookWidget {
   /// Called when the row is tapped.
   final VoidCallback? onTap;
 
-  /// Optional action buttons shown on the trailing side on hover.
+  /// Optional action buttons shown on the trailing side.
   ///
-  /// Matches Electron's `#actions` slot behaviour — buttons are dimmed
-  /// initially and become fully visible on row hover.
+  /// Always visible, unlike [AppListItem.hoverActions].
   final List<Widget>? actions;
 
   /// Whether the description text uses a monospace font.
@@ -134,10 +133,10 @@ class AppBigRow extends HookWidget {
             onHover: (hovered, _) => isHovered.value = hovered,
             // Leading icon/avatar
             labelWidget: _buildLeadingAndText(custom, isHovered),
-            // Hover actions
-            hoverActions: actions?.map((action) {
-              return action;
-            }).toList(),
+            // Trailing actions (always visible)
+            trailingWidget: actions != null
+                ? Row(mainAxisSize: MainAxisSize.min, children: actions!)
+                : null,
           ),
           // ---- Full-width bottom separator (matches Electron's ::after) ----
           Container(height: 1, color: custom.colors.separator),

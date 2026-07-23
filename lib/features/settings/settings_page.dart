@@ -48,57 +48,64 @@ class SettingsPage extends HookWidget {
         }
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── Left sidebar ──
-        SizedBox(
-          width: 200,
-          child: Container(
-            color: custom.colors.panel,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    custom.spacing.sm,
-                    custom.spacing.md,
-                    custom.spacing.sm,
-                    custom.spacing.sm,
+    return Scaffold(
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Left sidebar ──
+          SizedBox(
+            width: 200,
+            child: Container(
+              color: custom.colors.panel,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      custom.spacing.sm,
+                      custom.spacing.md,
+                      custom.spacing.sm,
+                      custom.spacing.sm,
+                    ),
+                    child: AppText(
+                      'Settings',
+                      variant: AppTextVariant.subtitle,
+                    ),
                   ),
-                  child: AppText('Settings', variant: AppTextVariant.subtitle),
-                ),
-                SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: custom.spacing.xs),
-                  child: AppList(
-                    size: AppListSize.small,
-                    children: [
-                      for (final item in _sidebarsItems)
-                        AppListItem(
-                          icon: item.icon,
-                          label: item.name,
-                          active: activeTab.value == item.tab,
-                          onTap: () {
-                            activeTab.value = item.tab;
-                            selectedProvider.value = null;
-                          },
-                        ),
-                    ],
+                  SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: custom.spacing.xs,
+                    ),
+                    child: AppList(
+                      size: AppListSize.small,
+                      children: [
+                        for (final item in _sidebarsItems)
+                          AppListItem(
+                            icon: item.icon,
+                            label: item.name,
+                            active: activeTab.value == item.tab,
+                            onTap: () {
+                              activeTab.value = item.tab;
+                              selectedProvider.value = null;
+                            },
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
 
-        // ── Sidebar divider ──
-        Container(width: 1, color: custom.colors.separator),
+          // ── Sidebar divider ──
+          Container(width: 1, color: custom.colors.separator),
 
-        // ── Right content ──
-        Expanded(
-          child: Material(color: Colors.transparent, child: content),
-        ),
-      ],
+          // ── Right content ──
+          Expanded(
+            child: Material(color: Colors.transparent, child: content),
+          ),
+        ],
+      ),
     );
   }
 }
