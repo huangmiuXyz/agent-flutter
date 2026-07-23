@@ -27,6 +27,7 @@ import 'package:agent/dev/fleather_demo.dart';
 import 'package:agent/dev/signals_demo.dart';
 import 'package:agent/features/chat/chat_page.dart';
 import 'package:agent/dev/reactive_demo.dart';
+import 'package:agent/dev/big_list_demo.dart';
 
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
@@ -36,7 +37,7 @@ class DemoPage extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = useState(0);
+    final selectedIndex = useState(15);
     final config = ref.watch(themeProvider);
     final custom = CustomTheme.of(context);
     final showEditor = useState(false);
@@ -65,106 +66,112 @@ class DemoPage extends HookConsumerWidget {
                   const SignalsDemo(),
                   const ChatDemo(),
                   const ReactiveDemo(),
+                  const BigListDemo(),
                 ],
               ),
             ),
             child: Container(
-              decoration: BoxDecoration(
-                color: custom.colors.panel,
-              ),
+              decoration: BoxDecoration(color: custom.colors.panel),
               child: Column(
                 children: [
-                  AppList(
-                    width: double.infinity,
-                    children: [
-                      AppListItem(
-                        icon: 'square',
-                        label: 'Button',
-                        active: selectedIndex.value == 0,
-                        onTap: () => selectedIndex.value = 0,
-                      ),
-                      AppListItem(
-                        icon: 'terminal',
-                        label: 'Terminal',
-                        active: selectedIndex.value == 1,
-                        onTap: () => selectedIndex.value = 1,
-                      ),
-                      AppListItem(
-                        icon: 'activity',
-                        label: 'Performance',
-                        active: selectedIndex.value == 2,
-                        onTap: () => selectedIndex.value = 2,
-                      ),
-                      AppListItem(
-                        icon: 'terminalSquare',
-                        label: 'Context Menu',
-                        active: selectedIndex.value == 3,
-                        onTap: () => selectedIndex.value = 3,
-                      ),
-                      AppListItem(
-                        icon: 'layers',
-                        label: 'List',
-                        active: selectedIndex.value == 4,
-                        onTap: () => selectedIndex.value = 4,
-                      ),
-                      AppListItem(
-                        icon: 'arrowUpRight',
-                        label: 'Select',
-                        active: selectedIndex.value == 6,
-                        onTap: () => selectedIndex.value = 6,
-                      ),
-                      AppListItem(
-                        icon: 'move',
-                        label: 'ResizeBox',
-                        active: selectedIndex.value == 7,
-                        onTap: () => selectedIndex.value = 7,
-                      ),
-                      AppListItem(
-                        icon: 'fileCode',
-                        label: 'Markdown',
-                        active: selectedIndex.value == 8,
-                        onTap: () => selectedIndex.value = 8,
-                      ),
-                      AppListItem(
-                        icon: 'checkSquare2',
-                        label: 'Switch',
-                        active: selectedIndex.value == 9,
-                        onTap: () => selectedIndex.value = 9,
-                      ),
-                      AppListItem(
-                        icon: 'x',
-                        label: 'Dialog',
-                        active: selectedIndex.value == 10,
-                        onTap: () => selectedIndex.value = 10,
-                      ),
-                      AppListItem(
-                        icon: 'atSign',
-                        label: 'Fleather',
-                        active: selectedIndex.value == 11,
-                        onTap: () => selectedIndex.value = 11,
-                      ),
-                      AppListItem(
-                        icon: 'terminalSquare',
-                        label: 'Chat',
-                        active: selectedIndex.value == 13,
-                        onTap: () => selectedIndex.value = 13,
-                      ),
-                      AppListItem(
-                        icon: 'activity',
-                        label: 'Signals',
-                        active: selectedIndex.value == 12,
-                        onTap: () => selectedIndex.value = 12,
-                      ),
-                      AppListItem(
-                        icon: 'checkSquare2',
-                        label: 'Reactive',
-                        active: selectedIndex.value == 14,
-                        onTap: () => selectedIndex.value = 14,
-                      ),
-                      _SidebarInlineField(selectedIndex: selectedIndex),
-                    ],
+                  Expanded(
+                    child: AppList(
+                      width: double.infinity,
+                      children: [
+                        AppListItem(
+                          icon: 'square',
+                          label: 'Button',
+                          active: selectedIndex.value == 0,
+                          onTap: () => selectedIndex.value = 0,
+                        ),
+                        AppListItem(
+                          icon: 'terminal',
+                          label: 'Terminal',
+                          active: selectedIndex.value == 1,
+                          onTap: () => selectedIndex.value = 1,
+                        ),
+                        AppListItem(
+                          icon: 'activity',
+                          label: 'Performance',
+                          active: selectedIndex.value == 2,
+                          onTap: () => selectedIndex.value = 2,
+                        ),
+                        AppListItem(
+                          icon: 'terminalSquare',
+                          label: 'Context Menu',
+                          active: selectedIndex.value == 3,
+                          onTap: () => selectedIndex.value = 3,
+                        ),
+                        AppListItem(
+                          icon: 'layers',
+                          label: 'List',
+                          active: selectedIndex.value == 4,
+                          onTap: () => selectedIndex.value = 4,
+                        ),
+                        AppListItem(
+                          icon: 'arrowUpRight',
+                          label: 'Select',
+                          active: selectedIndex.value == 6,
+                          onTap: () => selectedIndex.value = 6,
+                        ),
+                        AppListItem(
+                          icon: 'move',
+                          label: 'ResizeBox',
+                          active: selectedIndex.value == 7,
+                          onTap: () => selectedIndex.value = 7,
+                        ),
+                        AppListItem(
+                          icon: 'fileCode',
+                          label: 'Markdown',
+                          active: selectedIndex.value == 8,
+                          onTap: () => selectedIndex.value = 8,
+                        ),
+                        AppListItem(
+                          icon: 'checkSquare2',
+                          label: 'Switch',
+                          active: selectedIndex.value == 9,
+                          onTap: () => selectedIndex.value = 9,
+                        ),
+                        AppListItem(
+                          icon: 'x',
+                          label: 'Dialog',
+                          active: selectedIndex.value == 10,
+                          onTap: () => selectedIndex.value = 10,
+                        ),
+                        AppListItem(
+                          icon: 'atSign',
+                          label: 'Fleather',
+                          active: selectedIndex.value == 11,
+                          onTap: () => selectedIndex.value = 11,
+                        ),
+                        AppListItem(
+                          icon: 'terminalSquare',
+                          label: 'Chat',
+                          active: selectedIndex.value == 13,
+                          onTap: () => selectedIndex.value = 13,
+                        ),
+                        AppListItem(
+                          icon: 'activity',
+                          label: 'Signals',
+                          active: selectedIndex.value == 12,
+                          onTap: () => selectedIndex.value = 12,
+                        ),
+                        AppListItem(
+                          icon: 'checkSquare2',
+                          label: 'Reactive',
+                          active: selectedIndex.value == 14,
+                          onTap: () => selectedIndex.value = 14,
+                        ),
+                        AppListItem(
+                          icon: 'layers',
+                          label: 'BigList',
+                          active: selectedIndex.value == 15,
+                          onTap: () => selectedIndex.value = 15,
+                        ),
+                        _SidebarInlineField(selectedIndex: selectedIndex),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                     child: Row(

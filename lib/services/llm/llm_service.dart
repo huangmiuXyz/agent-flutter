@@ -9,8 +9,6 @@
 /// - [SessionApi] — 会话 CRUD、数据读取、实时订阅
 library;
 
-import 'package:agent/rust_bridge/frb_generated.dart' as frb;
-
 import 'llm_chat_api.dart';
 import 'llm_provider_api.dart';
 import 'llm_session_api.dart';
@@ -22,7 +20,7 @@ class LlmService with ProviderModelApi, ChatApi, SessionApi {
   /// 初始化 Rust 引擎（FRB 运行时）
   Future<void> init() async {
     if (_initialized) return;
-    await frb.RustLib.init();
+    // Rust bridge 已在 main.dart 中初始化
     _initialized = true;
   }
 

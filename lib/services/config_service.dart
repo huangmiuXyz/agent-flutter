@@ -43,7 +43,7 @@ class ConfigPath extends _$ConfigPath {
     if (runtimeEnv != null && runtimeEnv.isNotEmpty) return runtimeEnv;
 
     if (_inProjectDir()) {
-      return './config.json';
+      return '../agent-flutter-cli/config.json';
     }
 
     return appDataDir(['agent', 'config.json']);
@@ -162,10 +162,9 @@ class DefaultModel extends _$DefaultModel {
   void setDefault(String provider, String model) {
     state = {'provider': provider, 'model': model};
     final store = ref.read(configFileStoreProvider);
-    unawaited(store.writePath(
-      'default_model',
-      {'provider': provider, 'model': model},
-    ));
+    unawaited(
+      store.writePath('default_model', {'provider': provider, 'model': model}),
+    );
   }
 }
 

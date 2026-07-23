@@ -74,12 +74,9 @@ class AppSelect<T> extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
     final isOpen = useState(false);
     final fieldKey = useMemoized(() => GlobalKey());
     final layerLink = useMemoized(() => LayerLink());
-    // Capture field width in gesture phase (post-layout) so it's safe to
-    // read during the OverlayEntry builder call.
     final fieldWidth = useRef<double?>(null);
 
     final enabled = !disabled && onChanged != null;
@@ -91,6 +88,9 @@ class AppSelect<T> extends HookWidget {
       return idx >= 0 ? options[idx].label : null;
     }, [value, options]);
 
+    final custom = CustomTheme.of(context);
+    final screenHeight = MediaQuery.of(context).size.height;
+
     // Open/close dropdown via OverlayEntry with a transparent barrier.
     useEffect(() {
       if (!isOpen.value) return null;
@@ -98,15 +98,16 @@ class AppSelect<T> extends HookWidget {
       final dropdownWidth = fieldWidth.value;
 
       // Determine dropdown direction: prefer down if enough space, else up.
-      final fieldBox = fieldKey.currentContext?.findRenderObject() as RenderBox?;
+      final fieldBox =
+          fieldKey.currentContext?.findRenderObject() as RenderBox?;
       final fieldPos = fieldBox?.localToGlobal(Offset.zero);
-      final screenHeight = MediaQuery.of(context).size.height;
       final fieldBottom = (fieldPos?.dy ?? 0) + (fieldBox?.size.height ?? 0);
       final spaceBelow = screenHeight - fieldBottom;
-      // Rough estimate: menu height ≈ min(options count * item height, menuMaxHeight)
       final estimatedMenuHeight =
-          (options.length * custom.controls.mediumHeight)
-              .clamp(0, menuMaxHeight);
+          (options.length * custom.controls.mediumHeight).clamp(
+            0,
+            menuMaxHeight,
+          );
       final showAbove = spaceBelow < estimatedMenuHeight;
 
       late OverlayEntry entry;
@@ -124,11 +125,16 @@ class AppSelect<T> extends HookWidget {
             CompositedTransformFollower(
               link: layerLink,
               showWhenUnlinked: false,
-              offset: Offset(0, showAbove ? -custom.spacing.xs : custom.spacing.xs),
-              targetAnchor:
-                  showAbove ? Alignment.topLeft : Alignment.bottomLeft,
-              followerAnchor:
-                  showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+              offset: Offset(
+                0,
+                showAbove ? -custom.spacing.xs : custom.spacing.xs,
+              ),
+              targetAnchor: showAbove
+                  ? Alignment.topLeft
+                  : Alignment.bottomLeft,
+              followerAnchor: showAbove
+                  ? Alignment.bottomLeft
+                  : Alignment.topLeft,
               child: Material(
                 color: Colors.transparent,
                 child: SizedBox(

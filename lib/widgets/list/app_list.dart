@@ -64,9 +64,7 @@ List<_NavEntry> _collectNavEntries(List<Widget> children) {
       for (int j = 0; j < child.children.length; j++) {
         final gc = child.children[j];
         if (gc is AppListItem && gc.onTap != null && !gc.disabled) {
-          result.add(
-            _NavEntry(i, j, gc.onTap),
-          );
+          result.add(_NavEntry(i, j, gc.onTap));
         }
       }
     }
@@ -141,7 +139,7 @@ class AppList extends HookWidget {
   ///
   /// Signature: `(BuildContext context, int index, bool isFocused)`.
   final Widget Function(BuildContext context, int index, bool isFocused)?
-      itemBuilder;
+  itemBuilder;
 
   /// Visual density. Defaults to [AppListSize.normal].
   final AppListSize size;
@@ -177,8 +175,27 @@ class AppList extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
     final useBuilder = itemBuilder != null;
+
+    // ── Keyboard navigation state ────────────────────────────────────
+    final itemCount_ = useBuilder ? itemCount! : (children?.length ?? 0);
+    final navEntries = useMemoized(() {
+      if (useBuilder) {
+        return List.generate(itemCount!, (i) => _NavEntry(i, null, null));
+      }
+      return _collectNavEntries(children!);
+    }, useBuilder ? [itemCount] : [children]);
+    final navEntriesRef = useRef(navEntries);
+    navEntriesRef.value = navEntries;
+
+    final scrollController = useMemoized(() => ScrollController());
+
+    final focusNode = useFocusNode();
+    final focusedIdx = useState<int>(keyboardNavigable ? 0 : -1);
+    final focusKeyRef = useRef<GlobalKey?>(null);
+    final focusKeysRef = useRef(<int, GlobalKey>{});
+
+    final custom = CustomTheme.of(context);
 
     final effectivePadding =
         containerPadding ??
@@ -187,33 +204,8 @@ class AppList extends HookWidget {
             : EdgeInsets.all(custom.spacing.sm));
     final effectiveGap = itemGap ?? custom.spacing.xs;
 
-
-    // ── Keyboard navigation state ────────────────────────────────────
-    final itemCount_ = useBuilder ? itemCount! : (children?.length ?? 0);
-    final navEntries = useMemoized(() {
-      if (useBuilder) {
-        // In builder mode, create synthetic entries for all items.
-        return List.generate(
-          itemCount!,
-          (i) => _NavEntry(i, null, null),
-        );
-      }
-      return _collectNavEntries(children!);
-    }, useBuilder ? [itemCount] : [children]);
-    final navEntriesRef = useRef(navEntries);
-    navEntriesRef.value = navEntries;
-
-    // Scroll controller for builder mode.
-    final scrollController = useMemoized(() => ScrollController());
-
-    final focusNode = useFocusNode();
-    final focusedIdx = useState<int>(keyboardNavigable ? 0 : -1);
-    final focusKeyRef = useRef<GlobalKey?>(null);
-    final focusKeysRef = useRef(<int, GlobalKey>{});
-
     void scrollFocusedIntoView() {
       if (useBuilder) {
-        // Builder mode: scroll via ScrollController.
         final idx = focusedIdx.value;
         if (idx < 0) return;
         final offset = idx * (custom.controls.mediumHeight + effectiveGap);
@@ -225,7 +217,6 @@ class AppList extends HookWidget {
         return;
       }
 
-      // Column mode: use GlobalKey + ensureVisible.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = focusKeyRef.value?.currentContext;
         if (ctx == null) return;
@@ -280,7 +271,8 @@ class AppList extends HookWidget {
     Widget buildChild(int childIndex, Widget child, {bool isFocused = false}) {
       if (!useBuilder) {
         final ff = focusedIdx.value;
-        isFocused = ff >= 0 &&
+        isFocused =
+            ff >= 0 &&
             ff < navEntries.length &&
             navEntries[ff].childIndex == childIndex;
       }
@@ -323,7 +315,10 @@ class AppList extends HookWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (int i = 0; i < children!.length; i++) ...[if (i > 0) SizedBox(height: effectiveGap), buildChild(i, children![i])],
+          for (int i = 0; i < children!.length; i++) ...[
+            if (i > 0) SizedBox(height: effectiveGap),
+            buildChild(i, children![i]),
+          ],
         ],
       );
     }
@@ -529,15 +524,15 @@ class AppListItem extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isHovered = useState(false);
+    final isPressed = useState(false);
+    final enabled = !disabled;
+    final renderBoxRef = useRef<RenderBox?>(null);
+
     final custom = CustomTheme.of(context);
     final effectiveSize =
         size ?? _AppListInheritedSize.maybeOf(context) ?? AppListSize.normal;
     final isSmall = effectiveSize == AppListSize.small;
-    final isHovered = useState(false);
-    final isPressed = useState(false);
-    final enabled = !disabled;
-    // Lazily cache the RenderBox so hover callbacks avoid per-event tree traversal.
-    final renderBoxRef = useRef<RenderBox?>(null);
 
     final padding =
         itemPadding ??

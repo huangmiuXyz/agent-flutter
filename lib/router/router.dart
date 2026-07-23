@@ -3,12 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:agent/features/chat/chat_page.dart';
 import 'package:agent/features/settings/settings_page.dart';
+import 'package:agent/dev/demo_page.dart';
 import 'package:agent/layout/main_layout.dart';
 
 /// The route paths used throughout the app.
 abstract class AppRoutes {
   static const chat = '/';
   static const settings = '/settings';
+  static const demo = '/demo';
 }
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
@@ -34,6 +36,12 @@ final GoRouter appRouter = GoRouter(
           path: AppRoutes.settings,
           builder: (BuildContext context, GoRouterState state) {
             return const SettingsPage();
+          },
+        ),
+        GoRoute(
+          path: AppRoutes.demo,
+          builder: (BuildContext context, GoRouterState state) {
+            return const DemoPage();
           },
         ),
       ],
