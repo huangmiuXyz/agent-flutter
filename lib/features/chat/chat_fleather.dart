@@ -1,5 +1,6 @@
 import 'package:fleather/fleather.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -40,10 +41,13 @@ class _NoBounceScrollPhysics extends ScrollPhysics {
 }
 
 class ChatFleather extends StatefulWidget {
-  const ChatFleather({super.key, this.controller});
+  const ChatFleather({super.key, this.controller, this.onSubmit});
 
   /// 外部传入的 controller，为空则内部自动创建
   final FleatherController? controller;
+
+  /// 按下 Enter 时回调（不含 Shift 修饰键）
+  final VoidCallback? onSubmit;
 
   @override
   State<ChatFleather> createState() => _ChatFleatherState();
@@ -101,11 +105,25 @@ class _ChatFleatherState extends State<ChatFleather> {
                     overscroll: false,
                     physics: const _NoBounceScrollPhysics(),
                   ),
-                  child: FleatherEditor(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    expands: true,
-                    scrollPhysics: const _NoBounceScrollPhysics(),
+                  child: Shortcuts(
+                    shortcuts: {
+                      // Enter without modifiers → send; Shift+Enter passes through
+                      SingleActivator(LogicalKeyboardKey.enter):
+                          const _SubmitIntent(),
+                    },
+                    child: Actions(
+                      actions: {
+                        _SubmitIntent: _SubmitAction(
+                          onSubmit: widget.onSubmit,
+                        ),
+                      },
+                      child: FleatherEditor(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        expands: true,
+                        scrollPhysics: const _NoBounceScrollPhysics(),
+                      ),
+                    ),
                   ),
                 ),
                 // Placeholder shown when content is empty
@@ -128,5 +146,22 @@ class _ChatFleatherState extends State<ChatFleather> {
         ),
       ),
     );
+  }
+}
+
+/// Intent signalled when the user presses Enter (without modifiers) to submit.
+class _SubmitIntent extends Intent {
+  const _SubmitIntent();
+}
+
+/// Action that invokes the [onSubmit] callback.
+class _SubmitAction extends Action<_SubmitIntent> {
+  _SubmitAction({this.onSubmit});
+
+  final VoidCallback? onSubmit;
+
+  @override
+  void invoke(_SubmitIntent intent) {
+    onSubmit?.call();
   }
 }

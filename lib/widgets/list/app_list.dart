@@ -48,11 +48,7 @@ class _NavEntry {
   /// The tap callback.
   final VoidCallback? onTap;
 
-  const _NavEntry({
-    required this.childIndex,
-    this.groupChildIndex,
-    required this.onTap,
-  });
+  const _NavEntry(this.childIndex, this.groupChildIndex, this.onTap);
 }
 
 /// Builds a flat list of navigable entries from [AppList] children.
@@ -63,13 +59,13 @@ List<_NavEntry> _collectNavEntries(List<Widget> children) {
   for (int i = 0; i < children.length; i++) {
     final child = children[i];
     if (child is AppListItem && child.onTap != null && !child.disabled) {
-      result.add(_NavEntry(childIndex: i, onTap: child.onTap));
+      result.add(_NavEntry(i, null, child.onTap));
     } else if (child is AppListGroup) {
       for (int j = 0; j < child.children.length; j++) {
         final gc = child.children[j];
         if (gc is AppListItem && gc.onTap != null && !gc.disabled) {
           result.add(
-            _NavEntry(childIndex: i, groupChildIndex: j, onTap: gc.onTap),
+            _NavEntry(i, j, gc.onTap),
           );
         }
       }
@@ -131,14 +127,26 @@ class AppList extends HookWidget {
   final double? itemGap;
   final BorderRadiusGeometry? containerRadius;
   final Color? containerColor;
-  final List<Widget> children;
+
+  /// Static children (rendered in a [Column]).
+  ///
+  /// Use [itemCount] + [itemBuilder] instead for virtual scrolling with large
+  /// lists.
+  final List<Widget>? children;
+
+  /// Number of items when using [itemBuilder] (virtual scrolling mode).
+  final int? itemCount;
+
+  /// Builder called for each visible item in virtual scrolling mode.
+  ///
+  /// Signature: `(BuildContext context, int index, bool isFocused)`.
+  final Widget Function(BuildContext context, int index, bool isFocused)?
+      itemBuilder;
 
   /// Visual density. Defaults to [AppListSize.normal].
   final AppListSize size;
 
   /// Whether to enable keyboard navigation (↑↓ to move, Enter to confirm).
-  ///
-  /// When enabled, the widget captures focus and responds to keyboard events.
   final bool keyboardNavigable;
 
   /// When [keyboardNavigable] is true, whether to request focus automatically
@@ -152,15 +160,25 @@ class AppList extends HookWidget {
     this.itemGap,
     this.containerRadius,
     this.containerColor,
+    this.children,
+    this.itemCount,
+    this.itemBuilder,
     this.size = AppListSize.normal,
     this.keyboardNavigable = false,
     this.autoFocus = false,
-    required this.children,
-  });
+  }) : assert(
+         (children != null) ^ (itemBuilder != null),
+         'Provide either [children] or [itemBuilder]+[itemCount], not both.',
+       ),
+       assert(
+         itemBuilder == null || itemCount != null,
+         '[itemCount] is required when [itemBuilder] is provided.',
+       );
 
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    final useBuilder = itemBuilder != null;
 
     final effectivePadding =
         containerPadding ??
@@ -169,35 +187,51 @@ class AppList extends HookWidget {
             : EdgeInsets.all(custom.spacing.sm));
     final effectiveGap = itemGap ?? custom.spacing.xs;
 
-    // Build flat list of navigable items (memoized by children identity).
-    final navEntries = useMemoized(() => _collectNavEntries(children), [
-      children,
-    ]);
-    // Ref-based navEntries so HardwareKeyboard handler doesn't re-register on rebuild.
+
+    // ── Keyboard navigation state ────────────────────────────────────
+    final itemCount_ = useBuilder ? itemCount! : (children?.length ?? 0);
+    final navEntries = useMemoized(() {
+      if (useBuilder) {
+        // In builder mode, create synthetic entries for all items.
+        return List.generate(
+          itemCount!,
+          (i) => _NavEntry(i, null, null),
+        );
+      }
+      return _collectNavEntries(children!);
+    }, useBuilder ? [itemCount] : [children]);
     final navEntriesRef = useRef(navEntries);
     navEntriesRef.value = navEntries;
 
-    // Keyboard navigation state.
-    // Start at 0 when nav is enabled so the first item is focused by default;
-    // start at -1 when disabled so nothing appears visually highlighted.
+    // Scroll controller for builder mode.
+    final scrollController = useMemoized(() => ScrollController());
+
     final focusNode = useFocusNode();
     final focusedIdx = useState<int>(keyboardNavigable ? 0 : -1);
-
-    // GlobalKey for the currently focused child, used to scroll it into view.
     final focusKeyRef = useRef<GlobalKey?>(null);
-
-    // Stable per-child GlobalKeys so widgets aren't recreated on every focus change.
     final focusKeysRef = useRef(<int, GlobalKey>{});
 
-    // Helper to scroll the focused item into view only if it's not fully visible.
     void scrollFocusedIntoView() {
+      if (useBuilder) {
+        // Builder mode: scroll via ScrollController.
+        final idx = focusedIdx.value;
+        if (idx < 0) return;
+        final offset = idx * (custom.controls.mediumHeight + effectiveGap);
+        scrollController.animateTo(
+          offset,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeInOut,
+        );
+        return;
+      }
+
+      // Column mode: use GlobalKey + ensureVisible.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = focusKeyRef.value?.currentContext;
         if (ctx == null) return;
         final renderBox = ctx.findRenderObject() as RenderBox?;
         if (renderBox == null || !renderBox.hasSize) return;
 
-        // Check if the item is already fully visible inside the scrollable.
         final scrollableState = Scrollable.of(ctx);
         final scrollRenderBox =
             scrollableState.context.findRenderObject() as RenderBox?;
@@ -209,15 +243,14 @@ class AppList extends HookWidget {
         final viewportHeight = scrollableState.position.viewportDimension;
         if (itemOffset.dy >= 0 &&
             itemOffset.dy + renderBox.size.height <= viewportHeight) {
-          return; // already fully visible
+          return;
         }
 
         Scrollable.ensureVisible(ctx, alignment: 1.0);
       });
     }
 
-    // ── Passive keyboard listener (no focus steal) ────────────────────
-    // Used when keyboard navigable but NOT auto-focused (e.g. @mention menu).
+    // ── Passive keyboard listener ──────────────────────────────────────
     useEffect(() {
       if (!keyboardNavigable || autoFocus) return null;
 
@@ -234,9 +267,8 @@ class AppList extends HookWidget {
 
       HardwareKeyboard.instance.addHandler(handler);
       return () => HardwareKeyboard.instance.removeHandler(handler);
-    }, [keyboardNavigable, autoFocus]);
+    }, [keyboardNavigable, autoFocus, itemCount_]);
 
-    // Auto-focus when mounted (only for autoFocus mode).
     useEffect(() {
       if (autoFocus && keyboardNavigable && navEntries.isNotEmpty) {
         focusNode.requestFocus();
@@ -244,30 +276,19 @@ class AppList extends HookWidget {
       return null;
     }, [autoFocus, keyboardNavigable, navEntries.length]);
 
-    // ── Build the column content ──────────────────────────────────────
-    // Build a stable column. Each child is wrapped in a simple ColoredBox
-    // that always has the hover color.  Unfocused items set opacity to 0 so
-    // no decoration enters or leaves the render tree — only the alpha
-    // channel changes, which on Windows/DirectX avoids Skia paint-record
-    // recreation and the resulting frame-delay flash.
-    Widget buildChild(int childIndex, Widget child) {
-      final ff = focusedIdx.value;
-      final isFocused =
-          ff >= 0 &&
-          ff < navEntries.length &&
-          navEntries[ff].childIndex == childIndex;
-
-      final key = focusKeysRef.value.putIfAbsent(childIndex, () => GlobalKey());
-      if (isFocused) {
-        focusKeyRef.value = key;
+    // ── Build content ──────────────────────────────────────────────────
+    Widget buildChild(int childIndex, Widget child, {bool isFocused = false}) {
+      if (!useBuilder) {
+        final ff = focusedIdx.value;
+        isFocused = ff >= 0 &&
+            ff < navEntries.length &&
+            navEntries[ff].childIndex == childIndex;
       }
 
-      // Always wrap so the widget tree is perfectly stable.  When unfocused
-      // the ColoredBox is fully transparent but *present*, avoiding any
-      // decoration enter/exit artifacts.
+      final key = focusKeysRef.value.putIfAbsent(childIndex, () => GlobalKey());
+      if (isFocused) focusKeyRef.value = key;
+
       return Opacity(
-        // Opacity layer forces Flutter/Skia to keep the paint record alive
-        // across all frames — no optimization skip, no flash.
         opacity: 1.0,
         child: Container(
           key: key,
@@ -280,19 +301,34 @@ class AppList extends HookWidget {
       );
     }
 
-    Widget listBody = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (int i = 0; i < children.length; i++) ...[
-          if (i > 0) SizedBox(height: effectiveGap),
-          buildChild(i, children[i]),
-        ],
-      ],
-    );
+    // ── Content widget ─────────────────────────────────────────────────
+    Widget listBody;
 
-    // ── Wrap with Focus widget only when auto-focusing (steals focus) ──
-    // When !autoFocus, keyboard is handled by the HardwareKeyboard effect above.
+    if (useBuilder) {
+      // Virtual scrolling mode
+      listBody = ListView.builder(
+        controller: scrollController,
+        itemCount: itemCount!,
+        itemBuilder: (context, i) {
+          final child = itemBuilder!(context, i, focusedIdx.value == i);
+          return Padding(
+            padding: EdgeInsets.only(top: i > 0 ? effectiveGap : 0),
+            child: buildChild(i, child, isFocused: focusedIdx.value == i),
+          );
+        },
+      );
+    } else {
+      // Static Column mode
+      listBody = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (int i = 0; i < children!.length; i++) ...[if (i > 0) SizedBox(height: effectiveGap), buildChild(i, children![i])],
+        ],
+      );
+    }
+
+    // ── Focus wrapper ──────────────────────────────────────────────────
     if (keyboardNavigable && autoFocus) {
       listBody = Focus(
         focusNode: focusNode,

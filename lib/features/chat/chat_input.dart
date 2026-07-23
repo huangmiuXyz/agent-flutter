@@ -75,7 +75,7 @@ class ChatInput extends HookConsumerWidget {
         height: fullHeight ? null : physicalHeight,
         child: Column(
           children: [
-            Expanded(child: ChatFleather(controller: controller)),
+            Expanded(child: ChatFleather(controller: controller, onSubmit: send)),
             SizedBox(
               height: custom.spacing.lg,
               child: Row(

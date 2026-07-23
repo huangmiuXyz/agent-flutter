@@ -97,6 +97,18 @@ class AppSelect<T> extends HookWidget {
 
       final dropdownWidth = fieldWidth.value;
 
+      // Determine dropdown direction: prefer down if enough space, else up.
+      final fieldBox = fieldKey.currentContext?.findRenderObject() as RenderBox?;
+      final fieldPos = fieldBox?.localToGlobal(Offset.zero);
+      final screenHeight = MediaQuery.of(context).size.height;
+      final fieldBottom = (fieldPos?.dy ?? 0) + (fieldBox?.size.height ?? 0);
+      final spaceBelow = screenHeight - fieldBottom;
+      // Rough estimate: menu height ≈ min(options count * item height, menuMaxHeight)
+      final estimatedMenuHeight =
+          (options.length * custom.controls.mediumHeight)
+              .clamp(0, menuMaxHeight);
+      final showAbove = spaceBelow < estimatedMenuHeight;
+
       late OverlayEntry entry;
 
       entry = OverlayEntry(
@@ -112,9 +124,11 @@ class AppSelect<T> extends HookWidget {
             CompositedTransformFollower(
               link: layerLink,
               showWhenUnlinked: false,
-              offset: Offset(0, custom.spacing.xs),
-              targetAnchor: Alignment.bottomLeft,
-              followerAnchor: Alignment.topLeft,
+              offset: Offset(0, showAbove ? -custom.spacing.xs : custom.spacing.xs),
+              targetAnchor:
+                  showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+              followerAnchor:
+                  showAbove ? Alignment.bottomLeft : Alignment.topLeft,
               child: Material(
                 color: Colors.transparent,
                 child: SizedBox(

@@ -71,9 +71,6 @@ class DemoPage extends HookConsumerWidget {
             child: Container(
               decoration: BoxDecoration(
                 color: custom.colors.panel,
-                border: Border(
-                  right: BorderSide(color: custom.colors.selected),
-                ),
               ),
               child: Column(
                 children: [

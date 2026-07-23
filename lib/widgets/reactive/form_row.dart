@@ -42,7 +42,7 @@ class FormRow extends StatelessWidget {
               child: AppText(
                 label,
                 variant: AppTextVariant.body,
-                color: custom.colors.textSecondary,
+                color: custom.colors.textPrimary,
               ),
             ),
           ),

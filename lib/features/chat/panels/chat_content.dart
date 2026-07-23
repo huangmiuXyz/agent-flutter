@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -62,38 +63,71 @@ class _MessageList extends StatelessWidget {
 
         if (messageOrder.isEmpty) return const SizedBox.shrink();
 
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: _readingWidth(),
-            child: ListView.builder(
-              padding: EdgeInsets.only(bottom: custom.spacing.sm),
-              itemCount: messageOrder.length,
-              itemBuilder: (context, index) {
-                final msgId = messageOrder[index];
-                final parts = partsByMsg[msgId] ?? [];
-                final role = messageRoles[msgId] ?? '';
+        return HookBuilder(
+          builder: (context) {
+            final scrollController = useScrollController();
+            final userScrolledUp = useRef(false);
 
-                if (parts.isNotEmpty &&
-                    parts.every(
-                      (p) =>
-                          p.partType == 'tool_result' ||
-                          p.partType == 'tool_call_frag',
-                    )) {
-                  return const SizedBox.shrink();
+            // 检测手动滚动：只要不在确切底部就暂停自动滚动
+            useEffect(() {
+              void onScroll() {
+                if (!scrollController.hasClients) return;
+                userScrolledUp.value =
+                    scrollController.position.pixels <
+                    scrollController.position.maxScrollExtent;
+              }
+              scrollController.addListener(onScroll);
+              return () => scrollController.removeListener(onScroll);
+            }, [scrollController]);
+
+            // 内容更新后自动滚底（仅当用户未手动上滚时）
+            useEffect(() {
+              if (!scrollController.hasClients) return null;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (scrollController.hasClients && !userScrolledUp.value) {
+                  scrollController.jumpTo(
+                    scrollController.position.maxScrollExtent,
+                  );
                 }
+              });
+              return null;
+            });
 
-                return ChatMessageItem(
-                  key: ValueKey(msgId),
-                  sessionId: sessionId,
-                  msgId: msgId,
-                  role: role,
-                  parts: parts,
-                  toolCallResults: toolCallResults,
-                );
-              },
-            ),
-          ),
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: _readingWidth(),
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: EdgeInsets.only(bottom: custom.spacing.sm),
+                  itemCount: messageOrder.length,
+                  itemBuilder: (context, index) {
+                    final msgId = messageOrder[index];
+                    final parts = partsByMsg[msgId] ?? [];
+                    final role = messageRoles[msgId] ?? '';
+
+                    if (parts.isNotEmpty &&
+                        parts.every(
+                          (p) =>
+                              p.partType == 'tool_result' ||
+                              p.partType == 'tool_call_frag',
+                        )) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return ChatMessageItem(
+                      key: ValueKey(msgId),
+                      sessionId: sessionId,
+                      msgId: msgId,
+                      role: role,
+                      parts: parts,
+                      toolCallResults: toolCallResults,
+                    );
+                  },
+                ),
+              ),
+            );
+          },
         );
       },
     );
