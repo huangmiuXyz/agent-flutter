@@ -16,6 +16,45 @@ import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/widgets/loading/app_loading.dart';
 
+/// 保持底部用户在流式输出时始终在底部。
+/// 非 reverse 列表下，内容向下生长不影响离开底部的用户。
+class _KeepAtBottomPhysics extends ScrollPhysics {
+  /// onBeforeEmit 时保存的 maxScrollExtent
+  final double? savedMaxExtent;
+
+  const _KeepAtBottomPhysics({super.parent, this.savedMaxExtent});
+
+  @override
+  _KeepAtBottomPhysics applyTo(ScrollPhysics? ancestor) {
+    return _KeepAtBottomPhysics(
+      parent: buildParent(ancestor),
+      savedMaxExtent: savedMaxExtent,
+    );
+  }
+
+  @override
+  double adjustPositionForNewDimensions({
+    required ScrollMetrics oldPosition,
+    required ScrollMetrics newPosition,
+    required bool isScrolling,
+    required double velocity,
+  }) {
+    if (savedMaxExtent != null) {
+      final growth = newPosition.maxScrollExtent - savedMaxExtent!;
+      if (growth.abs() > 0.5) {
+        // 用户在底部 → 滚到新底部
+        return newPosition.maxScrollExtent;
+      }
+    }
+    return super.adjustPositionForNewDimensions(
+      oldPosition: oldPosition,
+      newPosition: newPosition,
+      isScrolling: isScrolling,
+      velocity: velocity,
+    );
+  }
+}
+
 /// 聊天内容区 — 消息列表（非 reverse ListView）+ 输入框
 class ChatContent extends StatelessWidget {
   const ChatContent({super.key});
@@ -79,14 +118,15 @@ class _MessageList extends StatelessWidget {
           builder: (context) {
             final scrollController = useScrollController();
             final focusedMsgId = useState<String?>(null);
-            final isNearBottom = useRef(true);
+            final savedMaxExtent = useRef<double?>(null);
 
-            // 监听滚动位置判断是否在底部
+            // 监听滚动位置，离开底部时清空 physics 保留位
             useEffect(() {
               void onScroll() {
                 if (!scrollController.hasClients) return;
-                isNearBottom.value =
-                    scrollController.position.extentAfter <= 100;
+                if (scrollController.position.extentAfter > 0) {
+                  savedMaxExtent.value = null;
+                }
               }
 
               scrollController.addListener(onScroll);
@@ -105,7 +145,7 @@ class _MessageList extends StatelessWidget {
               return null;
             }, [sessionId, messageOrder.length]);
 
-            // 流式输出时，在底部则自动跟随
+            // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
               final mgr = SessionManager.instance;
               mgr.onBeforeEmit = () {
@@ -113,15 +153,13 @@ class _MessageList extends StatelessWidget {
                 final streaming = mgr.streamingSessionIds.value.contains(
                   sessionId,
                 );
-                if (!streaming) return;
-
-                if (isNearBottom.value) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!scrollController.hasClients) return;
-                    scrollController.jumpTo(
-                      scrollController.position.maxScrollExtent,
-                    );
-                  });
+                if (!streaming) {
+                  savedMaxExtent.value = null;
+                  return;
+                }
+                if (scrollController.position.extentAfter <= 0) {
+                  savedMaxExtent.value =
+                      scrollController.position.maxScrollExtent;
                 }
               };
               return () {
@@ -129,82 +167,90 @@ class _MessageList extends StatelessWidget {
               };
             }, [sessionId, scrollController]);
 
-            return Align(
-              alignment: Alignment.topCenter,
-              child: SizedBox(
-                width: _readingWidth(),
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: EdgeInsets.only(top: custom.spacing.sm, bottom: 40),
-                  itemCount: messageOrder.length + (isStreaming ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    // 流式加载指示器在列表末尾
-                    if (isStreaming && index == messageOrder.length) {
-                      return Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          custom.spacing.md,
-                          custom.spacing.xs,
-                          custom.spacing.md,
-                          custom.spacing.sm,
-                        ),
-                        child: const AppLoading(),
-                      );
-                    }
-
-                    final msgId = messageOrder[index];
-                    final parts = partsByMsg[msgId] ?? [];
-                    final role = messageRoles[msgId] ?? '';
-
-                    // 纯工具类消息不占位
-                    if (parts.isNotEmpty &&
-                        parts.every(
-                          (p) =>
-                              p.partType == 'tool_result' ||
-                              p.partType == 'tool_call_frag',
-                        )) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final dimmed =
-                        focusedMsgId.value != null &&
-                        index > messageOrder.indexOf(focusedMsgId.value!);
-
-                    return ChatMessageItem(
-                      key: ValueKey(msgId),
-                      sessionId: sessionId,
-                      msgId: msgId,
-                      role: role,
-                      parts: parts,
-                      streaming: isStreaming,
-                      toolCallResults: toolCallResults,
-                      autoExpandLast: index == lastExpandableMsgIndex,
-                      modelName: isFirstInTurn[index] == true
-                          ? messageModels[msgId]
+            return Stack(
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: _readingWidth(),
+                    child: ListView.builder(
+                      controller: scrollController,
+                      physics: savedMaxExtent.value != null
+                          ? _KeepAtBottomPhysics(
+                              savedMaxExtent: savedMaxExtent.value,
+                            )
                           : null,
-                      dimmed: dimmed,
-                      onFocusChanged: (focused) {
-                        focusedMsgId.value = focused ? msgId : null;
-                      },
-                      onRetry: (msgId, newContent) {
-                        final f = ProviderScope.containerOf(context);
-                        final mgr = SessionManager.instance;
-                        final currentProvider = f.read(currentProviderProvider);
-                        final currentModel = f.read(currentModelProvider);
-                        mgr.retryMessage(
+                      padding: EdgeInsets.only(
+                        top: custom.spacing.sm,
+                        bottom: 40,
+                      ),
+                      itemCount: messageOrder.length,
+                      itemBuilder: (context, index) {
+                        final msgId = messageOrder[index];
+                        final parts = partsByMsg[msgId] ?? [];
+                        final role = messageRoles[msgId] ?? '';
+
+                        // 纯工具类消息不占位
+                        if (parts.isNotEmpty &&
+                            parts.every(
+                              (p) =>
+                                  p.partType == 'tool_result' ||
+                                  p.partType == 'tool_call_frag',
+                            )) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final dimmed =
+                            focusedMsgId.value != null &&
+                            index > messageOrder.indexOf(focusedMsgId.value!);
+
+                        return ChatMessageItem(
+                          key: ValueKey(msgId),
                           sessionId: sessionId,
                           msgId: msgId,
-                          newPrompt: newContent,
-                          provider: currentProvider,
-                          model: currentModel,
-                          service: f.read(llmServiceProvider),
-                          dbPath: f.read(dbPathProvider),
-                          configPath: f.read(configPathProvider),
+                          role: role,
+                          parts: parts,
+                          streaming: isStreaming,
+                          toolCallResults: toolCallResults,
+                          autoExpandLast: index == lastExpandableMsgIndex,
+                          modelName: isFirstInTurn[index] == true
+                              ? messageModels[msgId]
+                              : null,
+                          dimmed: dimmed,
+                          onFocusChanged: (focused) {
+                            focusedMsgId.value = focused ? msgId : null;
+                          },
+                          onRetry: (msgId, newContent) {
+                            final f = ProviderScope.containerOf(context);
+                            final mgr = SessionManager.instance;
+                            final currentProvider = f.read(
+                              currentProviderProvider,
+                            );
+                            final currentModel = f.read(currentModelProvider);
+                            mgr.retryMessage(
+                              sessionId: sessionId,
+                              msgId: msgId,
+                              newPrompt: newContent,
+                              provider: currentProvider,
+                              model: currentModel,
+                              service: f.read(llmServiceProvider),
+                              dbPath: f.read(dbPathProvider),
+                              configPath: f.read(configPathProvider),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
+                    ),
+                  ),
                 ),
-              ),
+                if (isStreaming)
+                  Positioned(
+                    bottom: 24,
+                    left: 0,
+                    right: 0,
+                    child: const Center(child: AppLoading()),
+                  ),
+              ],
             );
           },
         );
