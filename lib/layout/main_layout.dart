@@ -6,10 +6,28 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
-/// The hidden settings child-window controller, registered at startup.
+/// The hidden settings child-window controller, created on first use.
 WindowController? settingsWindow;
+
+/// Show or lazily create the settings child window.
+Future<void> showSettingsWindow() async {
+  try {
+    var w = settingsWindow;
+    if (w == null) {
+      w = await WindowController.create(
+        const WindowConfiguration(arguments: 'settings', hiddenAtLaunch: true),
+      );
+      settingsWindow = w;
+    }
+    await w.show();
+  } catch (e) {
+    debugPrint('Failed to show settings window: $e');
+  }
+}
 
 /// A title-bar button styled consistently with [WindowCaptionButton].
 class _CaptionIconButton extends StatefulWidget {
@@ -98,15 +116,35 @@ class MainLayout extends StatelessWidget {
       return Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kWindowCaptionHeight),
-          child: DragToMoveArea(
-            child: Container(
-              height: kWindowCaptionHeight,
-              decoration: BoxDecoration(
-                color: bgColor,
-                border: Border(
-                  bottom: BorderSide(color: custom.colors.selected),
-                ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: bgColor,
+              border: Border(
+                bottom: BorderSide(color: custom.colors.selected),
               ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Draggable area (leave space for traffic lights).
+                Expanded(
+                  child: DragToMoveArea(
+                    child: SizedBox(
+                      height: kWindowCaptionHeight,
+                    ),
+                  ),
+                ),
+                // Small settings gear icon on the far right.
+                Padding(
+                  padding: EdgeInsets.only(right: custom.spacing.md),
+                  child: AppIconButton(
+                  icon: 'settings',
+                  size: ButtonSize.sm,
+                  hoverStyle: false,
+                  onPressed: showSettingsWindow,
+                ),
+                ),
+              ],
             ),
           ),
         ),
@@ -146,15 +184,7 @@ class MainLayout extends StatelessWidget {
                 child: _CaptionIconButton(
                   brightness: brightness,
                   icon: const Icon(LucideIcons.settings, size: 12),
-                  onPressed: () async {
-                    try {
-                      final w = settingsWindow;
-                      if (w == null) return;
-                      await w.show();
-                    } catch (e) {
-                      debugPrint('Failed to show settings window: $e');
-                    }
-                  },
+                  onPressed: showSettingsWindow,
                 ),
               ),
               IntrinsicWidth(

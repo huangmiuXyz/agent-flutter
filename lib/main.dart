@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -10,28 +9,8 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'features/settings/settings_page.dart';
-import 'layout/main_layout.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
-import 'services/config_service.dart';
 import 'theme/app_theme.dart';
-import 'utils/platform_dirs.dart';
-
-/// Resolve config file path using the same logic as [ConfigPath] provider.
-String _resolveConfigPath() {
-  const compileEnv = String.fromEnvironment('CONFIG_PATH');
-  if (compileEnv.isNotEmpty) return compileEnv;
-
-  final runtimeEnv = Platform.environment['AGENT_CONFIG_PATH'];
-  if (runtimeEnv != null && runtimeEnv.isNotEmpty) return runtimeEnv;
-
-  if (File('./config.json').existsSync() ||
-      File('./pubspec.yaml').existsSync() ||
-      Directory('./data').existsSync()) {
-    return '../agent-flutter-cli/config.json';
-  }
-
-  return appDataDir(['agent', 'config.json']);
-}
 
 void main() async {
   // Silence Fleather's harmless assertion in childAtPosition when
@@ -52,9 +31,6 @@ void main() async {
       WidgetsFlutterBinding.ensureInitialized();
 
       await frb.RustLib.init();
-
-      // Resolve config path using the same logic as ConfigPath provider.
-      final configPath = _resolveConfigPath();
 
       // Check if this is a child window (e.g. settings child window).
       try {
@@ -79,20 +55,6 @@ void main() async {
       }
 
       await windowManager.ensureInitialized();
-
-      // Create the hidden settings child window and register it so the
-      // gear button can bring it to front later.
-      try {
-        final ctrl = await WindowController.create(
-          const WindowConfiguration(
-            arguments: 'settings',
-            hiddenAtLaunch: true,
-          ),
-        );
-        settingsWindow = ctrl;
-      } catch (e) {
-        debugPrint('Failed to create settings window: $e');
-      }
 
       const windowOptions = WindowOptions(
         size: Size(1200, 900),

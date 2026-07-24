@@ -48,7 +48,52 @@ class StreamEventProcessor {
       }
     } else if (event is api.StreamEvent_ToolCall) {
       handleToolCall(s, event.msgId, event.name, event.arguments, event.result);
+    } else if (event is api.StreamEvent_ReasoningChunk) {
+      if (s.isReasoningRedundant(event.partId, event.totalLen)) return;
+      s.trackReasoningLength(event.partId, event.totalLen);
+
+      if (event.content.isNotEmpty && event.partId.isNotEmpty) {
+        appendReasoningContent(s, event.partId, event.content,
+            msgId: event.msgId.isNotEmpty ? event.msgId : null);
+      }
     }
+  }
+
+  /// 在 partsByMsg 中找到 partId 对应的 reasoning part，追加内容。
+  /// 找不到时自动创建新消息。
+  static void appendReasoningContent(SessionState s, String partId, String text,
+      {String? msgId}) {
+    for (final parts in s.partsByMsg.values) {
+      for (int i = 0; i < parts.length; i++) {
+        if (parts[i].id == partId) {
+          final old = parts[i];
+          parts[i] = api.PartInfo(
+            id: old.id,
+            msgId: old.msgId,
+            seq: old.seq,
+            partType: old.partType,
+            content: old.content + text,
+          );
+          return;
+        }
+      }
+    }
+    // 找不到 part，创建新消息（或追加到同 msgId 的已有消息）
+    final newMsgId = msgId ?? '${partId}_msg';
+    if (!s.partsByMsg.containsKey(newMsgId)) {
+      s.messageOrder.add(newMsgId);
+      s.partsByMsg[newMsgId] = [];
+      s.messageRoles[newMsgId] = 'assistant';
+    }
+    s.partsByMsg[newMsgId]!.add(
+      api.PartInfo(
+        id: partId,
+        msgId: newMsgId,
+        seq: s.partsByMsg[newMsgId]!.length,
+        partType: 'reasoning',
+        content: text,
+      ),
+    );
   }
 
   /// 在 partsByMsg 中找到 partId 对应的 part，追加文本。
@@ -72,18 +117,22 @@ class StreamEventProcessor {
     }
     // 找不到 part（工具调用后 Rust 发了新的 stream，partId 是新的）
     // 创建新消息，优先使用 Rust 侧传过来的 msgId
+    // 注意：同 msgId 的消息可能已存在（如 reasoning part 先行创建），此处追加而非覆盖
     final newMsgId = msgId ?? '${partId}_msg';
-    s.messageOrder.add(newMsgId);
-    s.partsByMsg[newMsgId] = [
+    if (!s.partsByMsg.containsKey(newMsgId)) {
+      s.messageOrder.add(newMsgId);
+      s.partsByMsg[newMsgId] = [];
+      s.messageRoles[newMsgId] = 'assistant';
+    }
+    s.partsByMsg[newMsgId]!.add(
       api.PartInfo(
         id: partId,
         msgId: newMsgId,
-        seq: 0,
+        seq: s.partsByMsg[newMsgId]!.length,
         partType: 'text',
         content: text,
       ),
-    ];
-    s.messageRoles[newMsgId] = 'assistant';
+    );
   }
 
   /// 处理工具调用完成事件，将 tool_call part 添加到对应消息

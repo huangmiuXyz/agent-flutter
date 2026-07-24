@@ -9,6 +9,7 @@ import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 // -------------------- 数据模型 --------------------
 class MenuItem {
@@ -20,6 +21,7 @@ class MenuItem {
   final List<MenuItem>? submenu;
   final VoidCallback? onTap;
   final bool isSeparator;
+  final bool isHeader;
 
   /// Creates a regular menu item.
   const MenuItem({
@@ -30,7 +32,8 @@ class MenuItem {
     this.selected = false,
     this.submenu,
     this.onTap,
-  }) : isSeparator = false;
+  }) : isSeparator = false,
+       isHeader = false;
 
   /// Creates a menu separator (dividing line).
   const MenuItem.separator()
@@ -41,7 +44,20 @@ class MenuItem {
       selected = false,
       submenu = null,
       onTap = null,
-      isSeparator = true;
+      isSeparator = true,
+      isHeader = false;
+
+  /// Creates a group header item (non-selectable, bold label).
+  const MenuItem.header({
+    required this.label,
+    this.icon,
+  }) : shortcut = null,
+      enabled = false,
+      selected = false,
+      submenu = null,
+      onTap = null,
+      isSeparator = false,
+      isHeader = true;
 }
 
 // -------------------- 全局菜单管理 --------------------
@@ -55,6 +71,7 @@ class ContextMenu {
   static double? _lastMinWidth;
   static double? _lastMaxHeight;
   static bool _lastAutoFocus = true;
+  static LayerLink? _lastLink;
   static VoidCallback? _lastOnDismiss;
 
   static void dismiss() {
@@ -72,6 +89,7 @@ class ContextMenu {
     double? minWidth,
     double? maxHeight,
     bool autoFocus = true,
+    LayerLink? link,
     VoidCallback? onDismiss,
   }) {
     // Store latest params so the overlay builder picks them up.
@@ -80,6 +98,7 @@ class ContextMenu {
     _lastMinWidth = minWidth;
     _lastMaxHeight = maxHeight;
     _lastAutoFocus = autoFocus;
+    _lastLink = link;
     _lastOnDismiss = onDismiss;
 
     if (_overlayEntry != null) {
@@ -99,6 +118,7 @@ class ContextMenu {
         items: _lastItems!,
         minWidth: _lastMinWidth,
         maxHeight: _lastMaxHeight,
+        link: _lastLink,
         autoFocus: _lastAutoFocus,
         onDismiss: () {
           dismiss();
@@ -119,15 +139,21 @@ Offset _adjustMenuPosition({
   required double margin,
 }) {
   double dx = mouse.dx;
-  double dy = mouse.dy;
   if (mouse.dx + menuSize.width > screenSize.width - margin) {
-    dx = mouse.dx - menuSize.width;
+    dx = screenSize.width - margin - menuSize.width;
   }
   if (dx < margin) dx = margin;
-  if (mouse.dy + menuSize.height > screenSize.height - margin) {
-    dy = mouse.dy - menuSize.height;
+
+  // 优先向上弹出：菜单放在锚点上方
+  double dy = mouse.dy - menuSize.height - margin;
+  if (dy < margin) {
+    // 上方空间不够 → 放到下方
+    dy = mouse.dy + margin;
+    if (dy + menuSize.height > screenSize.height - margin) {
+      // 下方也不够 → 贴顶
+      dy = margin;
+    }
   }
-  if (dy < margin) dy = margin;
   return Offset(dx, dy);
 }
 
@@ -138,6 +164,7 @@ class _MenuOverlay extends HookWidget {
   final double? minWidth;
   final double? maxHeight;
   final bool autoFocus;
+  final LayerLink? link;
   final VoidCallback onDismiss;
   final void Function(bool)? onHoverChanged;
 
@@ -148,6 +175,7 @@ class _MenuOverlay extends HookWidget {
     this.minWidth,
     this.maxHeight,
     this.autoFocus = true,
+    this.link,
     this.onHoverChanged,
   });
 
@@ -160,6 +188,11 @@ class _MenuOverlay extends HookWidget {
 
     useEffect(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (link != null) {
+          // 有 LayerLink 时由 CompositedTransformFollower 自动跟踪位置
+          ready.value = true;
+          return;
+        }
         final renderBox =
             menuKey.value.currentContext?.findRenderObject() as RenderBox?;
         if (renderBox == null || !renderBox.hasSize) return;
@@ -177,6 +210,35 @@ class _MenuOverlay extends HookWidget {
       return null;
     }, []);
 
+    // 当有 LayerLink 时，根据锚点位置决定菜单向上还是向下展开
+    final bool showAbove;
+    if (link != null) {
+      final viewport = View.of(context);
+      final screenSize = viewport.physicalSize / viewport.devicePixelRatio;
+      showAbove = position.dy >= screenSize.height - position.dy;
+    } else {
+      showAbove = false;
+    }
+
+    final menuContent = Opacity(
+      opacity: ready.value ? 1.0 : 0.0,
+      child: Material(
+        type: MaterialType.transparency,
+        child: MouseRegion(
+          onEnter: (_) => onHoverChanged?.call(true),
+          onExit: (_) => onHoverChanged?.call(false),
+          child: _MenuPanel(
+            key: menuKey.value,
+            items: items,
+            minWidth: minWidth,
+            maxHeight: maxHeight,
+            autoFocus: autoFocus,
+            onDismiss: onDismiss,
+          ),
+        ),
+      ),
+    );
+
     return Stack(
       children: [
         // 全屏 dismiss 背景
@@ -187,28 +249,25 @@ class _MenuOverlay extends HookWidget {
             child: const SizedBox.expand(),
           ),
         ),
-        Positioned(
-          left: offset.value.dx,
-          top: offset.value.dy,
-          child: Opacity(
-            opacity: ready.value ? 1.0 : 0.0,
-            child: Material(
-              type: MaterialType.transparency,
-              child: MouseRegion(
-                onEnter: (_) => onHoverChanged?.call(true),
-                onExit: (_) => onHoverChanged?.call(false),
-                child: _MenuPanel(
-                  key: menuKey.value,
-                  items: items,
-                  minWidth: minWidth,
-                  maxHeight: maxHeight,
-                  autoFocus: autoFocus,
-                  onDismiss: onDismiss,
-                ),
-              ),
+        if (link != null)
+          CompositedTransformFollower(
+            link: link!,
+            targetAnchor:
+                showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor:
+                showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            offset: Offset(
+              0,
+              showAbove ? -custom.spacing.edgeMargin : custom.spacing.edgeMargin,
             ),
+            child: menuContent,
+          )
+        else
+          Positioned(
+            left: offset.value.dx,
+            top: offset.value.dy,
+            child: menuContent,
           ),
-        ),
       ],
     );
   }
@@ -260,6 +319,27 @@ class _MenuPanel extends HookWidget {
     );
 
     Widget buildSeparator() => AppDivider(size: AppDividerSize.small);
+
+    Widget buildHeader(MenuItem item) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(
+          custom.spacing.sm + 2,
+          custom.spacing.sm,
+          custom.spacing.sm,
+          custom.spacing.xs,
+        ),
+        child: AppText(
+          item.label,
+          variant: AppTextVariant.caption,
+          color: custom.colors.textSecondary,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 11,
+            letterSpacing: 0.3,
+          ),
+        ),
+      );
+    }
 
     Widget buildMenuItem(MenuItem item) {
       final hasSubmenu = item.submenu != null && item.submenu!.isNotEmpty;
@@ -362,7 +442,12 @@ class _MenuPanel extends HookWidget {
         autoFocus: autoFocus,
         children: [
           for (final item in items)
-            if (item.isSeparator) buildSeparator() else buildMenuItem(item),
+            if (item.isSeparator)
+              buildSeparator()
+            else if (item.isHeader)
+              buildHeader(item)
+            else
+              buildMenuItem(item),
         ],
       ),
     );

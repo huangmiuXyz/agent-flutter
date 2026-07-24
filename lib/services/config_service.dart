@@ -3,7 +3,6 @@
 /// 所有与 config.json 相关的逻辑集中在此文件。
 library;
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -93,11 +92,11 @@ class ConfigFileStore {
     }
   }
 
-  Future<void> writeAll(Map<String, dynamic> data) async {
+  void writeAll(Map<String, dynamic> data) {
     final file = File(configPath);
-    await file.parent.create(recursive: true);
+    file.parent.createSync(recursive: true);
     final content = const JsonEncoder.withIndent('  ').convert(data);
-    await file.writeAsString('$content\n');
+    file.writeAsStringSync('$content\n');
   }
 
   String? readPath(String path) {
@@ -114,7 +113,7 @@ class ConfigFileStore {
     return jsonEncode(current);
   }
 
-  Future<void> writePath(String path, dynamic value) async {
+  void writePath(String path, dynamic value) {
     final root = readAll();
     final parts = path.split('.');
     var current = root as dynamic;
@@ -125,7 +124,7 @@ class ConfigFileStore {
     if (current is Map) {
       current[parts.last] = value;
     }
-    await writeAll(root);
+    writeAll(root);
   }
 }
 
@@ -158,13 +157,11 @@ class DefaultModel extends _$DefaultModel {
     return null;
   }
 
-  /// 设置默认值：同步更新 state，异步写文件
+  /// 设置默认值：同步更新 state，同步写文件
   void setDefault(String provider, String model) {
     state = {'provider': provider, 'model': model};
     final store = ref.read(configFileStoreProvider);
-    unawaited(
-      store.writePath('default_model', {'provider': provider, 'model': model}),
-    );
+    store.writePath('default_model', {'provider': provider, 'model': model});
   }
 }
 

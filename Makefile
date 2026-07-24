@@ -21,7 +21,13 @@ ifneq ($(IS_WINDOWS),)
 else
 	cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
 endif
+ifeq ($(UNAME_S),Darwin)
+	flutter run -d macos
+else ifneq ($(IS_WINDOWS),)
+	flutter run -d windows
+else
 	flutter run
+endif
 
 # flutter_rust_bridge 代码生成（单独执行）
 codegen:

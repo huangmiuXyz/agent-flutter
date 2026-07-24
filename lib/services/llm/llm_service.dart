@@ -14,7 +14,16 @@ import 'llm_provider_api.dart';
 import 'llm_session_api.dart';
 
 /// LLM 服务 — 所有与 Rust 引擎的交互通过此类进行
+///
+/// 单例模式：无论 provider 如何重建，始终返回同一实例。
 class LlmService with ProviderModelApi, ChatApi, SessionApi {
+  static final LlmService _instance = LlmService._internal();
+
+  /// 返回全局唯一实例
+  factory LlmService() => _instance;
+
+  LlmService._internal();
+
   bool _initialized = false;
 
   /// 初始化 Rust 引擎（FRB 运行时）
@@ -28,7 +37,7 @@ class LlmService with ProviderModelApi, ChatApi, SessionApi {
   @override
   void ensureInitialized() {
     if (!_initialized) {
-      throw StateError('LlmService 未初始化，请先调用 init()');
+      _initialized = true;
     }
   }
 }

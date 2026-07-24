@@ -33,14 +33,12 @@ class SessionList extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 首次加载会话列表
+    // 加载会话列表
     useEffect(() {
-      ref.read(llmInitProvider.future).then((_) {
-        SessionManager.instance.loadSessions(
-          service: ref.read(llmServiceProvider),
-          dbPath: ref.read(dbPathProvider),
-        );
-      });
+      SessionManager.instance.loadSessions(
+        service: ref.read(llmServiceProvider),
+        dbPath: ref.read(dbPathProvider),
+      );
       return null;
     }, []);
 

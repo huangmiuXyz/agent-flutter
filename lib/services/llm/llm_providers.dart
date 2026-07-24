@@ -3,8 +3,6 @@
 /// 提供 `LlmService` 的全局单例以及与 UI 状态绑定的 providers。
 library;
 
-import 'dart:async';
-
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -48,7 +46,7 @@ class SelectedSession extends _$SelectedSession {
 class CurrentProvider extends _$CurrentProvider {
   @override
   String build() {
-    final config = ref.read(defaultModelProvider);
+    final config = ref.watch(defaultModelProvider);
     if (config != null) {
       return config['provider']!;
     }
@@ -63,7 +61,7 @@ class CurrentProvider extends _$CurrentProvider {
 class CurrentModel extends _$CurrentModel {
   @override
   String build() {
-    final config = ref.read(defaultModelProvider);
+    final config = ref.watch(defaultModelProvider);
     if (config != null) {
       return config['model']!;
     }

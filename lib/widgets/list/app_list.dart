@@ -119,6 +119,10 @@ bool _handleNavKey({
 // AppList
 // ---------------------------------------------------------------------------
 
+/// Raw data model for a single item inside [AppList.data].
+///
+/// The component automatically creates [AppListItem]s (and optionally
+/// wraps grouped items in [AppListGroup]) from these lightweight descriptors.
 class AppList extends HookWidget {
   final double? width;
   final EdgeInsetsGeometry? containerPadding;
@@ -128,8 +132,7 @@ class AppList extends HookWidget {
 
   /// Static children (rendered in a [Column]).
   ///
-  /// Use [itemCount] + [itemBuilder] instead for virtual scrolling with large
-  /// lists.
+  /// Use [data] instead for a data-driven approach.
   final List<Widget>? children;
 
   /// Number of items when using [itemBuilder] (virtual scrolling mode).
@@ -140,6 +143,18 @@ class AppList extends HookWidget {
   /// Signature: `(BuildContext context, int index, bool isFocused)`.
   final Widget Function(BuildContext context, int index, bool isFocused)?
   itemBuilder;
+
+  /// Data-driven mode — raw items from JSON.
+  ///
+  /// Each item is displayed as:
+  /// - `item['label'] ?? item['name'] ?? item.toString()` if it's a Map
+  /// - `item.toString()` otherwise
+  ///
+  /// When [data] is provided, [children] and [itemBuilder] are ignored.
+  final List<dynamic>? data;
+
+  /// Called when a data-driven item is tapped. Receives the raw item.
+  final ValueChanged<dynamic>? onItemTap;
 
   /// Visual density. Defaults to [AppListSize.normal].
   final AppListSize size;
@@ -161,30 +176,88 @@ class AppList extends HookWidget {
     this.children,
     this.itemCount,
     this.itemBuilder,
+    this.data,
+    this.onItemTap,
     this.size = AppListSize.normal,
     this.keyboardNavigable = false,
     this.autoFocus = false,
   }) : assert(
-         (children != null) ^ (itemBuilder != null),
-         'Provide either [children] or [itemBuilder]+[itemCount], not both.',
+         (children != null ? 1 : 0) +
+                 (itemBuilder != null ? 1 : 0) +
+                 (data != null ? 1 : 0) ==
+             1,
+         'Provide one of [children], [itemBuilder]+[itemCount], or [data].',
        ),
        assert(
          itemBuilder == null || itemCount != null,
          '[itemCount] is required when [itemBuilder] is provided.',
        );
 
+  /// Convert [data] into a widget list with [AppListItem]s and [AppListGroup]s.
+  List<Widget> _buildDataChildren() {
+    if (data == null) return const [];
+
+    // Collect items by group (null key = ungrouped)
+    final Map<String?, List<dynamic>> grouped = {};
+    for (final item in data!) {
+      final group = item is Map ? item['group'] as String? : null;
+      grouped.putIfAbsent(group, () => []).add(item);
+    }
+
+    final children = <Widget>[];
+
+    for (final entry in grouped.entries) {
+      final groupLabel = entry.key;
+      final items = entry.value;
+
+      if (groupLabel != null) {
+        children.add(AppListGroup(
+          title: groupLabel,
+          children: items.map((item) => _buildItemWidget(item)).toList(),
+        ));
+      } else {
+        for (final item in items) {
+          children.add(_buildItemWidget(item));
+        }
+      }
+    }
+
+    return children;
+  }
+
+  /// Build a single [AppListItem] from a raw data item.
+  Widget _buildItemWidget(dynamic item) {
+    final label = item is Map
+        ? (item['label'] as String? ?? item['name'] as String? ?? item.toString())
+        : item.toString();
+    final icon = item is Map ? item['icon'] as String? : null;
+    final disabled = item is Map ? (item['disabled'] as bool? ?? false) : false;
+    final selected = item is Map ? (item['selected'] as bool? ?? false) : false;
+
+    return AppListItem(
+      icon: icon,
+      label: label,
+      disabled: disabled,
+      active: selected,
+      onTap: onItemTap != null ? () => onItemTap!(item) : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Resolve effective children: data → children → empty
+    final effectiveChildren = data != null ? _buildDataChildren() : children ?? [];
+
     final useBuilder = itemBuilder != null;
 
     // ── Keyboard navigation state ────────────────────────────────────
-    final itemCount_ = useBuilder ? itemCount! : (children?.length ?? 0);
+    final itemCount_ = useBuilder ? itemCount! : effectiveChildren.length;
     final navEntries = useMemoized(() {
       if (useBuilder) {
         return List.generate(itemCount!, (i) => _NavEntry(i, null, null));
       }
-      return _collectNavEntries(children!);
-    }, useBuilder ? [itemCount] : [children]);
+      return _collectNavEntries(effectiveChildren);
+    }, useBuilder ? [itemCount] : [effectiveChildren]);
     final navEntriesRef = useRef(navEntries);
     navEntriesRef.value = navEntries;
 
@@ -315,9 +388,9 @@ class AppList extends HookWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (int i = 0; i < children!.length; i++) ...[
+          for (int i = 0; i < effectiveChildren.length; i++) ...[
             if (i > 0) SizedBox(height: effectiveGap),
-            buildChild(i, children![i]),
+            buildChild(i, effectiveChildren[i]),
           ],
         ],
       );
@@ -364,15 +437,11 @@ class AppList extends HookWidget {
 // AppListGroup
 // ---------------------------------------------------------------------------
 
-/// A section group for use inside [AppList].
+/// A group inside [AppList] with an optional title header.
 ///
-/// Renders an optional header (with [icon] and [title] text styled as a
-/// section label) followed by a vertical column of [children] (typically
-/// [AppListItem]s). Multiple [AppListGroup]s can be placed side-by-side
-/// inside an [AppList] to produce a grouped/sectioned sidebar.
-///
-/// When [size] is not specified, inherits from the nearest ancestor
-/// [AppList] or parent [AppListGroup].
+/// Typically used when the parent [AppList] is driven by [children].
+/// When driving [AppList] via [data], groups are created automatically
+/// via [AppListDataItem.group].
 class AppListGroup extends StatelessWidget {
   /// Optional icon name for the group header (resolved via [AppIcon]).
   final String? icon;
@@ -458,6 +527,7 @@ class AppListGroup extends StatelessWidget {
 // AppListItem
 // ---------------------------------------------------------------------------
 
+/// A single row inside [AppList] or [AppListGroup].
 class AppListItem extends HookWidget {
   final String? icon;
   final String label;
@@ -697,11 +767,11 @@ class AppListItem extends HookWidget {
   }
 }
 
-/// Internal header widget for [AppListGroup].
-///
-/// When [showDivider] is true, a 1px separator line is rendered at the top
-/// of the header's padding area, so the spacing above and below the title
-/// remains symmetric.
+// ---------------------------------------------------------------------------
+// _GroupHeader
+// ---------------------------------------------------------------------------
+
+/// Default group header used by [AppListGroup] when no custom [header] is given.
 class _GroupHeader extends StatelessWidget {
   final String? icon;
   final String title;
@@ -710,7 +780,7 @@ class _GroupHeader extends StatelessWidget {
   final CustomTheme custom;
 
   const _GroupHeader({
-    required this.icon,
+    this.icon,
     required this.title,
     required this.showDivider,
     required this.isSmall,
@@ -719,51 +789,41 @@ class _GroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vertical = isSmall ? custom.spacing.xs : custom.spacing.sm;
-
-    final titleRow = Row(
-      children: [
-        if (icon != null) ...[
-          AppIcon(
-            icon!,
-            size: custom.typography.captionSize,
-            color: custom.colors.textSecondary,
-          ),
-          SizedBox(width: custom.spacing.xs),
-        ],
-        Expanded(
-          child: AppText(
-            title,
-            variant: AppTextVariant.caption,
-            color: custom.colors.textSecondary,
-          ),
-        ),
-      ],
-    );
-
-    if (!showDivider) {
-      return Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: custom.spacing.sm,
-          vertical: vertical,
-        ),
-        child: titleRow,
-      );
-    }
+    final padding = isSmall
+        ? EdgeInsets.fromLTRB(custom.spacing.sm + 2, custom.spacing.xs, 0, 0)
+        : EdgeInsets.fromLTRB(0, custom.spacing.xs + 2, 0, custom.spacing.xs);
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Full-width divider
-        AppDivider(thickness: 1),
-        // Title with symmetric padding
-        Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: custom.spacing.sm,
-            vertical: vertical,
+        if (showDivider)
+          Padding(
+            padding: EdgeInsets.only(bottom: custom.spacing.xs),
+            child: AppDivider(size: AppDividerSize.small),
           ),
-          child: titleRow,
+        Padding(
+          padding: padding,
+          child: Row(
+            children: [
+              if (icon != null) ...[
+                AppIcon(
+                  icon!,
+                  size: custom.typography.captionSize,
+                  color: custom.colors.textSecondary,
+                ),
+                SizedBox(width: custom.spacing.sm),
+              ],
+              AppText(
+                title,
+                variant: AppTextVariant.caption,
+                color: custom.colors.textSecondary,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

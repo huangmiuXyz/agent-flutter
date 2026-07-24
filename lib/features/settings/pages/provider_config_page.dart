@@ -239,7 +239,7 @@ class _ConfigForm extends HookConsumerWidget {
         }
       }
 
-      await store.writeAll(data);
+      store.writeAll(data);
       ref.invalidate(providersListProvider);
       debugPrint('Deleted provider config: $protocol.${provider.name}');
 

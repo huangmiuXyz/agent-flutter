@@ -70,6 +70,9 @@ class SessionManager {
     ];
   }
 
+  /// 当前正在流式输出的会话 ID 集合
+  final streamingSessionIds = signal(<String>{});
+
   /// 快速访问当前会话的状态
   SessionState? stateFor(String? sessionId) =>
       sessionId != null ? sessions.value[sessionId] : null;
@@ -207,6 +210,9 @@ class SessionManager {
 
     _emit();
 
+    streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
+    _emit();
+
     try {
       final stream = service.chatStream(
         configPath: configPath,
@@ -227,9 +233,112 @@ class SessionManager {
           );
         }
         StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
+
+        // 流式创建的 assistant 消息，记录模型名
+        String? eMsgId;
+        if (event is api.StreamEvent_Text) {
+          eMsgId = event.msgId;
+        } else if (event is api.StreamEvent_ReasoningChunk) {
+          eMsgId = event.msgId;
+        }
+        if (eMsgId != null && eMsgId.isNotEmpty &&
+            !s.messageModels.containsKey(eMsgId)) {
+          final label = provider.isNotEmpty
+              ? '$provider / $model'
+              : model;
+          s.messageModels[eMsgId] = label;
+        }
+
         _emit();
       }
     } finally {
+      streamingSessionIds.value = {
+        for (final id in streamingSessionIds.value)
+          if (id != sessionId) id
+      };
+      _emit();
+    }
+  }
+
+  /// 重试（编辑）用户消息
+  ///
+  /// 更新指定用户消息的文本内容，通过 Rust 后端重试 API 重新请求 LLM。
+  Future<void> retryMessage({
+    required String sessionId,
+    required String msgId,
+    required String newPrompt,
+    required String provider,
+    required String model,
+    required LlmService service,
+    required String dbPath,
+    required String configPath,
+  }) async {
+    final s = _ensureState(sessionId);
+
+    // 1. 更新本地用户消息的文本内容
+    final parts = s.partsByMsg[msgId];
+    if (parts != null) {
+      for (int i = 0; i < parts.length; i++) {
+        if (parts[i].partType == 'text') {
+          parts[i] = api.PartInfo(
+            id: parts[i].id,
+            msgId: parts[i].msgId,
+            seq: parts[i].seq,
+            partType: parts[i].partType,
+            content: newPrompt,
+          );
+        }
+      }
+    }
+
+    _emit();
+
+    // 2. 通过 Rust 后端重试（替换 DB 中的消息内容 + 删除后续消息 + 重新请求 LLM）
+    streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
+    _emit();
+
+    try {
+      final stream = service.chatRetry(
+        configPath: configPath,
+        provider: provider,
+        model: model,
+        msgId: msgId,
+        chatText: newPrompt,
+        sessionId: sessionId,
+        dbPath: dbPath,
+      );
+
+      await for (final event in stream) {
+        if (event is api.StreamEvent_Error) {
+          StreamEventProcessor.appendPartContent(
+            s,
+            'err_${DateTime.now().millisecondsSinceEpoch}',
+            '[错误] ${event.field0}',
+          );
+        }
+        StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
+
+        String? eMsgId;
+        if (event is api.StreamEvent_Text) {
+          eMsgId = event.msgId;
+        } else if (event is api.StreamEvent_ReasoningChunk) {
+          eMsgId = event.msgId;
+        }
+        if (eMsgId != null && eMsgId.isNotEmpty &&
+            !s.messageModels.containsKey(eMsgId)) {
+          final label = provider.isNotEmpty
+              ? '$provider / $model'
+              : model;
+          s.messageModels[eMsgId] = label;
+        }
+
+        _emit();
+      }
+    } finally {
+      streamingSessionIds.value = {
+        for (final id in streamingSessionIds.value)
+          if (id != sessionId) id
+      };
       _emit();
     }
   }

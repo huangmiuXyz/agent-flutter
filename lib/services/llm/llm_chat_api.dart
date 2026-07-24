@@ -58,4 +58,30 @@ mixin ChatApi {
       return Stream.value(api.StreamEvent.error('启动流式聊天失败: $e'));
     }
   }
+
+  /// 重试（编辑）用户消息：替换内容后重新流式请求 LLM
+  Stream<api.StreamEvent> chatRetry({
+    required String configPath,
+    required String provider,
+    required String model,
+    required String msgId,
+    required String chatText,
+    required String sessionId,
+    String? dbPath,
+  }) {
+    ensureInitialized();
+    try {
+      return api.chatRetry(
+        configPath: configPath,
+        provider: provider,
+        model: model,
+        msgId: msgId,
+        chatText: chatText,
+        sessionId: sessionId,
+        dbPath: dbPath,
+      );
+    } catch (e) {
+      return Stream.value(api.StreamEvent.error('重试失败: $e'));
+    }
+  }
 }

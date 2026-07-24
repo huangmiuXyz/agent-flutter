@@ -44,6 +44,12 @@ class ChatExpandablePart extends HookWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final expanded = useState(defaultExpanded);
+    // 当 defaultExpanded 变化时同步展开/收起状态
+    // （例如新消息到达后，前一条消息不再是最后一个 expandable part）
+    useEffect(() {
+      expanded.value = defaultExpanded;
+      return null;
+    }, [defaultExpanded]);
 
     // 解析调用参数 — 只显示 arguments，不显示 id/type/function 外层
     String argumentsText;

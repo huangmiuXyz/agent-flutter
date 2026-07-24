@@ -105,7 +105,7 @@ class ModelListPage extends HookConsumerWidget {
           updated.remove(model);
         }
 
-        await store.writePath(
+        store.writePath(
           key,
           updated.map((name) => {'name': name}).toList(),
         );
@@ -209,6 +209,7 @@ class ModelListPage extends HookConsumerWidget {
     Future<void> Function(String, bool) onToggle,
   ) {
     return AppBigRow(
+      key: ValueKey('model_$model'),
       name: model,
       description: null,
       dot: false,
