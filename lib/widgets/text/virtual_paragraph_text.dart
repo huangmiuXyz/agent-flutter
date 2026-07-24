@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'paragraph_utils.dart';
+export 'paragraph_utils.dart' show ParagraphBlock, ParagraphSplitMode;
 
 /// A virtual-scrolling widget that renders plain [text] as a list of
 /// paragraphs.
@@ -10,34 +11,36 @@ import 'paragraph_utils.dart';
 /// determined naturally by their content, so no manual height estimation is
 /// needed.
 ///
+/// **Adaptive height** (when [maxHeight] is set without [height]):
+/// the widget estimates the total content height at build time.  If the
+/// content fits within [maxHeight] it shrinks to the content's natural height;
+/// otherwise it takes [maxHeight] and scrolls virtually.  This eliminates
+/// wasted space when the text is short.
+///
 /// Features:
 /// - Automatic paragraph splitting (blank-line delimited by default).
 /// - Stick-to-bottom mode (auto-scroll on content append).
 /// - Custom paragraph builder (slot-like API).
 ///
-/// Usage in a flex layout:
-/// ```dart
-/// Column(
-///   children: [
-///     Expanded(
-///       child: VirtualParagraphText(
-///         text: someLongString,
-///         stickToBottom: true,
-///       ),
-///     ),
-///   ],
-/// )
-/// ```
+/// Performance note: this widget does **not** allocate per-paragraph keys,
+/// so even huge texts (tens of thousands of paragraphs) expand instantly.
+/// `scrollToParagraph` uses a character‑count heuristic to estimate the
+/// scroll offset, which is fast but approximate.
 class VirtualParagraphText extends StatefulWidget {
   /// The raw text to display.
   final String text;
 
-  /// Fixed height of the viewport.  Omit (or pass null) to let a parent
-  /// `Expanded` / `Flexible` govern the height.
+  /// Fixed height of the viewport.  When set the widget always takes exactly
+  /// this height and scrolls internally.
   final double? height;
 
-  /// Maximum height of the viewport.  When set without [height], the widget
-  /// will size itself naturally but never exceed [maxHeight].
+  /// Maximum height of the viewport.
+  ///
+  /// When set without [height] the widget adapts:
+  /// - content shorter than [maxHeight] → natural height (no wasted space)
+  /// - content taller than [maxHeight] → exactly [maxHeight], virtual‑scrolled
+  ///
+  /// When unset the widget relies on a bounded parent (e.g. `Expanded`).
   final double? maxHeight;
 
   /// Paragraph splitting strategy.
@@ -110,9 +113,9 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
   late List<ParagraphBlock> _paragraphs;
   bool _isPinnedToBottom = false;
 
-  // Each paragraph gets a GlobalKey so scrollToParagraph can use
-  // Scrollable.ensureVisible instead of estimated offsets.
-  final List<GlobalKey> _itemKeys = [];
+  /// Cumulative character count before each paragraph, used by
+  /// [scrollToParagraph] for offset estimation.
+  late List<int> _cumulativeChars;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -120,7 +123,7 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
   void initState() {
     super.initState();
     _paragraphs = _splitText();
-    _rebuildKeys();
+    _computeCumulativeChars();
     _isPinnedToBottom = widget.stickToBottom;
     _scrollController.addListener(_onScroll);
     _maybeScrollToBottomAfterBuild();
@@ -146,7 +149,7 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
     if (needsResplit) {
       setState(() {
         _paragraphs = _splitText();
-        _rebuildKeys();
+        _computeCumulativeChars();
       });
       _maybeScrollToBottomAfterBuild();
     }
@@ -170,10 +173,33 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
     trimParagraphs: widget.trimParagraphs,
   );
 
-  void _rebuildKeys() {
-    _itemKeys
-      ..clear()
-      ..addAll(List.generate(_paragraphs.length, (_) => GlobalKey()));
+  void _computeCumulativeChars() {
+    _cumulativeChars = List.filled(_paragraphs.length + 1, 0);
+    for (int i = 0; i < _paragraphs.length; i++) {
+      _cumulativeChars[i + 1] =
+          _cumulativeChars[i] + _paragraphs[i].text.length;
+    }
+  }
+
+  /// Fast O(n) estimate of total rendered height in pixels, used to decide
+  /// shrink‑wrap vs. virtual scrolling.
+  double _estimateTotalHeight(double containerWidth) {
+    double total = 0;
+    for (final p in _paragraphs) {
+      total += estimateParagraphHeight(
+        p.text,
+        containerWidth: containerWidth,
+        fontSize: widget.fontSize,
+        lineHeight: widget.lineHeight,
+        paddingBlock: widget.paragraphPaddingBlock,
+        gap: widget.paragraphGap,
+        minHeight:
+            widget.paragraphGap +
+            widget.paragraphPaddingBlock +
+            widget.lineHeight,
+      );
+    }
+    return total;
   }
 
   // ── Scroll helpers ─────────────────────────────────────────────────────
@@ -220,18 +246,23 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
   /// Whether the viewport is currently pinned to the bottom.
   bool get isPinnedToBottom => _isPinnedToBottom;
 
-  /// Scroll so that paragraph at [index] is visible.
+  /// Scroll so that paragraph at [index] is roughly visible.
   ///
-  /// Uses [Scrollable.ensureVisible] so the exact position is accurate even
-  /// with variable-height paragraphs.
+  /// Uses a character‑count heuristic to estimate the scroll offset – this is
+  /// fast and does not require per‑paragraph keys, but is only an
+  /// approximation when paragraphs have varying line heights or wrapping.
   void scrollToParagraph(int index) {
+    if (!_scrollController.hasClients) return;
     final safeIndex = index.clamp(0, _paragraphs.length - 1);
-    final key = _itemKeys[safeIndex];
-    final context = key.currentContext;
-    if (context == null) return;
+    final total = _cumulativeChars.last;
+    if (total == 0) return;
 
-    Scrollable.ensureVisible(
-      context,
+    final proportion = _cumulativeChars[safeIndex] / total;
+    final offset = (proportion * _scrollController.position.maxScrollExtent)
+        .clamp(0.0, _scrollController.position.maxScrollExtent);
+
+    _scrollController.animateTo(
+      offset,
       duration: const Duration(milliseconds: 100),
       curve: Curves.easeOut,
     );
@@ -262,41 +293,99 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
 
   @override
   Widget build(BuildContext context) {
-    Widget child;
-
     if (_paragraphs.isEmpty) {
-      child = widget.emptyBuilder?.call() ?? const SizedBox.shrink();
-    } else {
-      child = ListView.builder(
-        controller: _scrollController,
-        itemCount: _paragraphs.length,
-        itemBuilder: (context, index) {
-          final paragraph = _paragraphs[index];
-
-          final body =
-              widget.paragraphBuilder?.call(paragraph, index) ??
-              _defaultParagraphBuilder(paragraph, index);
-
-          return Padding(
-            key: _itemKeys[index],
-            padding: EdgeInsets.only(bottom: widget.paragraphGap),
-            child: body,
-          );
-        },
-      );
+      return widget.emptyBuilder?.call() ?? const SizedBox.shrink();
     }
 
-    // Apply height / maxHeight constraints.
-    if (widget.maxHeight != null) {
-      child = ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: widget.maxHeight!),
-        child: child,
-      );
-    }
+    // Determine the effective viewport constraint.
+    //   - [height]  → exact (always virtual)
+    //   - [maxHeight] → cap (estimate content; shrink-wrap if it fits;
+    //                    virtual-scroll with maxHeight otherwise)
+    //   - neither  → rely on parent to give bounded constraints
+    //
+    // We build the content via [_buildContent], then apply height/maxHeight.
+
+    Widget content;
+
     if (widget.height != null) {
-      child = SizedBox(height: widget.height, child: child);
+      // Exact height — normal virtual list.
+      content = _buildListView();
+    } else if (widget.maxHeight != null) {
+      // MaxHeight with auto-sizing — provide our own cap so LayoutBuilder
+      // sees bounded constraints even when the parent Column doesn't.
+      content = ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: widget.maxHeight!),
+        child: _adaptiveContent(),
+      );
+    } else {
+      // No constraint — defer to LayoutBuilder for whatever the parent gives.
+      content = _adaptiveContent();
     }
 
-    return child;
+    return content;
+  }
+
+  /// Uses [LayoutBuilder] to decide between virtual‑scroll and shrink‑wrap.
+  ///
+  /// When the parent provides a bounded viewport, we estimate the total
+  /// content height.  If the estimate exceeds the viewport, we use a
+  /// full virtual [ListView.builder]; otherwise we shrink‑wrap so the
+  /// widget sizes to its natural content height.
+  Widget _adaptiveContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+
+        if (h.isFinite && h > 0) {
+          final estimated = _estimateTotalHeight(w);
+          if (estimated > h) {
+            return _buildListView();
+          }
+        }
+
+        return _buildShrinkWrapListView();
+      },
+    );
+  }
+
+  /// Normal virtual‑scrolling [ListView.builder].
+  Widget _buildListView() {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: _paragraphs.length,
+      itemBuilder: (context, index) {
+        final paragraph = _paragraphs[index];
+        final body =
+            widget.paragraphBuilder?.call(paragraph, index) ??
+            _defaultParagraphBuilder(paragraph, index);
+        return Padding(
+          padding: EdgeInsets.only(bottom: widget.paragraphGap),
+          child: body,
+        );
+      },
+    );
+  }
+
+  /// Shrink‑wrapping [ListView.builder] – sizes to content, no built‑in
+  /// scrolling.  All items are built once (acceptable because this path is
+  /// taken only for content that is short enough to fit without scrolling).
+  Widget _buildShrinkWrapListView() {
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: _paragraphs.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        final paragraph = _paragraphs[index];
+        final body =
+            widget.paragraphBuilder?.call(paragraph, index) ??
+            _defaultParagraphBuilder(paragraph, index);
+        return Padding(
+          padding: EdgeInsets.only(bottom: widget.paragraphGap),
+          child: body,
+        );
+      },
+    );
   }
 }

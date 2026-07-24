@@ -154,6 +154,7 @@ class ChatExpandablePart extends HookWidget {
                 constraints: BoxConstraints(maxHeight: expandedMaxHeight),
                 padding: EdgeInsets.all(custom.spacing.sm),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ── 参数（固定头部） ──
@@ -171,24 +172,24 @@ class ChatExpandablePart extends HookWidget {
                       SizedBox(height: custom.spacing.sm),
                       Container(height: 1, color: custom.colors.separator),
                       SizedBox(height: custom.spacing.sm),
-                      Expanded(
-                        child: VirtualParagraphText(
-                          text: resultText,
-                          fontSize: custom.typography.captionSize,
-                          lineHeight: 18,
-                          paragraphPaddingBlock: 0,
-                          paragraphGap: 4,
-                          paragraphBuilder: (paragraph, index) {
-                            return SelectableText(
-                              paragraph.text,
-                              style: TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: custom.typography.captionSize,
-                                color: custom.colors.success,
-                              ),
-                            );
-                          },
-                        ),
+                      VirtualParagraphText(
+                        text: resultText,
+                        splitMode: ParagraphSplitMode.newline,
+                        maxHeight: expandedMaxHeight,
+                        fontSize: custom.typography.captionSize,
+                        lineHeight: 18,
+                        paragraphPaddingBlock: 0,
+                        paragraphGap: 4,
+                        paragraphBuilder: (paragraph, index) {
+                          return SelectableText(
+                            paragraph.text,
+                            style: TextStyle(
+                              fontFamily: 'JetBrainsMono',
+                              fontSize: custom.typography.captionSize,
+                              color: custom.colors.success,
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ],

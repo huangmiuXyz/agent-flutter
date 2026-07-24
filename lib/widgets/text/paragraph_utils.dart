@@ -21,6 +21,11 @@ enum ParagraphSplitMode {
   /// Split on one or more blank lines (i.e. two newlines with optional
   /// whitespace in between).
   blankLine,
+
+  /// Split on every newline (`\n`).  Each line becomes its own paragraph.
+  /// Best for code, JSON, file contents and other line-oriented output where
+  /// blank lines are rare and lines can be very long.
+  newline,
 }
 
 /// Splits [text] into a list of [ParagraphBlock]s.
@@ -38,6 +43,7 @@ List<ParagraphBlock> splitTextIntoParagraphs(
 
   final parts = switch (mode) {
     ParagraphSplitMode.blankLine => text.split(RegExp(r'\n\s*\n')),
+    ParagraphSplitMode.newline => text.split('\n'),
   };
 
   final result = <ParagraphBlock>[];
