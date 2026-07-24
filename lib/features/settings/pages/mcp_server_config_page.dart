@@ -1,4 +1,4 @@
-/// MCP 服务器编辑页 — 修改名称、传输方式、启用状态等。
+/// MCP 服务器编辑页 — 修改名称、命令或 URL 等。
 library;
 
 import 'package:flutter/material.dart';
@@ -36,13 +36,12 @@ class McpServerConfigPage extends HookConsumerWidget {
     final custom = CustomTheme.of(context);
     final store = ref.watch(configFileStoreProvider);
 
-    // ── Form state ──
     final nameCtrl = useTextEditingController(text: server.name);
     final commandCtrl = useTextEditingController(text: server.command);
     final argsCtrl = useTextEditingController(text: server.args.join(' '));
     final urlCtrl = useTextEditingController(text: server.url);
-    final transportType = useState(server.transportType);
-    final enabled = useState(server.enabled);
+    final isStdio = useState(server.isStdio);
+    final disabled = useState(server.disabled);
     final errorMsg = useState<String?>(null);
 
     Future<void> handleSave() async {
@@ -51,25 +50,33 @@ class McpServerConfigPage extends HookConsumerWidget {
         errorMsg.value = '请输入服务器名称';
         return;
       }
+      if (isStdio.value && commandCtrl.text.trim().isEmpty) {
+        errorMsg.value = '请输入命令';
+        return;
+      }
+      if (!isStdio.value && urlCtrl.text.trim().isEmpty) {
+        errorMsg.value = '请输入 URL';
+        return;
+      }
 
-      // 构建更新后的配置
-      final updated = McpServerInfo(
-        name: name,
-        transportType: transportType.value,
-        command: transportType.value == 'stdio' ? commandCtrl.text.trim() : '',
-        args: transportType.value == 'stdio'
-            ? argsCtrl.text
-                .trim()
-                .split(RegExp(r'\s+'))
-                .where((a) => a.isNotEmpty)
-                .toList()
-            : [],
-        url: transportType.value == 'http' ? urlCtrl.text.trim() : '',
-        enabled: enabled.value,
-      );
+      final updated = isStdio.value
+          ? McpServerInfo(
+              name: name,
+              command: commandCtrl.text.trim(),
+              args: argsCtrl.text
+                  .trim()
+                  .split(RegExp(r'\s+'))
+                  .where((a) => a.isNotEmpty)
+                  .toList(),
+              disabled: disabled.value,
+            )
+          : McpServerInfo(
+              name: name,
+              url: urlCtrl.text.trim(),
+              disabled: disabled.value,
+            );
 
       try {
-        // 读取现有列表，替换或追加
         final data = store.readAll();
         final existing = loadMcpServers(data);
         final idx = existing.indexWhere((s) => s.name == server.name);
@@ -84,16 +91,16 @@ class McpServerConfigPage extends HookConsumerWidget {
         store.writeAll(data);
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('配置保存成功')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('配置保存成功')));
           onBack();
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('保存失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
         }
       }
     }
@@ -115,16 +122,16 @@ class McpServerConfigPage extends HookConsumerWidget {
         store.writeAll(delData);
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('已删除')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('已删除')));
           onBack();
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('删除失败: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
         }
       }
     }
@@ -135,7 +142,6 @@ class McpServerConfigPage extends HookConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Breadcrumb ──
             AppBreadcrumb(
               items: [
                 AppBreadcrumbItem('设置', onTap: () {}),
@@ -145,7 +151,6 @@ class McpServerConfigPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.lg),
 
-            // ── Title ──
             AppText(server.name, variant: AppTextVariant.h2),
             SizedBox(height: custom.spacing.xs),
             AppText(
@@ -155,7 +160,6 @@ class McpServerConfigPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.lg + 4),
 
-            // ── 名称 ──
             AppField(
               label: '名称',
               placeholder: '例如：filesystem',
@@ -164,22 +168,20 @@ class McpServerConfigPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ── 传输方式 ──
             AppSelect<String>(
               label: '传输方式',
-              value: transportType.value,
+              value: isStdio.value ? 'stdio' : 'http',
               options: const [
                 AppSelectOption(value: 'stdio', label: 'STDIO'),
                 AppSelectOption(value: 'http', label: 'HTTP'),
               ],
               onChanged: (v) {
-                if (v != null) transportType.value = v;
+                if (v != null) isStdio.value = v == 'stdio';
               },
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ── STDIO 参数 ──
-            if (transportType.value == 'stdio') ...[
+            if (isStdio.value) ...[
               AppField(
                 label: '命令',
                 placeholder: '例如：npx',
@@ -191,10 +193,7 @@ class McpServerConfigPage extends HookConsumerWidget {
                 placeholder: '-y @modelcontextprotocol/server-filesystem /path',
                 controller: argsCtrl,
               ),
-            ],
-
-            // ── HTTP 参数 ──
-            if (transportType.value == 'http')
+            ] else
               AppField(
                 label: 'URL',
                 placeholder: 'http://localhost:3000/mcp',
@@ -203,20 +202,20 @@ class McpServerConfigPage extends HookConsumerWidget {
 
             SizedBox(height: custom.spacing.md),
 
-            // ── 启用开关 ──
             Row(
               children: [
                 AppSwitch(
-                  value: enabled.value,
-                  onChanged: (v) => enabled.value = v,
+                  value: !disabled.value,
+                  onChanged: (v) => disabled.value = !v,
                   size: SwitchSize.md,
                 ),
                 SizedBox(width: custom.spacing.sm),
-                AppText('启用'),
+                AppText(disabled.value ? '已禁用' : '已启用'),
               ],
             ),
 
-            // ── 错误信息 ──
+            SizedBox(height: custom.spacing.lg + 4),
+
             if (errorMsg.value != null)
               Padding(
                 padding: EdgeInsets.only(top: custom.spacing.sm),
@@ -229,7 +228,6 @@ class McpServerConfigPage extends HookConsumerWidget {
 
             SizedBox(height: custom.spacing.lg + 4),
 
-            // ── 操作按钮 ──
             Row(
               children: [
                 AppPrimaryButton(text: '保存', onPressed: handleSave),

@@ -1,4 +1,4 @@
-/// 添加 MCP 服务器页 — 填写名称、传输方式等信息。
+/// 添加 MCP 服务器页。
 library;
 
 import 'package:flutter/material.dart';
@@ -31,8 +31,8 @@ class AddMcpServerPage extends HookConsumerWidget {
     final commandCtrl = useTextEditingController(text: 'npx');
     final argsCtrl = useTextEditingController();
     final urlCtrl = useTextEditingController(text: 'http://localhost:3000/mcp');
-    final transportType = useState('stdio');
-    final enabled = useState(true);
+    final isStdio = useState(true);
+    final disabled = useState(false);
     final saving = useState(false);
     final errorMsg = useState<String?>(null);
 
@@ -42,7 +42,15 @@ class AddMcpServerPage extends HookConsumerWidget {
         errorMsg.value = '请输入服务器名称';
         return;
       }
-      // 检查名称是否已存在
+      if (isStdio.value && commandCtrl.text.trim().isEmpty) {
+        errorMsg.value = '请输入命令';
+        return;
+      }
+      if (!isStdio.value && urlCtrl.text.trim().isEmpty) {
+        errorMsg.value = '请输入 URL';
+        return;
+      }
+
       final data = store.readAll();
       final existing = loadMcpServers(data);
       if (existing.any((s) => s.name == name)) {
@@ -54,29 +62,30 @@ class AddMcpServerPage extends HookConsumerWidget {
       errorMsg.value = null;
 
       try {
-        final server = McpServerInfo(
-          name: name,
-          transportType: transportType.value,
-          command:
-              transportType.value == 'stdio' ? commandCtrl.text.trim() : '',
-          args: transportType.value == 'stdio'
-              ? argsCtrl.text
-                  .trim()
-                  .split(RegExp(r'\s+'))
-                  .where((a) => a.isNotEmpty)
-                  .toList()
-              : [],
-          url: transportType.value == 'http' ? urlCtrl.text.trim() : '',
-          enabled: enabled.value,
-        );
+        final server = isStdio.value
+            ? McpServerInfo(
+                name: name,
+                command: commandCtrl.text.trim(),
+                args: argsCtrl.text
+                    .trim()
+                    .split(RegExp(r'\s+'))
+                    .where((a) => a.isNotEmpty)
+                    .toList(),
+                disabled: disabled.value,
+              )
+            : McpServerInfo(
+                name: name,
+                url: urlCtrl.text.trim(),
+                disabled: disabled.value,
+              );
 
         saveMcpServers(data, [...existing, server]);
         store.writeAll(data);
 
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('服务器添加成功')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('服务器添加成功')));
           onBack();
         }
       } catch (e) {
@@ -92,7 +101,6 @@ class AddMcpServerPage extends HookConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Breadcrumb ──
             AppBreadcrumb(
               items: [
                 AppBreadcrumbItem('设置', onTap: () {}),
@@ -102,17 +110,15 @@ class AddMcpServerPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.lg),
 
-            // ── Title ──
             AppText('添加 MCP 服务器', variant: AppTextVariant.h2),
             SizedBox(height: custom.spacing.xs),
             AppText(
-              'Agent 启动时将自动连接已启用的 MCP 服务器，并将其工具注入 LLM。',
+              'Agent 启动时将自动启用配置的 MCP 服务器，并将其工具注入 LLM。',
               variant: AppTextVariant.caption,
               color: custom.colors.textSecondary,
             ),
             SizedBox(height: custom.spacing.lg + 4),
 
-            // ── 名称 ──
             AppField(
               label: '名称',
               placeholder: '例如：filesystem',
@@ -123,22 +129,20 @@ class AddMcpServerPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ── 传输方式 ──
             AppSelect<String>(
               label: '传输方式',
-              value: transportType.value,
+              value: isStdio.value ? 'stdio' : 'http',
               options: const [
                 AppSelectOption(value: 'stdio', label: 'STDIO'),
                 AppSelectOption(value: 'http', label: 'HTTP'),
               ],
               onChanged: (v) {
-                if (v != null) transportType.value = v;
+                if (v != null) isStdio.value = v == 'stdio';
               },
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ── STDIO 参数 ──
-            if (transportType.value == 'stdio') ...[
+            if (isStdio.value) ...[
               AppField(
                 label: '命令',
                 placeholder: '例如：npx',
@@ -147,14 +151,10 @@ class AddMcpServerPage extends HookConsumerWidget {
               SizedBox(height: custom.spacing.md),
               AppField(
                 label: '参数（空格分隔）',
-                placeholder:
-                    '-y @modelcontextprotocol/server-filesystem /path',
+                placeholder: '-y @modelcontextprotocol/server-filesystem /path',
                 controller: argsCtrl,
               ),
-            ],
-
-            // ── HTTP 参数 ──
-            if (transportType.value == 'http')
+            ] else
               AppField(
                 label: 'URL',
                 placeholder: 'http://localhost:3000/mcp',
@@ -163,20 +163,20 @@ class AddMcpServerPage extends HookConsumerWidget {
 
             SizedBox(height: custom.spacing.md),
 
-            // ── 启用开关 ──
             Row(
               children: [
                 AppSwitch(
-                  value: enabled.value,
-                  onChanged: (v) => enabled.value = v,
+                  value: !disabled.value,
+                  onChanged: (v) => disabled.value = !v,
                   size: SwitchSize.md,
                 ),
                 SizedBox(width: custom.spacing.sm),
-                AppText('添加后立即启用'),
+                AppText(disabled.value ? '已禁用' : '添加后立即启用'),
               ],
             ),
 
-            // ── 错误信息 ──
+            SizedBox(height: custom.spacing.lg + 4),
+
             if (errorMsg.value != null)
               Padding(
                 padding: EdgeInsets.only(top: custom.spacing.sm),
@@ -189,7 +189,6 @@ class AddMcpServerPage extends HookConsumerWidget {
 
             SizedBox(height: custom.spacing.lg + 4),
 
-            // ── 操作按钮 ──
             Row(
               children: [
                 AppPrimaryButton(

@@ -17,10 +17,7 @@ import 'package:agent/widgets/switch/app_switch.dart';
 
 /// MCP 服务器列表页。
 class McpServerListPage extends HookConsumerWidget {
-  /// 点击某一行进入编辑页。
   final ValueChanged<McpServerInfo> onServerTap;
-
-  /// 点击"添加服务器"。
   final VoidCallback? onAddServer;
 
   const McpServerListPage({
@@ -32,20 +29,19 @@ class McpServerListPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(configFileStoreProvider);
-    // 用 useState 触发刷新（修改后重建）
     final refreshKey = useState(0);
 
     final data = store.readAll();
     final servers = loadMcpServers(data);
-    final enabled = servers.where((s) => s.enabled).toList();
-    final disabled = servers.where((s) => !s.enabled).toList();
+    final enabled = servers.where((s) => !s.disabled).toList();
+    final disabled = servers.where((s) => s.disabled).toList();
     final total = servers.length;
 
-    // 切换启用状态
-    void toggleEnabled(McpServerInfo server, bool value) {
+    void toggleDisabled(McpServerInfo server, bool value) {
       final idx = servers.indexWhere((s) => s.name == server.name);
       if (idx == -1) return;
-      final updated = server.copyWith(enabled: value);
+      // value 来自 AppSwitch.onChanged（!value），需要取反得到实际的 disabled 状态
+      final updated = server.copyWith(disabled: !value);
       final copy = [...servers];
       copy[idx] = updated;
       saveMcpServers(data, copy);
@@ -63,7 +59,7 @@ class McpServerListPage extends HookConsumerWidget {
               _ServerRow(
                 server: s,
                 onTap: () => onServerTap(s),
-                onToggle: (v) => toggleEnabled(s, v),
+                onToggle: (v) => toggleDisabled(s, v),
               ),
           ],
         ),
@@ -78,7 +74,7 @@ class McpServerListPage extends HookConsumerWidget {
               _ServerRow(
                 server: s,
                 onTap: () => onServerTap(s),
-                onToggle: (v) => toggleEnabled(s, v),
+                onToggle: (v) => toggleDisabled(s, v),
               ),
           ],
         ),
@@ -116,7 +112,6 @@ class McpServerListPage extends HookConsumerWidget {
   }
 }
 
-/// MCP 服务器列表中的一行。
 class _ServerRow extends HookWidget {
   final McpServerInfo server;
   final VoidCallback onTap;
@@ -132,15 +127,15 @@ class _ServerRow extends HookWidget {
   Widget build(BuildContext context) {
     return AppBigRow(
       name: server.name,
-      description: server.transportLabel,
+      description: server.displayLabel,
       icon: 'server',
       dot: true,
-      dotColor: server.enabled ? null : Colors.transparent,
+      dotColor: server.disabled ? Colors.transparent : null,
       clickable: true,
       onTap: onTap,
       actions: [
         AppSwitch(
-          value: server.enabled,
+          value: !server.disabled,
           onChanged: onToggle,
           size: SwitchSize.sm,
         ),
@@ -148,4 +143,3 @@ class _ServerRow extends HookWidget {
     );
   }
 }
-

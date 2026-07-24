@@ -1,84 +1,109 @@
 /// MCP 服务器配置数据模型
 ///
-/// 对应 config.json 中的 `mcp_servers` 数组。
+/// 对应 config.json 中的 `mcpServers` map。
 library;
 
 /// 单个 MCP Server 配置。
 class McpServerInfo {
   final String name;
-  final String transportType; // 'stdio' | 'http'
   final String command; // stdio 模式
   final List<String> args; // stdio 模式
+  final Map<String, String> env; // stdio 模式
   final String url; // HTTP 模式
-  final bool enabled;
+  final Map<String, String> headers; // HTTP 模式
+  final bool disabled; // 设为 true 则跳过
 
+  /// [command] 不为空时为 stdio 模式，否则为 http 模式。
   const McpServerInfo({
     required this.name,
-    this.transportType = 'stdio',
     this.command = '',
     this.args = const [],
+    this.env = const {},
     this.url = '',
-    this.enabled = true,
+    this.headers = const {},
+    this.disabled = false,
   });
 
-  /// 显示用的传输方式描述。
-  String get transportLabel {
-    if (transportType == 'http') return url;
-    final parts = [command, ...args];
-    if (parts.isEmpty) return 'stdio';
-    return 'stdio: ${parts.join(' ')}';
+  /// 是否 stdio 模式
+  bool get isStdio => command.isNotEmpty;
+
+  /// 显示用的描述。
+  String get displayLabel {
+    if (isStdio) {
+      final parts = [command, ...args];
+      return parts.join(' ');
+    }
+    return url;
   }
 
-  /// 简短的传输方式标签。
-  String get transportTag =>
-      transportType == 'http' ? 'HTTP' : 'STDIO';
+  /// 序列化为标准格式的 value（不含 name，name 是 map 的 key）。
+  Map<String, dynamic> toJson() {
+    final result = <String, dynamic>{};
+    if (isStdio) {
+      result['command'] = command;
+      result['args'] = args;
+      result['env'] = env;
+    } else {
+      result['url'] = url;
+      result['headers'] = headers;
+    }
+    if (disabled) {
+      result['disabled'] = true;
+    }
+    return result;
+  }
 
-  Map<String, dynamic> toJson() => {
-    'name': name,
-    'transport': {
-      'type': transportType,
-      if (transportType == 'stdio') ...{
-        'command': command,
-        'args': args,
-      },
-      if (transportType == 'http') ...{
-        'url': url,
-      },
-    },
-    'enabled': enabled,
-  };
-
-  factory McpServerInfo.fromJson(Map<String, dynamic> json) {
-    final transport = json['transport'] as Map<String, dynamic>? ?? {};
+  /// 从标准格式的 value 反序列化。
+  /// [name] 从 map 的 key 传入。
+  factory McpServerInfo.fromJson(String name, Map<String, dynamic> json) {
+    final command = json['command'] as String? ?? '';
+    final disabled = json['disabled'] as bool? ?? false;
+    if (command.isNotEmpty) {
+      return McpServerInfo(
+        name: name,
+        command: command,
+        args:
+            (json['args'] as List<dynamic>?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            [],
+        env:
+            (json['env'] as Map<String, dynamic>?)?.map(
+              (k, v) => MapEntry(k, v.toString()),
+            ) ??
+            {},
+        disabled: disabled,
+      );
+    }
     return McpServerInfo(
-      name: json['name'] as String? ?? '',
-      transportType: transport['type'] as String? ?? 'stdio',
-      command: transport['command'] as String? ?? '',
-      args: (transport['args'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      url: transport['url'] as String? ?? '',
-      enabled: json['enabled'] as bool? ?? true,
+      name: name,
+      url: json['url'] as String? ?? '',
+      headers:
+          (json['headers'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
+          {},
+      disabled: disabled,
     );
   }
 
   McpServerInfo copyWith({
     String? name,
-    String? transportType,
     String? command,
     List<String>? args,
+    Map<String, String>? env,
     String? url,
-    bool? enabled,
-  }) =>
-      McpServerInfo(
-        name: name ?? this.name,
-        transportType: transportType ?? this.transportType,
-        command: command ?? this.command,
-        args: args ?? this.args,
-        url: url ?? this.url,
-        enabled: enabled ?? this.enabled,
-      );
+    Map<String, String>? headers,
+    bool? disabled,
+  }) => McpServerInfo(
+    name: name ?? this.name,
+    command: command ?? this.command,
+    args: args ?? this.args,
+    env: env ?? this.env,
+    url: url ?? this.url,
+    headers: headers ?? this.headers,
+    disabled: disabled ?? this.disabled,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -91,18 +116,20 @@ class McpServerInfo {
   int get hashCode => name.hashCode;
 }
 
-// ─── 配置文件读写（临时方案，后续由 Rust 后端接管） ────────────
+// ─── 配置文件读写 ─────────────────────────────────────
 
 /// 从 config.json 读取所有 MCP Server 配置。
 List<McpServerInfo> loadMcpServers(Map<String, dynamic> data) {
-  final list = data['mcp_servers'] as List<dynamic>?;
-  if (list == null) return [];
-  return list
-      .map((e) => McpServerInfo.fromJson(e as Map<String, dynamic>))
+  final map = data['mcpServers'] as Map<String, dynamic>?;
+  if (map == null) return [];
+  return map.entries
+      .map(
+        (e) => McpServerInfo.fromJson(e.key, e.value as Map<String, dynamic>),
+      )
       .toList();
 }
 
 /// 将 MCP Server 列表写回 config.json。
 void saveMcpServers(Map<String, dynamic> data, List<McpServerInfo> servers) {
-  data['mcp_servers'] = servers.map((s) => s.toJson()).toList();
+  data['mcpServers'] = {for (final s in servers) s.name: s.toJson()};
 }

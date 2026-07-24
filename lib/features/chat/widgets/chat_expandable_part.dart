@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
+import 'package:agent/widgets/text/virtual_paragraph_text.dart';
 
 /// 可展开/收起的 Part 卡片 — 通用组件
 ///
@@ -72,7 +73,9 @@ class ChatExpandablePart extends HookWidget {
       }
       // arguments 本身可能是 JSON，尝试格式化
       try {
-        argumentsText = const JsonEncoder.withIndent('  ').convert(jsonDecode(raw));
+        argumentsText = const JsonEncoder.withIndent(
+          '  ',
+        ).convert(jsonDecode(raw));
       } catch (_) {
         argumentsText = raw;
       }
@@ -99,89 +102,101 @@ class ChatExpandablePart extends HookWidget {
     final hasContent = argumentsText.isNotEmpty || resultAvailable;
 
     return Container(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── 头部（可点击切换展开/收起） ──
-            InkWell(
-              onTap: () => expanded.value = !expanded.value,
-              borderRadius: custom.radii.sm,
-              child: SizedBox(
-                height: collapsedHeight,
-                child: Padding(
-                  padding: EdgeInsets.only(right: custom.spacing.sm),
-                  child: Row(
-                    children: [
-                      AppIcon(iconName, size: custom.typography.captionSize, color: titleColor),
-                      SizedBox(width: custom.spacing.xs),
-                      Expanded(
-                        child: AppText(
-                          title,
-                          variant: AppTextVariant.caption,
-                          color: titleColor,
-                        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── 头部（可点击切换展开/收起） ──
+          InkWell(
+            onTap: () => expanded.value = !expanded.value,
+            borderRadius: custom.radii.sm,
+            child: SizedBox(
+              height: collapsedHeight,
+              child: Padding(
+                padding: EdgeInsets.only(right: custom.spacing.sm),
+                child: Row(
+                  children: [
+                    AppIcon(
+                      iconName,
+                      size: custom.typography.captionSize,
+                      color: titleColor,
+                    ),
+                    SizedBox(width: custom.spacing.xs),
+                    Expanded(
+                      child: AppText(
+                        title,
+                        variant: AppTextVariant.caption,
+                        color: titleColor,
                       ),
-                      AppIcon(
-                        expanded.value ? 'chevronDown' : 'chevronRight',
-                        size: custom.typography.captionSize,
-                        color: custom.colors.textSecondary,
-                      ),
-                    ],
-                  ),
+                    ),
+                    AppIcon(
+                      expanded.value ? 'chevronDown' : 'chevronRight',
+                      size: custom.typography.captionSize,
+                      color: custom.colors.textSecondary,
+                    ),
+                  ],
                 ),
               ),
             ),
+          ),
 
-            // ── 展开内容 ──
-            if (expanded.value && hasContent)
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  custom.spacing.sm,
-                  0,
-                  custom.spacing.sm,
-                  custom.spacing.xs,
-                ),
-                child: Container(
-                  width: double.infinity,
-                  constraints: BoxConstraints(maxHeight: expandedMaxHeight),
-                  padding: EdgeInsets.all(custom.spacing.sm),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // ── 参数 ──
-                        SelectableText(
-                          argumentsText,
-                          style: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: custom.typography.captionSize,
-                            color: custom.colors.textSecondary,
-                          ),
-                        ),
-
-                        // ── 结果分隔 + 结果内容 ──
-                        if (resultText != null && resultText.isNotEmpty) ...[
-                          SizedBox(height: custom.spacing.sm),
-                          Container(height: 1, color: custom.colors.separator),
-                          SizedBox(height: custom.spacing.sm),
-                          SelectableText(
-                            resultText,
-                            style: TextStyle(
-                              fontFamily: 'JetBrainsMono',
-                              fontSize: custom.typography.captionSize,
-                              color: custom.colors.success,
-                            ),
-                          ),
-                        ],
-                      ],
+          // ── 展开内容 ──
+          if (expanded.value && hasContent)
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                custom.spacing.sm,
+                0,
+                custom.spacing.sm,
+                custom.spacing.xs,
+              ),
+              child: Container(
+                width: double.infinity,
+                constraints: BoxConstraints(maxHeight: expandedMaxHeight),
+                padding: EdgeInsets.all(custom.spacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── 参数（固定头部） ──
+                    SelectableText(
+                      argumentsText,
+                      style: TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: custom.typography.captionSize,
+                        color: custom.colors.textSecondary,
+                      ),
                     ),
-                  ),
+
+                    // ── 结果分隔 + 虚拟滚动结果 ──
+                    if (resultText != null && resultText.isNotEmpty) ...[
+                      SizedBox(height: custom.spacing.sm),
+                      Container(height: 1, color: custom.colors.separator),
+                      SizedBox(height: custom.spacing.sm),
+                      Expanded(
+                        child: VirtualParagraphText(
+                          text: resultText,
+                          fontSize: custom.typography.captionSize,
+                          lineHeight: 18,
+                          paragraphPaddingBlock: 0,
+                          paragraphGap: 4,
+                          paragraphBuilder: (paragraph, index) {
+                            return SelectableText(
+                              paragraph.text,
+                              style: TextStyle(
+                                fontFamily: 'JetBrainsMono',
+                                fontSize: custom.typography.captionSize,
+                                color: custom.colors.success,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
+      ),
     );
   }
 }
