@@ -3,7 +3,6 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +16,7 @@ import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/widgets/loading/app_loading.dart';
 
-/// 聊天内容区 — 消息列表（虚拟滚动）+ 输入框
+/// 聊天内容区 — 消息列表（非 reverse ListView）+ 输入框
 class ChatContent extends StatelessWidget {
   const ChatContent({super.key});
 
@@ -42,7 +41,7 @@ class ChatContent extends StatelessWidget {
   }
 }
 
-/// 消息列表 — 只监听结构变更，流式更新穿透到单个消息组件
+/// 消息列表 — ListView 非 reverse，流式内容向下生长
 class _MessageList extends StatelessWidget {
   final String sessionId;
 
@@ -52,8 +51,6 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
-    // SignalBuilder 自动追踪 inside 读取的信号。
-    // 读取 sessions 使本组件在结构变更时重建。
     return SignalBuilder(
       builder: (_) {
         final mgr = SessionManager.instance;
@@ -69,11 +66,11 @@ class _MessageList extends StatelessWidget {
 
         if (messageOrder.isEmpty) return const SizedBox.shrink();
 
-        // 找出全局最后一个有 expandable part 的消息索引
         final lastExpandableMsgIndex = _lastExpandableMessageIndex(
-          messageOrder, partsByMsg, messageRoles,
+          messageOrder,
+          partsByMsg,
+          messageRoles,
         );
-        // 预计算每条消息是否是轮次中的第一条 assistant（用于显示模型信息）
         final isFirstInTurn = _computeFirstInTurn(messageOrder, messageRoles);
 
         final isStreaming = mgr.streamingSessionIds.value.contains(sessionId);
@@ -82,121 +79,130 @@ class _MessageList extends StatelessWidget {
           builder: (context) {
             final scrollController = useScrollController();
             final focusedMsgId = useState<String?>(null);
+            final isNearBottom = useRef(true);
 
-            // ── ChatScrollObserver ──
-            final observerController = useMemoized(
-              () => ListObserverController(controller: scrollController)
-                ..cacheJumpIndexOffset = false,
-            );
-            final chatObserver = useMemoized(
-              () => ChatScrollObserver(observerController)
-                ..fixedPositionOffset = 5,
-            );
+            // 监听滚动位置判断是否在底部
+            useEffect(() {
+              void onScroll() {
+                if (!scrollController.hasClients) return;
+                isNearBottom.value =
+                    scrollController.position.extentAfter <= 100;
+              }
 
-            // 流式输出前记录位置，让 observer 保持消息不跳
+              scrollController.addListener(onScroll);
+              return () => scrollController.removeListener(onScroll);
+            }, [scrollController]);
+
+            // 初始滚到底部
+            useEffect(() {
+              if (!scrollController.hasClients) return null;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!scrollController.hasClients) return;
+                scrollController.jumpTo(
+                  scrollController.position.maxScrollExtent,
+                );
+              });
+              return null;
+            }, [sessionId, messageOrder.length]);
+
+            // 流式输出时，在底部则自动跟随
             useEffect(() {
               final mgr = SessionManager.instance;
               mgr.onBeforeEmit = () {
                 if (!scrollController.hasClients) return;
-                final streaming =
-                    mgr.streamingSessionIds.value.contains(sessionId);
-                if (!streaming) return;
-                chatObserver.standby(
-                  mode: ChatScrollObserverHandleMode.generative,
+                final streaming = mgr.streamingSessionIds.value.contains(
+                  sessionId,
                 );
+                if (!streaming) return;
+
+                if (isNearBottom.value) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!scrollController.hasClients) return;
+                    scrollController.jumpTo(
+                      scrollController.position.maxScrollExtent,
+                    );
+                  });
+                }
               };
               return () {
                 SessionManager.instance.onBeforeEmit = null;
               };
-            }, [chatObserver, sessionId, scrollController]);
+            }, [sessionId, scrollController]);
 
             return Align(
               alignment: Alignment.topCenter,
               child: SizedBox(
                 width: _readingWidth(),
-                child: ListViewObserver(
-                  controller: observerController,
-                  child: ListView.builder(
-                    reverse: true,
-                    controller: scrollController,
-                    physics: ChatObserverClampingScrollPhysics(
-                      observer: chatObserver,
-                    ),
-                    shrinkWrap: chatObserver.isShrinkWrap,
-                    padding: EdgeInsets.only(
-                      top: custom.spacing.sm,
-                      bottom: 40,
-                    ),
-                    itemCount: messageOrder.length + (isStreaming ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      // reverse: true 下 index 0 = 底部
-                      // 流式加载指示器放在底部
-                      if (isStreaming && index == 0) {
-                        return Padding(
-                          padding: EdgeInsets.fromLTRB(
-                            custom.spacing.md,
-                            custom.spacing.xs,
-                            custom.spacing.md,
-                            custom.spacing.sm,
-                          ),
-                          child: const AppLoading(),
-                        );
-                      }
-
-                      final dataIndex = index - (isStreaming ? 1 : 0);
-                      final msgIndex = messageOrder.length - 1 - dataIndex;
-
-                      final msgId = messageOrder[msgIndex];
-                      final parts = partsByMsg[msgId] ?? [];
-                      final role = messageRoles[msgId] ?? '';
-
-                      if (parts.isNotEmpty &&
-                          parts.every(
-                            (p) =>
-                                p.partType == 'tool_result' ||
-                                p.partType == 'tool_call_frag',
-                          )) {
-                        return const SizedBox.shrink();
-                      }
-
-                      final dimmed = focusedMsgId.value != null &&
-                          msgIndex > messageOrder.indexOf(focusedMsgId.value!);
-
-                      return ChatMessageItem(
-                        key: ValueKey(msgId),
-                        sessionId: sessionId,
-                        msgId: msgId,
-                        role: role,
-                        parts: parts,
-                        streaming: isStreaming,
-                        toolCallResults: toolCallResults,
-                        autoExpandLast: msgIndex == lastExpandableMsgIndex,
-                        modelName: isFirstInTurn[msgIndex] == true
-                            ? messageModels[msgId]
-                            : null,
-                        dimmed: dimmed,
-                        onFocusChanged: (focused) {
-                          focusedMsgId.value = focused ? msgId : null;
-                        },
-                        onRetry: (msgId, newContent) {
-                          final f = ProviderScope.containerOf(context);
-                          final mgr = SessionManager.instance;
-                          final currentProvider = f.read(currentProviderProvider);
-                          final currentModel = f.read(currentModelProvider);
-                          mgr.retryMessage(
-                            sessionId: sessionId,
-                            msgId: msgId,
-                            newPrompt: newContent,
-                            provider: currentProvider,
-                            model: currentModel,
-                            service: f.read(llmServiceProvider),
-                            dbPath: f.read(dbPathProvider),
-                            configPath: f.read(configPathProvider),
-                          );
-                        },
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: EdgeInsets.only(top: custom.spacing.sm, bottom: 40),
+                  itemCount: messageOrder.length + (isStreaming ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    // 流式加载指示器在列表末尾
+                    if (isStreaming && index == messageOrder.length) {
+                      return Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          custom.spacing.md,
+                          custom.spacing.xs,
+                          custom.spacing.md,
+                          custom.spacing.sm,
+                        ),
+                        child: const AppLoading(),
                       );
-                    },
-                  ),
+                    }
+
+                    final msgId = messageOrder[index];
+                    final parts = partsByMsg[msgId] ?? [];
+                    final role = messageRoles[msgId] ?? '';
+
+                    // 纯工具类消息不占位
+                    if (parts.isNotEmpty &&
+                        parts.every(
+                          (p) =>
+                              p.partType == 'tool_result' ||
+                              p.partType == 'tool_call_frag',
+                        )) {
+                      return const SizedBox.shrink();
+                    }
+
+                    final dimmed =
+                        focusedMsgId.value != null &&
+                        index > messageOrder.indexOf(focusedMsgId.value!);
+
+                    return ChatMessageItem(
+                      key: ValueKey(msgId),
+                      sessionId: sessionId,
+                      msgId: msgId,
+                      role: role,
+                      parts: parts,
+                      streaming: isStreaming,
+                      toolCallResults: toolCallResults,
+                      autoExpandLast: index == lastExpandableMsgIndex,
+                      modelName: isFirstInTurn[index] == true
+                          ? messageModels[msgId]
+                          : null,
+                      dimmed: dimmed,
+                      onFocusChanged: (focused) {
+                        focusedMsgId.value = focused ? msgId : null;
+                      },
+                      onRetry: (msgId, newContent) {
+                        final f = ProviderScope.containerOf(context);
+                        final mgr = SessionManager.instance;
+                        final currentProvider = f.read(currentProviderProvider);
+                        final currentModel = f.read(currentModelProvider);
+                        mgr.retryMessage(
+                          sessionId: sessionId,
+                          msgId: msgId,
+                          newPrompt: newContent,
+                          provider: currentProvider,
+                          model: currentModel,
+                          service: f.read(llmServiceProvider),
+                          dbPath: f.read(dbPathProvider),
+                          configPath: f.read(configPathProvider),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             );
@@ -206,11 +212,6 @@ class _MessageList extends StatelessWidget {
     );
   }
 
-  /// 从 messageOrder 尾部向前扫描，找到最后一个有 expandable part 的消息索引。
-  /// 与 ChatMessageItem 的可见性逻辑保持一致。
-  /// 计算每条消息是否是轮次中的第一条 assistant。
-  /// assistant 消息的前一个可见用户消息视为一个轮次，
-  /// 该轮次中的第一条 assistant 消息显示模型名。
   List<bool> _computeFirstInTurn(
     List<String> messageOrder,
     Map<String, String> messageRoles,
@@ -238,12 +239,11 @@ class _MessageList extends StatelessWidget {
       final mId = messageOrder[i];
       final parts = partsByMsg[mId] ?? [];
       if (parts.isEmpty) continue;
-      // 与 ChatMessageItem 的过滤逻辑一致
-      if (parts.every((p) =>
-          p.partType == 'tool_result' || p.partType == 'tool_call_frag')) {
+      if (parts.every(
+        (p) => p.partType == 'tool_result' || p.partType == 'tool_call_frag',
+      )) {
         continue;
       }
-      // 属于 assistant 角色且有 expandable part
       if (messageRoles[mId] == 'assistant' &&
           parts.any((p) => _isExpandablePartType(p.partType))) {
         return i;
@@ -283,10 +283,6 @@ class _MessageList extends StatelessWidget {
   }
 }
 
-
-
-/// 读取宽度 — 主屏物理宽度的一半
-/// 等价于原 readingWidthProvider 的计算逻辑
 double _readingWidth() {
   final display = PlatformDispatcher.instance.displays.first;
   return display.size.width / display.devicePixelRatio / 2;

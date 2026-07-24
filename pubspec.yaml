@@ -26,7 +26,6 @@ dependencies:
   desktop_drop: ^0.7.1
   flutter_rust_bridge: 2.13.0-beta.5
   streamdown: ^0.1.1
-  scrollview_observer: ^1.27.0
   fleather: ^1.27.0
   freezed_annotation: ^3.0.0
   signals: ^7.1.0
