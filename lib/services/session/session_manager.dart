@@ -223,6 +223,7 @@ class SessionManager {
         provider: provider,
         model: model,
         prompt: prompt,
+        userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
       );

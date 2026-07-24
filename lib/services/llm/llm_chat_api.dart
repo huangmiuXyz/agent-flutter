@@ -41,6 +41,7 @@ mixin ChatApi {
     required String provider,
     required String model,
     required String prompt,
+    String? userMsgId,
     String? dbPath,
     String? sessionId,
   }) {
@@ -51,6 +52,7 @@ mixin ChatApi {
         provider: provider,
         model: model,
         prompt: prompt,
+        userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
       );
