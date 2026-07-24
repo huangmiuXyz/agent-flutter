@@ -191,12 +191,12 @@ class ModelListPage extends HookConsumerWidget {
                   searchTerm: searchQuery.value,
                   onSearchChanged: (v) => searchQuery.value = v,
                   searchPlaceholder: '搜索模型...',
-                  children: groups,
                   emptyState: AppBigEmpty(
                     icon: 'search',
                     title: query.isEmpty ? '暂无可用模型' : '没有匹配的模型',
                     hint: query.isEmpty ? '' : '试试其他关键词',
                   ),
+                  children: groups,
                 ),
         ],
       ),

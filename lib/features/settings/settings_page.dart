@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
+import 'package:agent/features/settings/pages/add_provider_page.dart';
 import 'package:agent/features/settings/pages/provider_config_page.dart';
 import 'package:agent/features/settings/pages/provider_list_page.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -31,12 +32,17 @@ class SettingsPage extends HookWidget {
     final custom = CustomTheme.of(context);
     final activeTab = useState(SettingsTab.models);
     final selectedProvider = useState<ProviderInfo?>(null);
+    final showAddProvider = useState(false);
 
     // ── Right content ──
     Widget content;
     switch (activeTab.value) {
       case SettingsTab.models:
-        if (selectedProvider.value != null) {
+        if (showAddProvider.value) {
+          content = AddProviderPage(
+            onBack: () => showAddProvider.value = false,
+          );
+        } else if (selectedProvider.value != null) {
           content = ProviderConfigPage(
             provider: selectedProvider.value!,
             onBack: () => selectedProvider.value = null,
@@ -44,6 +50,7 @@ class SettingsPage extends HookWidget {
         } else {
           content = ProviderListPage(
             onProviderTap: (p) => selectedProvider.value = p,
+            onAddProvider: () => showAddProvider.value = true,
           );
         }
     }
@@ -87,6 +94,7 @@ class SettingsPage extends HookWidget {
                             onTap: () {
                               activeTab.value = item.tab;
                               selectedProvider.value = null;
+                              showAddProvider.value = false;
                             },
                           ),
                       ],

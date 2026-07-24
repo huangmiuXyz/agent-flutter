@@ -10,8 +10,10 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/services/llm/llm_providers.dart';
-import 'package:agent/widgets/list/app_big_list.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
+import 'package:agent/widgets/list/app_big_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Displays all providers in an [AppBigList] with search and status dots.
@@ -19,7 +21,10 @@ class ProviderListPage extends HookConsumerWidget {
   /// Called when the user taps a provider row.
   final ValueChanged<ProviderInfo> onProviderTap;
 
-  const ProviderListPage({super.key, required this.onProviderTap});
+  /// Called when the user wants to add a custom provider.
+  final VoidCallback? onAddProvider;
+
+  const ProviderListPage({super.key, required this.onProviderTap, this.onAddProvider});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -88,12 +93,19 @@ class ProviderListPage extends HookConsumerWidget {
         searchTerm: searchQuery.value,
         onSearchChanged: (v) => searchQuery.value = v,
         searchPlaceholder: '搜索提供商...',
-        children: groups,
+        actions: [
+          AppPrimaryButton(
+            text: '添加提供商',
+            size: ButtonSize.sm,
+            onPressed: onAddProvider,
+          ),
+        ],
         emptyState: AppBigEmpty(
           icon: 'search',
           title: query.isEmpty ? '暂无可用提供商' : '没有匹配的提供商',
           hint: query.isEmpty ? '' : '试试其他关键词',
         ),
+        children: groups,
       ),
     );
   }
@@ -125,7 +137,7 @@ class _ProviderAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(7),
         color: Colors.primaries[name.hashCode % Colors.primaries.length]
-            .withOpacity(0.2),
+            .withValues(alpha: 0.2)
       ),
       child: Center(
         child: AppText(name[0].toUpperCase(), variant: AppTextVariant.body),
