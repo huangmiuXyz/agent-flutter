@@ -156,6 +156,9 @@ class ChatMessageItem extends HookWidget {
   /// 焦点变化回调
   final ValueChanged<bool>? onFocusChanged;
 
+  /// 当前会话是否处于流式输出中（传递给 ChatTextPart 用于增量追加）
+  final bool streaming;
+
   const ChatMessageItem({
     super.key,
     required this.sessionId,
@@ -168,6 +171,7 @@ class ChatMessageItem extends HookWidget {
     this.onRetry,
     this.dimmed = false,
     this.onFocusChanged,
+    this.streaming = false,
   });
 
   @override
@@ -282,7 +286,7 @@ class ChatMessageItem extends HookWidget {
     bool isLastExpandable = false,
   }) {
     return switch (part.partType) {
-      'text' => ChatTextPart(content: part.content),
+      'text' => ChatTextPart(content: part.content, streaming: streaming),
       'reasoning' => ChatExpandablePart(
         content: part.content,
         iconName: 'lightbulb',

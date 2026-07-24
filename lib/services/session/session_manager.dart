@@ -79,8 +79,12 @@ class SessionManager {
 
   // ── 内部 ──
 
+  /// 数据变更前的回调（供 ChatScrollObserver 记录位置）
+  void Function()? onBeforeEmit;
+
   /// 全量变更（新增/删除消息 / 流完成）
   void _emit() {
+    onBeforeEmit?.call();
     sessions.value = Map.from(sessions.value);
   }
 

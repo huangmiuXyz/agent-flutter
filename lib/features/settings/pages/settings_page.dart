@@ -68,7 +68,7 @@ class SettingsPage extends HookWidget {
                       custom.spacing.sm,
                     ),
                     child: AppText(
-                      'Settings',
+                      '设置',
                       variant: AppTextVariant.subtitle,
                     ),
                   ),

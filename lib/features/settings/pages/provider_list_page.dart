@@ -11,7 +11,9 @@ import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/services/llm/llm_providers.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
+import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/list/app_big_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -29,17 +31,18 @@ class ProviderListPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // ── Load providers from Rust backend ──
+    final configPath = ref.read(configPathProvider);
     final providersAsync = ref.watch(providersListProvider);
 
     return providersAsync.when(
-      data: (providers) => _buildList(providers),
+      data: (providers) => _buildList(providers, configPath),
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (err, _) =>
           Center(child: AppText('加载失败: $err', variant: AppTextVariant.body)),
     );
   }
 
-  Widget _buildList(List<api.ProviderSummary> providers) {
+  Widget _buildList(List<api.ProviderSummary> providers, String configPath) {
     final providerInfos = providers.map(ProviderInfo.fromRust).toList();
 
     // ── Search ──
@@ -98,6 +101,13 @@ class ProviderListPage extends HookConsumerWidget {
             text: '添加提供商',
             size: ButtonSize.sm,
             onPressed: onAddProvider,
+          ),
+          const SizedBox(width: 8),
+          AppSecondaryButton(
+            text: '配置文件',
+            icon: 'fileCode',
+            size: ButtonSize.sm,
+            onPressed: () => openFile(configPath),
           ),
         ],
         emptyState: AppBigEmpty(

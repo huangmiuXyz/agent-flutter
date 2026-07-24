@@ -21,6 +21,8 @@ class ContentFrame extends HookConsumerWidget {
           padding: EdgeInsets.only(
             top: spacing.pageTop,
             bottom: spacing.pageBottom,
+            left: spacing.edgeMargin,
+            right: spacing.edgeMargin,
           ),
           child: SizedBox(width: width, child: child),
         ),

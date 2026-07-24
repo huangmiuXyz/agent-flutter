@@ -63,6 +63,7 @@ const Map<String, IconData> _registry = {
   'move': LucideIcons.move,
   'atSign': LucideIcons.atSign,
   'cpu': LucideIcons.cpu,
+  'server': LucideIcons.server,
 };
 
 class AppIcon extends StatelessWidget {

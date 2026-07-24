@@ -153,8 +153,8 @@ class _ConfigForm extends HookConsumerWidget {
             // ---- Breadcrumb ----
             AppBreadcrumb(
               items: [
-                AppBreadcrumbItem('Settings', onTap: () {}),
-                AppBreadcrumbItem('Models', onTap: onBack),
+                AppBreadcrumbItem('设置', onTap: () {}),
+                AppBreadcrumbItem('提供商', onTap: onBack),
                 AppBreadcrumbItem(provider.label),
               ],
             ),

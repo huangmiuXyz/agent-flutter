@@ -93,8 +93,8 @@ class AddProviderPage extends HookConsumerWidget {
             // ---- Breadcrumb ----
             AppBreadcrumb(
               items: [
-                AppBreadcrumbItem('Settings', onTap: () {}),
-                AppBreadcrumbItem('Models', onTap: onBack),
+                AppBreadcrumbItem('设置', onTap: () {}),
+                AppBreadcrumbItem('提供商', onTap: onBack),
                 AppBreadcrumbItem('添加提供商'),
               ],
             ),

@@ -3,6 +3,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:scrollview_observer/scrollview_observer.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -80,108 +81,122 @@ class _MessageList extends StatelessWidget {
         return HookBuilder(
           builder: (context) {
             final scrollController = useScrollController();
-            final userScrolledUp = useRef(false);
             final focusedMsgId = useState<String?>(null);
 
-            // 检测手动滚动：只要不在确切底部就暂停自动滚动
-            useEffect(() {
-              void onScroll() {
-                if (!scrollController.hasClients) return;
-                userScrolledUp.value =
-                    scrollController.position.pixels <
-                    scrollController.position.maxScrollExtent;
-              }
-              scrollController.addListener(onScroll);
-              return () => scrollController.removeListener(onScroll);
-            }, [scrollController]);
+            // ── ChatScrollObserver ──
+            final observerController = useMemoized(
+              () => ListObserverController(controller: scrollController)
+                ..cacheJumpIndexOffset = false,
+            );
+            final chatObserver = useMemoized(
+              () => ChatScrollObserver(observerController)
+                ..fixedPositionOffset = 5,
+            );
 
-            // 内容更新后自动滚底（仅当用户未手动上滚时）
+            // 流式输出前记录位置，让 observer 保持消息不跳
             useEffect(() {
-              if (!scrollController.hasClients) return null;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (scrollController.hasClients && !userScrolledUp.value) {
-                  scrollController.jumpTo(
-                    scrollController.position.maxScrollExtent,
-                  );
-                }
-              });
-              return null;
-            });
+              final mgr = SessionManager.instance;
+              mgr.onBeforeEmit = () {
+                if (!scrollController.hasClients) return;
+                final streaming =
+                    mgr.streamingSessionIds.value.contains(sessionId);
+                if (!streaming) return;
+                chatObserver.standby(
+                  mode: ChatScrollObserverHandleMode.generative,
+                );
+              };
+              return () {
+                SessionManager.instance.onBeforeEmit = null;
+              };
+            }, [chatObserver, sessionId, scrollController]);
 
             return Align(
               alignment: Alignment.topCenter,
               child: SizedBox(
                 width: _readingWidth(),
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: EdgeInsets.only(
-                    top: custom.spacing.sm,
-                    bottom: 40,
-                  ),
-                  itemCount: messageOrder.length + (isStreaming ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    // 流式加载指示器（位于列表末尾）
-                    if (isStreaming && index == messageOrder.length) {
-                      return Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          custom.spacing.md,
-                          custom.spacing.xs,
-                          custom.spacing.md,
-                          custom.spacing.sm,
-                        ),
-                        child: const AppLoading(),
-                      );
-                    }
-
-                    final msgId = messageOrder[index];
-                    final parts = partsByMsg[msgId] ?? [];
-                    final role = messageRoles[msgId] ?? '';
-
-                    if (parts.isNotEmpty &&
-                        parts.every(
-                          (p) =>
-                              p.partType == 'tool_result' ||
-                              p.partType == 'tool_call_frag',
-                        )) {
-                      return const SizedBox.shrink();
-                    }
-
-                    final dimmed = focusedMsgId.value != null &&
-                        index > messageOrder.indexOf(focusedMsgId.value!);
-
-                    return ChatMessageItem(
-                      key: ValueKey(msgId),
-                      sessionId: sessionId,
-                      msgId: msgId,
-                      role: role,
-                      parts: parts,
-                      toolCallResults: toolCallResults,
-                      autoExpandLast: index == lastExpandableMsgIndex,
-                      modelName: isFirstInTurn[index] == true
-                          ? messageModels[msgId]
-                          : null,
-                      dimmed: dimmed,
-                      onFocusChanged: (focused) {
-                        focusedMsgId.value = focused ? msgId : null;
-                      },
-                      onRetry: (msgId, newContent) {
-                        final f = ProviderScope.containerOf(context);
-                        final mgr = SessionManager.instance;
-                        final currentProvider = f.read(currentProviderProvider);
-                        final currentModel = f.read(currentModelProvider);
-                        mgr.retryMessage(
-                          sessionId: sessionId,
-                          msgId: msgId,
-                          newPrompt: newContent,
-                          provider: currentProvider,
-                          model: currentModel,
-                          service: f.read(llmServiceProvider),
-                          dbPath: f.read(dbPathProvider),
-                          configPath: f.read(configPathProvider),
+                child: ListViewObserver(
+                  controller: observerController,
+                  child: ListView.builder(
+                    reverse: true,
+                    controller: scrollController,
+                    physics: ChatObserverClampingScrollPhysics(
+                      observer: chatObserver,
+                    ),
+                    shrinkWrap: chatObserver.isShrinkWrap,
+                    padding: EdgeInsets.only(
+                      top: custom.spacing.sm,
+                      bottom: 40,
+                    ),
+                    itemCount: messageOrder.length + (isStreaming ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      // reverse: true 下 index 0 = 底部
+                      // 流式加载指示器放在底部
+                      if (isStreaming && index == 0) {
+                        return Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            custom.spacing.md,
+                            custom.spacing.xs,
+                            custom.spacing.md,
+                            custom.spacing.sm,
+                          ),
+                          child: const AppLoading(),
                         );
-                      },
-                    );
-                  },
+                      }
+
+                      final dataIndex = index - (isStreaming ? 1 : 0);
+                      final msgIndex = messageOrder.length - 1 - dataIndex;
+
+                      final msgId = messageOrder[msgIndex];
+                      final parts = partsByMsg[msgId] ?? [];
+                      final role = messageRoles[msgId] ?? '';
+
+                      if (parts.isNotEmpty &&
+                          parts.every(
+                            (p) =>
+                                p.partType == 'tool_result' ||
+                                p.partType == 'tool_call_frag',
+                          )) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final dimmed = focusedMsgId.value != null &&
+                          msgIndex > messageOrder.indexOf(focusedMsgId.value!);
+
+                      return ChatMessageItem(
+                        key: ValueKey(msgId),
+                        sessionId: sessionId,
+                        msgId: msgId,
+                        role: role,
+                        parts: parts,
+                        streaming: isStreaming,
+                        toolCallResults: toolCallResults,
+                        autoExpandLast: msgIndex == lastExpandableMsgIndex,
+                        modelName: isFirstInTurn[msgIndex] == true
+                            ? messageModels[msgId]
+                            : null,
+                        dimmed: dimmed,
+                        onFocusChanged: (focused) {
+                          focusedMsgId.value = focused ? msgId : null;
+                        },
+                        onRetry: (msgId, newContent) {
+                          final f = ProviderScope.containerOf(context);
+                          final mgr = SessionManager.instance;
+                          final currentProvider = f.read(currentProviderProvider);
+                          final currentModel = f.read(currentModelProvider);
+                          mgr.retryMessage(
+                            sessionId: sessionId,
+                            msgId: msgId,
+                            newPrompt: newContent,
+                            provider: currentProvider,
+                            model: currentModel,
+                            service: f.read(llmServiceProvider),
+                            dbPath: f.read(dbPathProvider),
+                            configPath: f.read(configPathProvider),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ),
             );

@@ -4,8 +4,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
+import 'package:agent/features/settings/pages/add_mcp_server_page.dart';
 import 'package:agent/features/settings/pages/add_provider_page.dart';
+import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
+import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
 import 'package:agent/features/settings/pages/provider_config_page.dart';
 import 'package:agent/features/settings/pages/provider_list_page.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -13,9 +17,12 @@ import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Settings category tabs.
-enum SettingsTab { models }
+enum SettingsTab { models, mcp }
 
-const _sidebarsItems = [_TabItem(SettingsTab.models, '模型提供商', 'cpu')];
+const _sidebarsItems = [
+  _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
+  _TabItem(SettingsTab.mcp, 'MCP 服务器', 'server'),
+];
 
 class _TabItem {
   final SettingsTab tab;
@@ -33,6 +40,8 @@ class SettingsPage extends HookWidget {
     final activeTab = useState(SettingsTab.models);
     final selectedProvider = useState<ProviderInfo?>(null);
     final showAddProvider = useState(false);
+    final selectedMcp = useState<McpServerInfo?>(null);
+    final showAddMcp = useState(false);
 
     // ── Right content ──
     Widget content;
@@ -51,6 +60,22 @@ class SettingsPage extends HookWidget {
           content = ProviderListPage(
             onProviderTap: (p) => selectedProvider.value = p,
             onAddProvider: () => showAddProvider.value = true,
+          );
+        }
+      case SettingsTab.mcp:
+        if (showAddMcp.value) {
+          content = AddMcpServerPage(
+            onBack: () => showAddMcp.value = false,
+          );
+        } else if (selectedMcp.value != null) {
+          content = McpServerConfigPage(
+            server: selectedMcp.value!,
+            onBack: () => selectedMcp.value = null,
+          );
+        } else {
+          content = McpServerListPage(
+            onServerTap: (s) => selectedMcp.value = s,
+            onAddServer: () => showAddMcp.value = true,
           );
         }
     }
@@ -75,7 +100,7 @@ class SettingsPage extends HookWidget {
                       custom.spacing.sm,
                     ),
                     child: AppText(
-                      'Settings',
+                      '设置',
                       variant: AppTextVariant.subtitle,
                     ),
                   ),
@@ -95,6 +120,8 @@ class SettingsPage extends HookWidget {
                               activeTab.value = item.tab;
                               selectedProvider.value = null;
                               showAddProvider.value = false;
+                              selectedMcp.value = null;
+                              showAddMcp.value = false;
                             },
                           ),
                       ],
