@@ -81,6 +81,7 @@ class _MessageList extends StatelessWidget {
           builder: (context) {
             final scrollController = useScrollController();
             final userScrolledUp = useRef(false);
+            final focusedMsgId = useState<String?>(null);
 
             // 检测手动滚动：只要不在确切底部就暂停自动滚动
             useEffect(() {
@@ -113,7 +114,10 @@ class _MessageList extends StatelessWidget {
                 width: _readingWidth(),
                 child: ListView.builder(
                   controller: scrollController,
-                  padding: EdgeInsets.only(bottom: 40),
+                  padding: EdgeInsets.only(
+                    top: custom.spacing.sm,
+                    bottom: 40,
+                  ),
                   itemCount: messageOrder.length + (isStreaming ? 1 : 0),
                   itemBuilder: (context, index) {
                     // 流式加载指示器（位于列表末尾）
@@ -142,6 +146,9 @@ class _MessageList extends StatelessWidget {
                       return const SizedBox.shrink();
                     }
 
+                    final dimmed = focusedMsgId.value != null &&
+                        index > messageOrder.indexOf(focusedMsgId.value!);
+
                     return ChatMessageItem(
                       key: ValueKey(msgId),
                       sessionId: sessionId,
@@ -153,6 +160,10 @@ class _MessageList extends StatelessWidget {
                       modelName: isFirstInTurn[index] == true
                           ? messageModels[msgId]
                           : null,
+                      dimmed: dimmed,
+                      onFocusChanged: (focused) {
+                        focusedMsgId.value = focused ? msgId : null;
+                      },
                       onRetry: (msgId, newContent) {
                         final f = ProviderScope.containerOf(context);
                         final mgr = SessionManager.instance;

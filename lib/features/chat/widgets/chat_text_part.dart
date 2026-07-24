@@ -12,7 +12,7 @@ class ChatTextPart extends StatelessWidget {
   const ChatTextPart({super.key, this.content = ''});
 
   /// 提取实际显示的文本（用户消息存的是 JSON 包裹格式 `{"content":"..."}`）
-  static String _extractDisplayText(String raw) {
+  static String extractDisplayText(String raw) {
     try {
       final parsed = jsonDecode(raw);
       if (parsed is Map<String, dynamic> && parsed['content'] is String) {
@@ -24,7 +24,7 @@ class ChatTextPart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = _extractDisplayText(content);
+    final text = extractDisplayText(content);
 
     if (text.isEmpty) {
       return const SizedBox.shrink();

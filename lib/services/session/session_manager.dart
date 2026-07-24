@@ -293,7 +293,28 @@ class SessionManager {
 
     _emit();
 
-    // 2. 通过 Rust 后端重试（替换 DB 中的消息内容 + 删除后续消息 + 重新请求 LLM）
+    // 2. 清理本地后续消息（后端会删除 DB 中的后续消息，本地也需要同步清除）
+    final msgIndex = s.messageOrder.indexOf(msgId);
+    if (msgIndex >= 0 && msgIndex + 1 < s.messageOrder.length) {
+      final tailIds = s.messageOrder.sublist(msgIndex + 1);
+      // 收集待清理的 partId
+      final tailPartIds = <String>{};
+      for (final id in tailIds) {
+        final parts = s.partsByMsg.remove(id);
+        if (parts != null) {
+          for (final p in parts) {
+            tailPartIds.add(p.id);
+          }
+        }
+        s.messageRoles.remove(id);
+        s.messageModels.remove(id);
+      }
+      s.partLens.removeWhere((k, _) => tailPartIds.contains(k));
+      s.reasoningPartLens.removeWhere((k, _) => tailPartIds.contains(k));
+      s.messageOrder.removeRange(msgIndex + 1, s.messageOrder.length);
+    }
+
+    // 3. 通过 Rust 后端重试（替换 DB 中的消息内容 + 删除后续消息 + 重新请求 LLM）
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 

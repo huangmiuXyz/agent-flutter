@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -10,6 +11,23 @@ import 'package:agent/widgets/text/app_text.dart';
 
 import 'chat_expandable_part.dart';
 import 'chat_text_part.dart';
+
+/// Intent signalled when user presses Enter (without modifiers) to retry.
+class _RetryIntent extends Intent {
+  const _RetryIntent();
+}
+
+/// Action that invokes the [onSubmit] callback.
+class _RetryAction extends Action<_RetryIntent> {
+  _RetryAction({this.onSubmit});
+
+  final VoidCallback? onSubmit;
+
+  @override
+  void invoke(_RetryIntent intent) {
+    onSubmit?.call();
+  }
+}
 
 /// 用户消息编辑重试回调
 ///
@@ -24,6 +42,7 @@ class _UserMessage extends HookWidget {
   final CustomTheme custom;
   final double minPartHeight;
   final OnRetryMessage? onRetry;
+  final ValueChanged<bool>? onFocusChanged;
 
   const _UserMessage({
     required this.sessionId,
@@ -32,6 +51,7 @@ class _UserMessage extends HookWidget {
     required this.custom,
     required this.minPartHeight,
     this.onRetry,
+    this.onFocusChanged,
   });
 
   @override
@@ -43,16 +63,25 @@ class _UserMessage extends HookWidget {
       (p) => p!.partType == 'text',
       orElse: () => null,
     );
-    final initialText = textPart?.content ?? '';
+    final initialText = textPart != null ? ChatTextPart.extractDisplayText(textPart.content) : '';
 
     useEffect(() {
       ctrl.text = initialText;
       return null;
     }, [initialText]);
 
+    final focusNode = useFocusNode();
+
+    useEffect(() {
+      void onFocus() => onFocusChanged?.call(focusNode.hasFocus);
+      focusNode.addListener(onFocus);
+      return () => focusNode.removeListener(onFocus);
+    }, [focusNode, onFocusChanged]);
+
     void handleSubmit() {
       final newText = ctrl.text.trim();
-      if (newText.isEmpty || newText == initialText) return;
+      if (newText.isEmpty) return;
+      focusNode.unfocus();
       onRetry?.call(msgId, newText);
     }
 
@@ -64,26 +93,34 @@ class _UserMessage extends HookWidget {
     return Padding(
       padding: messagePadding,
       child: AppCard(
-        padding: EdgeInsets.symmetric(
-          horizontal: custom.spacing.xs,
-          vertical: 0,
-        ),
-        child: TextField(
-          controller: ctrl,
-          maxLines: null,
-          style: TextStyle(
-            fontSize: custom.typography.bodySize,
-            fontFamily: custom.typography.fontFamily,
-            color: custom.colors.textPrimary,
+        padding: EdgeInsets.all(custom.spacing.xs),
+        child: Shortcuts(
+          shortcuts: {
+            // Enter without modifiers → submit; Shift+Enter passes through as newline
+            SingleActivator(LogicalKeyboardKey.enter): const _RetryIntent(),
+          },
+          child: Actions(
+            actions: {
+              _RetryIntent: _RetryAction(onSubmit: handleSubmit),
+            },
+            child: TextField(
+              focusNode: focusNode,
+              controller: ctrl,
+              maxLines: null,
+              style: TextStyle(
+                fontSize: custom.typography.bodySize,
+                fontFamily: custom.typography.fontFamily,
+                color: custom.colors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                border: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                enabledBorder: InputBorder.none,
+              ),
+            ),
           ),
-          decoration: InputDecoration(
-            isDense: true,
-            contentPadding: EdgeInsets.zero,
-            border: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            enabledBorder: InputBorder.none,
-          ),
-          onSubmitted: (_) => handleSubmit(),
         ),
       ),
     );
@@ -113,6 +150,12 @@ class ChatMessageItem extends HookWidget {
   /// 用户消息编辑重试回调
   final OnRetryMessage? onRetry;
 
+  /// 后续消息被聚焦编辑时，本消息变灰提示将被删除
+  final bool dimmed;
+
+  /// 焦点变化回调
+  final ValueChanged<bool>? onFocusChanged;
+
   const ChatMessageItem({
     super.key,
     required this.sessionId,
@@ -123,6 +166,8 @@ class ChatMessageItem extends HookWidget {
     this.autoExpandLast = false,
     this.modelName,
     this.onRetry,
+    this.dimmed = false,
+    this.onFocusChanged,
   });
 
   @override
@@ -151,6 +196,7 @@ class ChatMessageItem extends HookWidget {
         custom: custom,
         minPartHeight: minPartHeight,
         onRetry: onRetry,
+        onFocusChanged: onFocusChanged,
       );
     }
 
@@ -187,7 +233,11 @@ class ChatMessageItem extends HookWidget {
       vertical: custom.spacing.xs,
     );
 
-    return Padding(padding: messagePadding, child: partsWidget);
+    Widget result = Padding(padding: messagePadding, child: partsWidget);
+    if (dimmed) {
+      result = Opacity(opacity: 0.35, child: result);
+    }
+    return result;
   }
 
   bool _isVisiblePart(api.PartInfo part, List<api.PartInfo> allParts) {
