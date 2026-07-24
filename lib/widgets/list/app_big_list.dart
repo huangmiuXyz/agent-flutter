@@ -573,7 +573,6 @@ class _SettingsSearchBar extends HookWidget {
   final ValueChanged<String>? onChanged;
 
   const _SettingsSearchBar({
-    super.key,
     required this.value,
     required this.placeholder,
     required this.onChanged,
