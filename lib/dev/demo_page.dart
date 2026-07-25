@@ -24,7 +24,6 @@ import 'package:agent/dev/select_demo.dart';
 import 'package:agent/dev/switch_demo.dart';
 import 'package:agent/dev/dialog_demo.dart';
 import 'package:agent/dev/fleather_demo.dart';
-import 'package:agent/dev/signals_demo.dart';
 import 'package:agent/features/chat/chat_page.dart';
 import 'package:agent/dev/reactive_demo.dart';
 import 'package:agent/dev/big_list_demo.dart';
@@ -64,7 +63,6 @@ class DemoPage extends HookWidget {
                   const SwitchDemo(),
                   const DialogDemo(),
                   const FleatherDemo(),
-                  const SignalsDemo(),
                   const ChatDemo(),
                   const ReactiveDemo(),
                   const BigListDemo(),
