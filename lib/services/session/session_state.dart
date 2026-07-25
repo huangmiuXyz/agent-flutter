@@ -47,11 +47,7 @@ class SessionState {
     messageOrder.clear();
     partLens.clear();
 
-    // 按 seq 排序，保证 messageOrder 正确
-    final sorted = List<api.PartInfo>.from(parts)
-      ..sort((a, b) => a.seq.compareTo(b.seq));
-
-    for (final part in sorted) {
+    for (final part in parts) {
       partsByMsg.putIfAbsent(part.msgId, () => []).add(part);
       if (!messageOrder.contains(part.msgId)) {
         messageOrder.add(part.msgId);

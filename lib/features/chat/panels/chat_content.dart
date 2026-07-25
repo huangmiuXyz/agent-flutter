@@ -133,9 +133,8 @@ class _MessageList extends StatelessWidget {
               return () => scrollController.removeListener(onScroll);
             }, [scrollController]);
 
-            // 初始滚到底部
+            // 切换 session 后自动滚到底部（无动画）
             useEffect(() {
-              if (!scrollController.hasClients) return null;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!scrollController.hasClients) return;
                 scrollController.jumpTo(
