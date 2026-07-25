@@ -62,7 +62,8 @@ class LeftPanel extends ConsumerWidget {
         service: ref.read(llmServiceProvider),
         dbPath: ref.read(dbPathProvider),
       );
-      await SessionManager.instance.switchTo(
+      // createSession 已设置 selectedId，switchTo 异步加载数据不阻塞
+      SessionManager.instance.switchTo(
         sessionId,
         service: ref.read(llmServiceProvider),
         dbPath: ref.read(dbPathProvider),

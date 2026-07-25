@@ -107,13 +107,14 @@ class SessionList extends HookConsumerWidget {
                 active: isSelected,
                 intrinsicHeight: true,
                 itemRadius: BorderRadius.zero,
-                onTap: () async {
-                  await SessionManager.instance.switchTo(
+                onTap: () {
+                  // 立即更新选中态，让 UI 先切换，不等待数据加载
+                  SessionManager.instance.selectedId.value = session.id;
+                  SessionManager.instance.switchTo(
                     session.id,
                     service: ref.read(llmServiceProvider),
                     dbPath: ref.read(dbPathProvider),
                   );
-                  SessionManager.instance.selectedId.value = session.id;
                 },
                 hoverActions: [
                   AppIconButton(

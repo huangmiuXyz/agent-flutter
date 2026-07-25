@@ -122,23 +122,18 @@ class SessionManager {
           .listen((e) => buffer.add(e), onError: (_) {});
     } catch (_) {}
 
-    // ── 2. 读 DB ──
-    try {
-      final messages = await service.listMessagesBySession(
-        dbPath: dbPath,
-        sessionId: sessionId,
-      );
-      sessions.value[sessionId]!.loadFromMessages(messages);
-    } catch (_) {}
-
-    try {
-      final parts = await service.listPartsBySession(
-        dbPath: dbPath,
-        sessionId: sessionId,
-      );
-      sessions.value[sessionId]!.loadFromParts(parts);
-      _emit();
-    } catch (_) {}
+    // ── 2. 读 DB（并发） ──
+    await Future.wait([
+      service.listMessagesBySession(
+        dbPath: dbPath, sessionId: sessionId,
+      ).then((m) => sessions.value[sessionId]!.loadFromMessages(m))
+       .catchError((_) {}),
+      service.listPartsBySession(
+        dbPath: dbPath, sessionId: sessionId,
+      ).then((p) => sessions.value[sessionId]!.loadFromParts(p))
+       .catchError((_) {}),
+    ]);
+    _emit();
 
     // ── 3. 回放 buffer（total_len 去重） ──
     bufferSub?.cancel();
@@ -146,7 +141,9 @@ class SessionManager {
       StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
     }
 
-    // ── 4. gap 检测 ──
+    // ── 4. gap 检测（并发补全） ──
+    final s = sessions.value[sessionId]!;
+    final missingPartIds = <String>[];
     for (final event in buffer) {
       String partId;
       BigInt totalLen;
@@ -161,7 +158,6 @@ class SessionManager {
       }
       if (partId.isEmpty || totalLen == BigInt.zero) continue;
 
-      final s = sessions.value[sessionId]!;
       bool hasFullContent = false;
       for (final parts in s.partsByMsg.values) {
         for (final part in parts) {
@@ -173,14 +169,16 @@ class SessionManager {
         if (hasFullContent) break;
       }
       if (!hasFullContent) {
-        try {
-          final fullContent = await service.readPart(
-            dbPath: dbPath,
-            partId: partId,
-          );
-          s.updatePartContent(partId, fullContent);
-        } catch (_) {}
+        missingPartIds.add(partId);
       }
+    }
+
+    if (missingPartIds.isNotEmpty) {
+      await Future.wait(missingPartIds.map((partId) =>
+        service.readPart(dbPath: dbPath, partId: partId)
+            .then((content) => s.updatePartContent(partId, content))
+            .catchError((_) {})
+      ));
     }
 
     _emit();
