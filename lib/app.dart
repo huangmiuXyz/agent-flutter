@@ -5,8 +5,6 @@ import 'package:window_manager/window_manager.dart';
 import 'package:agent/theme/provider.dart';
 import 'package:agent/router/router.dart';
 import 'package:agent/theme/app_theme.dart';
-import 'package:agent/services/llm/llm_providers.dart';
-import 'package:agent/rust_bridge/api.dart' as api;
 
 class _NoOverscrollBehavior extends MaterialScrollBehavior {
   const _NoOverscrollBehavior();
@@ -35,42 +33,11 @@ class _NoOverscrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-class AgentApp extends ConsumerStatefulWidget {
+class AgentApp extends ConsumerWidget {
   const AgentApp({super.key});
 
   @override
-  ConsumerState<AgentApp> createState() => _AgentAppState();
-}
-
-class _AgentAppState extends ConsumerState<AgentApp> {
-  @override
-  void initState() {
-    super.initState();
-    _initMcp();
-  }
-
-  Future<void> _initMcp() async {
-    try {
-      final configPath = ref.read(configPathProvider);
-      final errors = await api.initMcp(configPath: configPath);
-      if (errors.isNotEmpty && mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errors.join('\n')),
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        });
-      }
-    } catch (_) {
-      // MCP 初始化失败不影响主功能
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(themeProvider);
 
     return MaterialApp.router(

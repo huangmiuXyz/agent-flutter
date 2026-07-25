@@ -9,6 +9,9 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
+import 'package:agent/services/llm/llm_providers.dart';
+import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 /// The hidden settings child-window controller, created on first use.
 WindowController? settingsWindow;
@@ -148,7 +151,12 @@ class MainLayout extends StatelessWidget {
             ),
           ),
         ),
-        body: child,
+        body: Stack(
+          children: [
+            child,
+            const _McpInitSnackBar(),
+          ],
+        ),
         bottomNavigationBar: footer,
       );
     }
@@ -198,8 +206,50 @@ class MainLayout extends StatelessWidget {
           ),
         ),
       ),
-      body: child,
+      body: Stack(
+          children: [
+            child,
+            const _McpInitSnackBar(),
+          ],
+        ),
       bottomNavigationBar: footer,
     );
   }
+}
+
+/// 启动时初始化 MCP，失败则显示 SnackBar
+class _McpInitSnackBar extends ConsumerStatefulWidget {
+  const _McpInitSnackBar();
+
+  @override
+  ConsumerState<_McpInitSnackBar> createState() => _McpInitSnackBarState();
+}
+
+class _McpInitSnackBarState extends ConsumerState<_McpInitSnackBar> {
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      final configPath = ref.read(configPathProvider);
+      final errors = await api.initMcp(configPath: configPath);
+      if (errors.isNotEmpty && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errors.join('\n')),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
