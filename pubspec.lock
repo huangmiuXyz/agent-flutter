@@ -901,7 +901,7 @@ packages:
     source: hosted
     version: "7.1.0"
   signals_hooks:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: signals_hooks
       sha256: af6c2c4be47f06214292fedab6f6e943433c02086c956eeaffe45c4a23a57413

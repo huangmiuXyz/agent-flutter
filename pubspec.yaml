@@ -30,6 +30,7 @@ dependencies:
   freezed_annotation: ^3.0.0
   signals: ^7.1.0
   signals_flutter: ^7.1.0
+  signals_hooks: ^7.1.0
   reactive_forms: ^18.2.2
   desktop_multi_window: ^0.3.0
 
