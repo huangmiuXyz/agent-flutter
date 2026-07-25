@@ -1,6 +1,6 @@
 /// Add custom provider page — form to create a new OpenAI-compatible provider.
 ///
-/// Persists to config.json via [api.setConfig]:
+/// Persists to config.json via [ConfigFileStore]:
 ///   language_models.openai_compatible.{name}.api_url
 ///   language_models.openai_compatible.{name}.api_key
 library;
@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/services/config_service.dart';
 import 'package:agent/services/llm/llm_providers.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
@@ -51,21 +51,19 @@ class AddProviderPage extends HookConsumerWidget {
       errorMsg.value = null;
 
       try {
-        final cfgPath = ref.read(configPathProvider);
+        final store = ref.read(configFileStoreProvider);
         final keyPrefix = 'language_models.openai_compatible.$providerId';
 
-        await api.setConfig(
-          configPath: cfgPath,
-          key: '$keyPrefix.api_url',
-          value: endpointCtrl.text.trim().isNotEmpty
+        store.writePath(
+          '$keyPrefix.api_url',
+          endpointCtrl.text.trim().isNotEmpty
               ? endpointCtrl.text.trim()
               : 'https://api.openai.com/v1',
         );
         if (apiKeyCtrl.text.trim().isNotEmpty) {
-          await api.setConfig(
-            configPath: cfgPath,
-            key: '$keyPrefix.api_key',
-            value: apiKeyCtrl.text.trim(),
+          store.writePath(
+            '$keyPrefix.api_key',
+            apiKeyCtrl.text.trim(),
           );
         }
 

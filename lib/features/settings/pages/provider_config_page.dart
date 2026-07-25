@@ -13,7 +13,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
-import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/services/config_service.dart';
 import 'package:agent/services/llm/llm_providers.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -78,34 +77,24 @@ class _ConfigForm extends HookConsumerWidget {
 
     // ── Load existing config on mount ──
     useEffect(() {
-      Future<void> load() async {
-        try {
-          final cfgPath = ref.read(configPathProvider);
-          final keyPrefix = 'language_models.$protocol.${provider.name}';
-          final rawUrl = await api.getConfig(
-            configPath: cfgPath,
-            key: '$keyPrefix.api_url',
-          );
-          if (rawUrl.isNotEmpty && rawUrl != 'null') {
-            final url = jsonDecode(rawUrl) as String;
-            if (url.isNotEmpty) {
-              endpointCtrl.text = url;
-            }
+      try {
+        final store = ref.read(configFileStoreProvider);
+        final keyPrefix = 'language_models.$protocol.${provider.name}';
+        final rawUrl = store.readPath('$keyPrefix.api_url');
+        if (rawUrl != null && rawUrl != 'null') {
+          final url = jsonDecode(rawUrl) as String;
+          if (url.isNotEmpty) {
+            endpointCtrl.text = url;
           }
-          final rawKey = await api.getConfig(
-            configPath: cfgPath,
-            key: '$keyPrefix.api_key',
-          );
-          if (rawKey.isNotEmpty && rawKey != 'null') {
-            final key = jsonDecode(rawKey) as String;
-            if (key.isNotEmpty) {
-              apiKeyCtrl.text = key;
-            }
+        }
+        final rawKey = store.readPath('$keyPrefix.api_key');
+        if (rawKey != null && rawKey != 'null') {
+          final key = jsonDecode(rawKey) as String;
+          if (key.isNotEmpty) {
+            apiKeyCtrl.text = key;
           }
-        } catch (_) {}
-      }
-
-      load();
+        }
+      } catch (_) {}
       return null;
     }, [provider.name]);
 
@@ -114,21 +103,14 @@ class _ConfigForm extends HookConsumerWidget {
     // ── Save handler ──
     Future<void> handleSave() async {
       try {
-        final cfgPath = ref.read(configPathProvider);
+        final store = ref.read(configFileStoreProvider);
         final keyPrefix = 'language_models.$protocol.${provider.name}';
 
-        await api.setConfig(
-          configPath: cfgPath,
-          key: '$keyPrefix.api_url',
-          value: endpointCtrl.text,
-        );
+        store.writePath('$keyPrefix.api_url', endpointCtrl.text);
         if (apiKeyCtrl.text.isNotEmpty) {
-          await api.setConfig(
-            configPath: cfgPath,
-            key: '$keyPrefix.api_key',
-            value: apiKeyCtrl.text,
-          );
+          store.writePath('$keyPrefix.api_key', apiKeyCtrl.text);
         }
+
         ref.invalidate(providersListProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(
