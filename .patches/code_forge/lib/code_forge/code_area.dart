@@ -351,6 +351,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
   late final VoidCallback _scrollbarLineNumberListener;
   late final bool _deleteFoldRangeOnDeletingFirstLine;
   late final VoidCallback _signatureListener, _hoverListener;
+  late final VoidCallback _diagnosticsListener;
   late final VoidCallback _isHoveringPopupListener, _selectedSuggestionListener;
   late final VoidCallback _snippetSuggestionsListener, _snippetNotifierListener;
   late bool _readOnly;
@@ -685,6 +686,11 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
       }
     };
     _lspSignatureNotifier.addListener(_signatureListener);
+
+    _diagnosticsListener = () {
+      if (mounted) setState(() {});
+    };
+    _diagnosticsNotifier.addListener(_diagnosticsListener);
 
     _isHoveringPopupListener = () {
       if (!_isHoveringPopup.value && _hoverNotifier.value != null) {
@@ -1034,6 +1040,7 @@ class _CodeForgeState extends State<CodeForge> with TickerProviderStateMixin {
     _controller.semanticTokens.removeListener(_semanticTokensListener);
     _vscrollController.removeListener(_scrollbarLineNumberListener);
     _lspSignatureNotifier.removeListener(_signatureListener);
+    _diagnosticsNotifier.removeListener(_diagnosticsListener);
     _hoverNotifier.removeListener(_hoverListener);
     _isHoveringPopup.removeListener(_isHoveringPopupListener);
     _controller.selectedSuggestionNotifier.removeListener(

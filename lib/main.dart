@@ -13,6 +13,8 @@ import 'rust_bridge/frb_generated.dart' as frb;
 import 'store/llm_store.dart';
 import 'theme/app_theme.dart';
 
+import 'package:code_forge/code_forge.dart' as code_forge;
+
 void main() async {
   // Silence Fleather's harmless assertion in childAtPosition when
   // ballistic scroll races with document mutation.
@@ -32,6 +34,7 @@ void main() async {
       WidgetsFlutterBinding.ensureInitialized();
 
       await frb.RustLib.init();
+      await code_forge.RustLib.init();
       await LlmStore.instance.init();
 
       // Check if this is a child window (e.g. settings child window).
@@ -58,9 +61,7 @@ void main() async {
           final filePath = controller.arguments.substring(7);
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             await windowManager.ensureInitialized();
-            await windowManager.setTitle(
-              '编辑 — ${filePath.split('/').last}',
-            );
+            await windowManager.setTitle('编辑 — ${filePath.split('/').last}');
             await windowManager.center();
             await windowManager.focus();
             await windowManager.setPreventClose(true);
@@ -68,13 +69,15 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
-          runApp(MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: '编辑 — ${filePath.split('/').last}',
-            theme: appLightTheme,
-            darkTheme: appDarkTheme,
-            home: EditorWindow(filePath: filePath),
-          ));
+          runApp(
+            MaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: '编辑 — ${filePath.split('/').last}',
+              theme: appLightTheme,
+              darkTheme: appDarkTheme,
+              home: EditorWindow(filePath: filePath),
+            ),
+          );
           return;
         }
       } catch (_) {

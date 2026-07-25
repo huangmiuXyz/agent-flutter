@@ -373,7 +373,8 @@ class CodeForgeController implements DeltaTextInputClient {
         if (_isDisposed || !_lspReady || openedFile == null) return;
 
         if (!(lspConfig?.supportsSemanticTokensPull ?? true)) {
-          await lspConfig!.updateDocument(openedFile!, currentText);
+          // 文档同步由 _scheduleLspFullSync / _scheduleLspIncrementalSync
+          // 通过 _lspDocumentSyncTimer 统一处理，这里只处理补全等打字相关功能
         }
 
         if (_usesCclsSemanticHighlight && !_isDisposed) {
@@ -2844,11 +2845,13 @@ class CodeForgeController implements DeltaTextInputClient {
 
     if (fullText != null) {
       await config.updateDocument(file, fullText);
+      await config.saveDocument(file, fullText);
       return;
     }
 
     if (!config.supportsSemanticTokensPull) {
       await config.updateDocument(file, text);
+      await config.saveDocument(file, text);
       return;
     }
 
