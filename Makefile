@@ -7,26 +7,29 @@ CLI_DIR = ../agent-flutter-cli
 UNAME_S := $(shell uname -s)
 IS_WINDOWS := $(findstring NT,$(UNAME_S))
 
+# Flutter run 模式：make run → debug；make run r=1 → --release（预备发布）
+FLUTTER_MODE = $(if $(r),--release,)
+
 # 全部重新生成（FRB + build_runner + 编译 Rust）+ 启动 app
 run:
 ifneq ($(IS_WINDOWS),)
-	MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat flutter_rust_bridge_codegen generate"
+		MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat flutter_rust_bridge_codegen generate"
 else
-	flutter_rust_bridge_codegen generate
+		flutter_rust_bridge_codegen generate
 endif
-	dart run build_runner build --delete-conflicting-outputs
+		dart run build_runner build --delete-conflicting-outputs
 ifneq ($(IS_WINDOWS),)
-	MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent"
-	cp $(CLI_DIR)/target/release/rust_lib_agent.dll build/windows/x64/runner/Debug/
+		MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent"
+		cp $(CLI_DIR)/target/release/rust_lib_agent.dll build/windows/x64/runner/Debug/
 else
-	cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
+		cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
 endif
 ifeq ($(UNAME_S),Darwin)
-	flutter run -d macos
+		flutter run $(FLUTTER_MODE) -d macos
 else ifneq ($(IS_WINDOWS),)
-	flutter run -d windows
+		flutter run $(FLUTTER_MODE) -d windows
 else
-	flutter run
+		flutter run $(FLUTTER_MODE)
 endif
 
 # flutter_rust_bridge 代码生成（单独执行）
