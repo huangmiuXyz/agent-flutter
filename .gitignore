@@ -60,5 +60,5 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-nul
-\n# Rust build artifacts (code_forge patches)\n.patches/code_forge/rust/target/
+# Rust build artifacts (code_forge patches)
+.patches/code_forge/rust/target/
