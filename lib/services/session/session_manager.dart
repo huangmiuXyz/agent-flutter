@@ -91,6 +91,19 @@ class SessionManager {
     sessions.value = Map.from(sessions.value);
   }
 
+  /// 取消当前会话的流式生成
+  Future<void> cancelStreaming(String sessionId) async {
+    try {
+      await LlmService().cancelStream(sessionId: sessionId);
+    } catch (_) {}
+    // 清理流状态
+    streamingSessionIds.value = {
+      for (final id in streamingSessionIds.value)
+        if (id != sessionId) id
+    };
+    _emit();
+  }
+
   // ── 操作 ──
 
   /// 创建新会话并设为当前会话

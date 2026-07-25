@@ -94,6 +94,20 @@ mixin SessionApi {
     }
   }
 
+  // ─── 取消流 ───────────────────────────────────────
+
+  /// 取消正在进行的流式生成
+  Future<void> cancelStream({
+    required String sessionId,
+  }) async {
+    ensureInitialized();
+    try {
+      await api.cancelStream(sessionId: sessionId);
+    } catch (e) {
+      throw LlmException('取消流失败: $e');
+    }
+  }
+
   // ─── 数据读取 ───────────────────────────────────────
 
   /// 读取单个 part 的完整内容

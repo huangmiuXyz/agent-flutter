@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:signals_flutter/signals_flutter.dart';
+
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
 import 'package:agent/services/llm/llm_providers.dart';
@@ -83,12 +85,28 @@ class ChatInput extends HookConsumerWidget {
                   const Spacer(),
                   const ModelSelector(),
                   SizedBox(width: custom.spacing.xs),
-                  AppIconButton(
-                    icon: 'arrowUpRight',
-                    size: ButtonSize.sm,
-                    backgroundColor: custom.colors.hover,
-                    disabled: sending.value,
-                    onPressed: send,
+                  SignalBuilder(
+                    builder: (_) {
+                      final sid = SessionManager.instance.selectedId.value;
+                      final isStreaming = sid != null &&
+                          SessionManager.instance.streamingSessionIds.value.contains(sid);
+                      if (isStreaming) {
+                        return AppIconButton(
+                          icon: 'square',
+                          size: ButtonSize.sm,
+                          backgroundColor: custom.colors.danger,
+                          tooltip: '停止生成',
+                          onPressed: () => SessionManager.instance.cancelStreaming(sid),
+                        );
+                      }
+                      return AppIconButton(
+                        icon: 'arrowUpRight',
+                        size: ButtonSize.sm,
+                        backgroundColor: custom.colors.hover,
+                        disabled: sending.value,
+                        onPressed: send,
+                      );
+                    },
                   ),
                 ],
               ),
