@@ -172,24 +172,27 @@ class ChatExpandablePart extends HookWidget {
                       SizedBox(height: custom.spacing.sm),
                       Container(height: 1, color: custom.colors.separator),
                       SizedBox(height: custom.spacing.sm),
-                      VirtualParagraphText(
-                        text: resultText,
-                        splitMode: ParagraphSplitMode.newline,
-                        maxHeight: expandedMaxHeight,
-                        fontSize: custom.typography.captionSize,
-                        lineHeight: 18,
-                        paragraphPaddingBlock: 0,
-                        paragraphGap: 4,
-                        paragraphBuilder: (paragraph, index) {
-                          return SelectableText(
-                            paragraph.text,
-                            style: TextStyle(
-                              fontFamily: 'JetBrainsMono',
-                              fontSize: custom.typography.captionSize,
-                              color: custom.colors.success,
-                            ),
-                          );
-                        },
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: VirtualParagraphText(
+                          text: resultText,
+                          splitMode: ParagraphSplitMode.newline,
+                          maxHeight: expandedMaxHeight,
+                          fontSize: custom.typography.captionSize,
+                          lineHeight: 18,
+                          paragraphPaddingBlock: 0,
+                          paragraphGap: 4,
+                          paragraphBuilder: (paragraph, index) {
+                            return SelectableText(
+                              paragraph.text,
+                              style: TextStyle(
+                                fontFamily: 'JetBrainsMono',
+                                fontSize: custom.typography.captionSize,
+                                color: custom.colors.success,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ],
