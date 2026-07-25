@@ -66,9 +66,9 @@ class ChatContent extends StatelessWidget {
         Expanded(
           child: SignalBuilder(
             builder: (_) {
-              final selectedId = SessionManager.instance.selectedId.value;
-              return selectedId != null
-                  ? _MessageList(sessionId: selectedId)
+              final displayId = SessionManager.instance.displayedSessionId.value;
+              return displayId != null
+                  ? _MessageList(sessionId: displayId)
                   : const SizedBox.shrink();
             },
           ),

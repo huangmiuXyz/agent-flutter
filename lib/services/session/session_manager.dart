@@ -30,6 +30,9 @@ class SessionManager {
   /// 当前选中的会话 ID
   final selectedId = signal<String?>(null);
 
+  /// 当前内容区显示的会话 ID（仅在数据就绪后切换，避免空白过渡）
+  final displayedSessionId = signal<String?>(null);
+
   /// 会话列表
   final sessionList = signal(<api.SessionInfo>[]);
   final sessionListLoading = signal(true);
@@ -101,6 +104,7 @@ class SessionManager {
     final session = await service.createSession(dbPath: dbPath, name: name);
     addSession(session);
     selectedId.value = session.id;
+    displayedSessionId.value = session.id;
     return session.id;
   }
 
@@ -182,6 +186,7 @@ class SessionManager {
     }
 
     _emit();
+    displayedSessionId.value = sessionId;
   }
 
   Future<void> sendMessage({
