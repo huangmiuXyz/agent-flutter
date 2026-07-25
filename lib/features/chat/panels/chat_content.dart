@@ -115,10 +115,13 @@ class _MessageList extends StatelessWidget {
         final isStreaming = mgr.streamingSessionIds.value.contains(sessionId);
 
         return HookBuilder(
+          key: ValueKey('msglist_$sessionId'),
           builder: (context) {
             final scrollController = useScrollController();
             final focusedMsgId = useState<String?>(null);
             final savedMaxExtent = useRef<double?>(null);
+            // 切换 session 时：先隐藏 ListView → jumpTo 底部 → 再显示
+            final isListVisible = useState(false);
 
             // 监听滚动位置，离开底部时清空 physics 保留位
             useEffect(() {
@@ -133,8 +136,22 @@ class _MessageList extends StatelessWidget {
               return () => scrollController.removeListener(onScroll);
             }, [scrollController]);
 
-            // 切换 session 后自动滚到底部（无动画）
+            // ── 切换 session：先隐藏 → jumpTo 底部 → 再显示 ──
             useEffect(() {
+              isListVisible.value = false;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!scrollController.hasClients) return;
+                scrollController.jumpTo(
+                  scrollController.position.maxScrollExtent,
+                );
+                isListVisible.value = true;
+              });
+              return null;
+            }, [sessionId]);
+
+            // ── 新消息/流式：只滚动到底部，不隐藏 ──
+            useEffect(() {
+              if (!isListVisible.value) return null;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!scrollController.hasClients) return;
                 scrollController.jumpTo(
@@ -142,7 +159,7 @@ class _MessageList extends StatelessWidget {
                 );
               });
               return null;
-            }, [sessionId, messageOrder.length]);
+            }, [messageOrder.length]);
 
             // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
@@ -172,7 +189,9 @@ class _MessageList extends StatelessWidget {
                   alignment: Alignment.topCenter,
                   child: SizedBox(
                     width: _readingWidth(),
-                    child: ListView.builder(
+                    child: Opacity(
+                      opacity: isListVisible.value ? 1.0 : 0.0,
+                      child: ListView.builder(
                       controller: scrollController,
                       physics: savedMaxExtent.value != null
                           ? _KeepAtBottomPhysics(
@@ -239,6 +258,7 @@ class _MessageList extends StatelessWidget {
                           },
                         );
                       },
+                    ),
                     ),
                   ),
                 ),
