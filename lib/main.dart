@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
@@ -10,6 +9,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
+import 'store/llm_store.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -31,6 +31,7 @@ void main() async {
       WidgetsFlutterBinding.ensureInitialized();
 
       await frb.RustLib.init();
+      await LlmStore.instance.init();
 
       // Check if this is a child window (e.g. settings child window).
       try {
@@ -47,7 +48,7 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
-          runApp(const ProviderScope(child: _SettingsWindow()));
+          runApp(const _SettingsWindow());
           return;
         }
       } catch (_) {
@@ -69,7 +70,7 @@ void main() async {
         await windowManager.focus();
       });
 
-      runApp(const ProviderScope(child: AgentApp()));
+      runApp(const AgentApp());
     },
     (error, stack) {
       FlutterError.reportError(

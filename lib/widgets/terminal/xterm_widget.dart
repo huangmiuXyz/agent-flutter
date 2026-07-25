@@ -4,38 +4,43 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_hooks/signals_hooks.dart';
+
+import 'package:agent/store/theme_store.dart';
+import 'package:agent/store/xterm_store.dart';
 import 'package:xterm2/xterm.dart';
 import 'package:desktop_drop/desktop_drop.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/context_menu/context_menu.dart';
 import 'package:agent/widgets/terminal/key_handler.dart';
-import 'package:agent/widgets/terminal/xterm_provider.dart';
 import 'package:agent/widgets/terminal/terminal_palette.dart';
 
-class XtermTerminalWidget extends HookConsumerWidget {
-  const XtermTerminalWidget({
+class XtermTerminalWidget extends HookWidget {
+  XtermTerminalWidget({
     super.key,
     required this.id,
     this.shell = '',
     this.visible = true,
-  });
+  }) {
+    // 首次创建时自动启动 PTY
+    _manager = XtermStore.instance.forId(id);
+  }
 
   final String id;
   final String shell;
   final bool visible;
+  late final XtermSessionManager _manager;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(xtermManagerProvider(id));
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final focusNode = useRef(FocusNode());
     final isDragging = useState(false);
 
     useEffect(() {
-      ref.read(xtermManagerProvider(id).notifier).startPty(shell: shell);
-      return () {};
+      _manager.startPty(shell: shell);
+      return () => XtermStore.instance.dispose(id);
     }, []);
 
     useEffect(() {
@@ -49,7 +54,8 @@ class XtermTerminalWidget extends HookConsumerWidget {
       return null;
     }, [visible, id]);
 
-    final theme = ref.watch(xtermThemeProvider);
+    final brightness = useExistingSignal(ThemeStore.instance.effectiveBrightness);
+    final theme = buildTerminalTheme(custom, brightness.value);
     // 终端必须使用等宽字体
     final textStyle = useMemoized(
       () => TerminalStyle(
@@ -74,7 +80,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
       isDragging.value = false;
       if (detail.files.isEmpty) return;
       final paths = detail.files.map((f) => escapePath(f.path)).join(' ');
-      ref.read(xtermManagerProvider(id).notifier).sendInput(paths);
+      _manager.sendInput(paths);
     }
 
     // Single reusable handler instance (stateless).
@@ -90,8 +96,8 @@ class XtermTerminalWidget extends HookConsumerWidget {
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
               child: TerminalView(
-                session.terminal,
-                controller: session.controller,
+                _manager.terminal,
+                controller: _manager.controller,
                 focusNode: focusNode.value,
                 autofocus: visible,
                 theme: theme,
@@ -101,9 +107,9 @@ class XtermTerminalWidget extends HookConsumerWidget {
                     final keyboard = HardwareKeyboard.instance;
                     final isClipboardModifier =
                         keyboard.isControlPressed || keyboard.isMetaPressed;
-                    final manager = ref.read(xtermManagerProvider(id).notifier);
+                    final manager = _manager;
 
-                    final selection = session.controller.selection;
+                    final selection = _manager.controller.selection;
                     final hasSelection =
                         selection != null && !selection.isCollapsed;
 
@@ -127,8 +133,8 @@ class XtermTerminalWidget extends HookConsumerWidget {
                     if (event is KeyDownEvent &&
                         deleteHandler.canHandle(event.logicalKey)) {
                       if (deleteHandler.handle(
-                        session.terminal,
-                        session.controller,
+                        _manager.terminal,
+                        _manager.controller,
                       )) {
                         return KeyEventResult.handled;
                       }
@@ -137,7 +143,7 @@ class XtermTerminalWidget extends HookConsumerWidget {
                   return KeyEventResult.ignored;
                 },
                 onTapUp: (details, offset) {
-                  ref.read(xtermManagerProvider(id).notifier).handleTap(offset);
+                  _manager.handleTap(offset);
                 },
               ),
             ),
@@ -159,8 +165,8 @@ class XtermTerminalWidget extends HookConsumerWidget {
 
     return MenuArea(
       builder: (context) {
-        final manager = ref.read(xtermManagerProvider(id).notifier);
-        final selection = session.controller.selection;
+        final manager = _manager;
+        final selection = _manager.controller.selection;
         final hasSelection = selection != null && !selection.isCollapsed;
         return [
           MenuItem(

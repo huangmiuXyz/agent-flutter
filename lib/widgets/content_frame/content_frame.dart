@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/layout_utils.dart';
+import 'package:agent/utils/layout_utils.dart' show readingWidth;
 
 /// A layout container that provides scroll, horizontal centering,
 /// reading-width constraint, and page-level top/bottom spacing.
-class ContentFrame extends HookConsumerWidget {
+class ContentFrame extends StatelessWidget {
   final Widget child;
 
   const ContentFrame({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final spacing = CustomTheme.of(context).spacing;
-    final width = ref.watch(readingWidthProvider);
     return SingleChildScrollView(
       child: Align(
         alignment: Alignment.topCenter,
@@ -24,7 +22,7 @@ class ContentFrame extends HookConsumerWidget {
             left: spacing.edgeMargin,
             right: spacing.edgeMargin,
           ),
-          child: SizedBox(width: width, child: child),
+          child: SizedBox(width: readingWidth, child: child),
         ),
       ),
     );

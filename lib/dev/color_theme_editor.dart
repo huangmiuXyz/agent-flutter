@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
+import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/app_text_button.dart';
@@ -85,15 +85,14 @@ const _labels = <AppColorRole, String>{
   AppColorRole.warning: '警告',
 };
 
-class ColorThemeEditor extends HookConsumerWidget {
+class ColorThemeEditor extends HookWidget {
   const ColorThemeEditor({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(themeProvider);
-    final initialBrightness = ref.read(effectiveBrightnessProvider);
-    final editingBrightness = useState(initialBrightness);
-    final effective = settings.effectiveFor(editingBrightness.value);
+  Widget build(BuildContext context) {
+    final settings = useExistingSignal(ThemeStore.instance.settings);
+    final editingBrightness = useState(Brightness.light);
+    final effective = ThemeStore.instance.effectiveFor(editingBrightness.value);
     final colors = effective.colors;
 
     return ListView(
@@ -120,38 +119,36 @@ class ColorThemeEditor extends HookConsumerWidget {
         ),
         SizedBox(height: effective.spacing.md),
         for (final group in _groups.entries) ...[
-          _colorGroup(context, group.key, group.value, ref, effective),
+          _colorGroup(context, group.key, group.value, effective),
           SizedBox(height: effective.spacing.sm),
         ],
         SizedBox(height: effective.spacing.md),
         AppText(
-          '正文字重: w${settings.fontWeight.value}',
+          '正文字重: w${settings.value.fontWeightValue}',
           variant: AppTextVariant.caption,
           color: colors.textSecondary,
         ),
         _themedSlider(
           effective,
-          value: settings.fontWeight.value.toDouble(),
+          value: settings.value.fontWeightValue.toDouble(),
           min: 100,
           max: 900,
           divisions: 8,
-          onChanged: (value) => ref
-              .read(themeProvider.notifier)
+          onChanged: (value) => ThemeStore.instance
               .setFontWeight(_fontWeight(value.round())),
         ),
-        if (settings.hasColorOverrides) ...[
+        if (settings.value.hasColorOverrides) ...[
           SizedBox(height: effective.spacing.md),
           AppSecondaryButton(
             text: '重置当前配色',
-            onPressed: () => ref
-                .read(themeProvider.notifier)
+            onPressed: () => ThemeStore.instance
                 .resetColors(brightness: editingBrightness.value),
           ),
         ],
         SizedBox(height: effective.spacing.sm),
         AppTextButton(
           text: '恢复全部默认设置',
-          onPressed: () => ref.read(themeProvider.notifier).resetAll(),
+          onPressed: () => ThemeStore.instance.resetAll(),
         ),
       ],
     );
@@ -172,7 +169,6 @@ class ColorThemeEditor extends HookConsumerWidget {
     BuildContext context,
     String label,
     List<AppColorRole> roles,
-    WidgetRef ref,
     CustomTheme theme,
   ) {
     return Column(
@@ -194,7 +190,6 @@ class ColorThemeEditor extends HookConsumerWidget {
                 context,
                 role,
                 theme.colors.colorFor(role),
-                ref,
                 theme,
               ),
           ],
@@ -207,13 +202,12 @@ class ColorThemeEditor extends HookConsumerWidget {
     BuildContext context,
     AppColorRole role,
     Color current,
-    WidgetRef ref,
     CustomTheme theme,
   ) {
     return GestureDetector(
       onTap: () => _showColorPicker(context, current, theme, (color) {
         final brightness = theme.brightness;
-        ref.read(themeProvider.notifier).setColor(brightness, role, color);
+        ThemeStore.instance.setColor(brightness, role, color);
       }),
       child: Semantics(
         button: true,

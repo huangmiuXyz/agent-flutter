@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -8,11 +8,11 @@ import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Demo page section for showcasing the Dialog component.
-class DialogDemo extends HookConsumerWidget {
+class DialogDemo extends StatelessWidget {
   const DialogDemo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
     return ListView(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
+import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/theme/provider.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/field/inline_field.dart';
@@ -32,13 +32,14 @@ import 'package:agent/dev/big_list_demo.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 
-class DemoPage extends HookConsumerWidget {
+class DemoPage extends HookWidget {
   const DemoPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final selectedIndex = useState(15);
-    final config = ref.watch(themeProvider);
+    final settings = useExistingSignal(ThemeStore.instance.settings);
+    final config = settings.value;
     final custom = CustomTheme.of(context);
     final showEditor = useState(false);
     final trayWidth = MediaQuery.of(context).size.width / 4;
@@ -194,7 +195,7 @@ class DemoPage extends HookConsumerWidget {
                               ThemeMode.light => ThemeMode.dark,
                               ThemeMode.dark => ThemeMode.system,
                             };
-                            ref.read(themeProvider.notifier).setThemeMode(next);
+                            ThemeStore.instance.setThemeMode(next);
                           },
                         ),
                       ],

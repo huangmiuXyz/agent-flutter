@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/features/chat/panels/chat_content.dart';
 import 'package:agent/features/chat/panels/left_panel.dart';
@@ -26,11 +26,11 @@ bool _isRunningFromSource() {
 ///
 /// Left panel | Chat + Terminal | Right panel (性能检测面板)。
 /// 右面板在 `flutter run`（debug/release 均显示），打包后隐藏。
-class ChatDemo extends HookConsumerWidget {
+class ChatDemo extends StatelessWidget {
   const ChatDemo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     if (!_isRunningFromSource()) {
       // 打包后的 app，不显示性能面板
       return _buildTwoPanelLayout();

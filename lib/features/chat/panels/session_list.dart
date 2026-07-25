@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/llm/llm_providers.dart';
-import 'package:agent/services/session/session_manager.dart';
+import 'package:agent/store/config_store.dart';
+import 'package:agent/store/llm_store.dart';
+import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -28,23 +29,23 @@ String _formatSessionTime(int timestampMs) {
 }
 
 /// 左侧面板 — 会话列表
-class SessionList extends HookConsumerWidget {
+class SessionList extends HookWidget {
   const SessionList({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     // 加载会话列表
     useEffect(() {
-      SessionManager.instance.loadSessions(
-        service: ref.read(llmServiceProvider),
-        dbPath: ref.read(dbPathProvider),
+      SessionStore.instance.loadSessions(
+        service: LlmStore.instance.service,
+        dbPath: ConfigStore.instance.dbPath,
       );
       return null;
     }, []);
 
     return SignalBuilder(
       builder: (context) {
-        final mgr = SessionManager.instance;
+        final mgr = SessionStore.instance;
         final sessions = mgr.sessionList.value;
         final loading = mgr.sessionListLoading.value;
         final selectedId = mgr.selectedId.value;
@@ -90,14 +91,14 @@ class SessionList extends HookConsumerWidget {
                     if (newName.trim().isEmpty ||
                         newName.trim() == session.name)
                       return;
-                    final service = ref.read(llmServiceProvider);
-                    final dbPath = ref.read(dbPathProvider);
+                    final service = LlmStore.instance.service;
+                    final dbPath = ConfigStore.instance.dbPath;
                     await service.renameSession(
                       dbPath: dbPath,
                       sessionId: session.id,
                       name: newName.trim(),
                     );
-                    SessionManager.instance.renameSession(
+                    SessionStore.instance.renameSession(
                       session.id,
                       newName.trim(),
                     );
@@ -109,11 +110,11 @@ class SessionList extends HookConsumerWidget {
                 itemRadius: BorderRadius.zero,
                 onTap: () {
                   // 立即更新选中态，让 UI 先切换，不等待数据加载
-                  SessionManager.instance.selectedId.value = session.id;
-                  SessionManager.instance.switchTo(
+                  SessionStore.instance.selectedId.value = session.id;
+                  SessionStore.instance.switchTo(
                     session.id,
-                    service: ref.read(llmServiceProvider),
-                    dbPath: ref.read(dbPathProvider),
+                    service: LlmStore.instance.service,
+                    dbPath: ConfigStore.instance.dbPath,
                   );
                 },
                 hoverActions: [
@@ -130,16 +131,16 @@ class SessionList extends HookConsumerWidget {
                         onOk: () {},
                       );
                       if (confirmed == true) {
-                        final service = ref.read(llmServiceProvider);
-                        final dbPath = ref.read(dbPathProvider);
+                        final service = LlmStore.instance.service;
+                        final dbPath = ConfigStore.instance.dbPath;
                         await service.deleteSession(
                           dbPath: dbPath,
                           sessionId: session.id,
                         );
                         if (selectedId == session.id) {
-                          SessionManager.instance.selectedId.value = null;
+                          SessionStore.instance.selectedId.value = null;
                         }
-                        SessionManager.instance.removeSession(session.id);
+                        SessionStore.instance.removeSession(session.id);
                       }
                     },
                   ),

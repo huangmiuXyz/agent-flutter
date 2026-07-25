@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
@@ -72,11 +72,11 @@ class _FpsTracker {
 }
 
 /// A compact performance monitor widget that displays FPS and memory usage.
-class PerformanceMonitor extends HookConsumerWidget {
+class PerformanceMonitor extends HookWidget {
   const PerformanceMonitor({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
     // ── FPS tracker lifecycle ──

@@ -1,15 +1,8 @@
 import 'dart:ui' show PlatformDispatcher;
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-part 'layout_utils.g.dart';
-
-/// Cached reading width – half of the physical primary display width.
-/// Computed once because the primary display resolution doesn't change
-/// during the app's lifetime on desktop.
-@riverpod
-double readingWidth(Ref ref) {
+/// 阅读宽度 — 主屏物理宽度的一半（逻辑像素）。
+/// 桌面应用运行期间屏幕分辨率不会变化，一次计算即可。
+final double readingWidth = () {
   final display = PlatformDispatcher.instance.displays.first;
   return display.size.width / display.devicePixelRatio / 2;
-}
-
-
+}();

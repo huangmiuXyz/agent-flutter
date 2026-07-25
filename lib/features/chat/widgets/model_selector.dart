@@ -1,25 +1,25 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
-import 'package:agent/services/config_service.dart';
-import 'package:agent/services/llm/llm_providers.dart';
+import 'package:agent/store/config_store.dart';
+import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 模型选择器 — 从 config.json 读取已激活的模型，按提供商分组展示
-class ModelSelector extends HookConsumerWidget {
+class ModelSelector extends HookWidget {
   const ModelSelector({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final currentModel = ref.watch(currentModelProvider);
+  Widget build(BuildContext context) {
+    final currentModel = useExistingSignal(LlmStore.instance.currentModel);
 
     // 从 config.json 读取所有已激活的模型
-    final store = ref.read(configFileStoreProvider);
-    final allData = store.readAll();
+    final allData = ConfigStore.instance.data.value;
     final languageModels = allData['language_models'] as Map<String, dynamic>?;
 
     // model 名 → 提供商名的映射
@@ -51,7 +51,7 @@ class ModelSelector extends HookConsumerWidget {
       }
     }
 
-    final currentValue = currentModel.isNotEmpty ? currentModel : null;
+    final currentValue = currentModel.value.isNotEmpty ? currentModel.value : null;
 
     void onModelChanged(dynamic val) {
       if (val == null) return;
@@ -63,12 +63,13 @@ class ModelSelector extends HookConsumerWidget {
       }
       if (name == null || name.isEmpty) return;
 
-      // 设置模型和提供商
-      ref.read(currentModelProvider.notifier).select(name);
+      LlmStore.instance.selectModel(name);
       final provider = modelToProvider[name];
       if (provider != null && provider.isNotEmpty) {
-        ref.read(currentProviderProvider.notifier).select(provider);
-        ref.read(defaultModelProvider.notifier).setDefault(provider, name);
+        LlmStore.instance.selectProvider(provider);
+        ConfigStore.instance.mutate((m) {
+          m['default_model'] = {'provider': provider, 'model': name};
+        });
       }
     }
 

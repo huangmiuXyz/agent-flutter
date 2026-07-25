@@ -5,11 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/llm/llm_providers.dart';
-import 'package:agent/services/session/session_manager.dart';
+import 'package:agent/store/config_store.dart';
+import 'package:agent/store/llm_store.dart';
+import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';
@@ -66,7 +65,7 @@ class ChatContent extends StatelessWidget {
         Expanded(
           child: SignalBuilder(
             builder: (_) {
-              final displayId = SessionManager.instance.displayedSessionId.value;
+              final displayId = SessionStore.instance.displayedSessionId.value;
               return displayId != null
                   ? _MessageList(sessionId: displayId)
                   : const SizedBox.shrink();
@@ -92,7 +91,7 @@ class _MessageList extends StatelessWidget {
 
     return SignalBuilder(
       builder: (_) {
-        final mgr = SessionManager.instance;
+        final mgr = SessionStore.instance;
         final sessionState = mgr.sessions.value[sessionId];
         if (sessionState == null) return const SizedBox.shrink();
 
@@ -163,7 +162,7 @@ class _MessageList extends StatelessWidget {
 
             // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
-              final mgr = SessionManager.instance;
+              final mgr = SessionStore.instance;
               mgr.onBeforeEmit = () {
                 if (!scrollController.hasClients) return;
                 final streaming = mgr.streamingSessionIds.value.contains(
@@ -179,7 +178,7 @@ class _MessageList extends StatelessWidget {
                 }
               };
               return () {
-                SessionManager.instance.onBeforeEmit = null;
+                SessionStore.instance.onBeforeEmit = null;
               };
             }, [sessionId, scrollController]);
 
@@ -239,21 +238,16 @@ class _MessageList extends StatelessWidget {
                             focusedMsgId.value = focused ? msgId : null;
                           },
                           onRetry: (msgId, newContent) {
-                            final f = ProviderScope.containerOf(context);
-                            final mgr = SessionManager.instance;
-                            final currentProvider = f.read(
-                              currentProviderProvider,
-                            );
-                            final currentModel = f.read(currentModelProvider);
+                            final mgr = SessionStore.instance;
                             mgr.retryMessage(
                               sessionId: sessionId,
                               msgId: msgId,
                               newPrompt: newContent,
-                              provider: currentProvider,
-                              model: currentModel,
-                              service: f.read(llmServiceProvider),
-                              dbPath: f.read(dbPathProvider),
-                              configPath: f.read(configPathProvider),
+                              provider: LlmStore.instance.currentProvider.value,
+                              model: LlmStore.instance.currentModel.value,
+                              service: LlmStore.instance.service,
+                              dbPath: ConfigStore.instance.dbPath,
+                              configPath: ConfigStore.instance.configPath,
                             );
                           },
                         );

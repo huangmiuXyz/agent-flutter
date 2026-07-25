@@ -3,10 +3,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
-import 'package:agent/services/config_service.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -17,15 +17,15 @@ import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 添加 MCP 服务器页。
-class AddMcpServerPage extends HookConsumerWidget {
+class AddMcpServerPage extends HookWidget {
   final VoidCallback onBack;
 
   const AddMcpServerPage({super.key, required this.onBack});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final store = ref.watch(configFileStoreProvider);
+    final store = ConfigStore.instance;
 
     final nameCtrl = useTextEditingController();
     final commandCtrl = useTextEditingController(text: 'npx');
@@ -51,7 +51,7 @@ class AddMcpServerPage extends HookConsumerWidget {
         return;
       }
 
-      final data = store.readAll();
+      final data = store.data.value;
       final existing = loadMcpServers(data);
       if (existing.any((s) => s.name == name)) {
         errorMsg.value = '服务器名称 "$name" 已存在';
@@ -80,7 +80,7 @@ class AddMcpServerPage extends HookConsumerWidget {
               );
 
         saveMcpServers(data, [...existing, server]);
-        store.writeAll(data);
+        store.data.value = data;
 
         if (context.mounted) {
           ScaffoldMessenger.of(

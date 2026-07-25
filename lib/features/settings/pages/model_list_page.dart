@@ -4,15 +4,13 @@
 ///   language_models.{protocol}.{provider.id}.available_models
 library;
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/config_service.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
@@ -21,7 +19,7 @@ import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen model management page for a single provider.
-class ModelListPage extends HookConsumerWidget {
+class ModelListPage extends HookWidget {
   final ProviderInfo provider;
 
   /// Called when the user wants to go back to the config page.
@@ -40,7 +38,7 @@ class ModelListPage extends HookConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final searchQuery = useState('');
     final activeModels = useState<Set<String>>({});
@@ -55,27 +53,20 @@ class ModelListPage extends HookConsumerWidget {
         loadingState.value = true;
         errorMsg.value = null;
         try {
-          final cfgPath = ref.read(configPathProvider);
           final models = await api.listModels(
             provider: provider.name,
-            configPath: cfgPath,
+            configPath: ConfigStore.instance.configPath,
           );
 
           // Read enabled models from config
-          final store = ref.read(configFileStoreProvider);
-          final raw = store.readPath(
-            'language_models.$protocol.${provider.name}.available_models',
-          );
+          final rawList = (ConfigStore.instance.data.value['language_models']
+                  as Map<String, dynamic>?)
+              ?[protocol]?[provider.name]?['available_models'] as List<dynamic>?;
           Set<String> enabled = {};
-          if (raw != null) {
-            try {
-              final decoded = jsonDecode(raw);
-              if (decoded is List) {
-                enabled = decoded
-                    .map((e) => (e is Map ? e['name'] : e) as String)
-                    .toSet();
-              }
-            } catch (_) {}
+          if (rawList != null) {
+            enabled = rawList
+                .map((e) => (e is Map ? e['name'] : e) as String)
+                .toSet();
           }
 
           modelsList.value = models;
@@ -94,10 +85,6 @@ class ModelListPage extends HookConsumerWidget {
     // ── Toggle handler ──
     Future<void> handleToggle(String model, bool enabled) async {
       try {
-        final store = ref.read(configFileStoreProvider);
-        final key =
-            'language_models.$protocol.${provider.name}.available_models';
-
         final updated = Set<String>.from(activeModels.value);
         if (enabled) {
           updated.add(model);
@@ -105,10 +92,14 @@ class ModelListPage extends HookConsumerWidget {
           updated.remove(model);
         }
 
-        store.writePath(
-          key,
-          updated.map((name) => {'name': name}).toList(),
-        );
+        ConfigStore.instance.mutate((m) {
+          final section = (m['language_models'] as Map<String, dynamic>?)
+              ?[protocol]?[provider.name] as Map<String, dynamic>?;
+          if (section != null) {
+            section['available_models'] =
+                updated.map((name) => {'name': name}).toList();
+          }
+        });
         activeModels.value = updated;
       } catch (e) {
         if (context.mounted) {

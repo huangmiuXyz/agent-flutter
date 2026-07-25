@@ -92,13 +92,13 @@ themeStore.toggle()                 // 调用 action
 
 ```
 迁移节奏：
-  写 ThemeStore  →  改所有用 themeProvider 的 UI  →  删 theme/provider.dart
-  写 ConfigStore  →  改所有用 config 相关 provider 的 UI  →  清 config_service.dart
-  写 LlmStore    →  改所有用 llm 相关 provider 的 UI  →  删 llm_providers.dart
-  搬 SessionStore → 改所有 SessionManager 引用       →  删 session_manager.dart
-  写 XtermStore   →  改所有用 xterm 相关 provider 的 UI → 删 xterm_provider.dart
-  写 LayoutStore →  改所有用 layout 相关 provider 的 UI → 删 layout_utils.dart
-  收尾扫荡       →  清依赖、删残余
+  ✅ 写 ThemeStore  →  改所有用 themeProvider 的 UI  →  删 theme/provider.dart
+  ✅ 写 ConfigStore  →  改所有用 config 相关 provider 的 UI  →  清 config_service.dart
+  ✅ 写 LlmStore    →  改所有用 llm 相关 provider 的 UI  →  删 llm_providers.dart
+  ✅ 搬 SessionStore → 改所有 SessionManager 引用       →  删 session_manager.dart
+  ✅ 写 XtermStore   →  改所有用 xterm 相关 provider 的 UI → 删 xterm_provider.dart
+  ✅ 写 LayoutStore   →  改所有用 layout 相关 provider 的 UI → 删 layout_utils.dart
+  ✅ 收尾扫荡       →  清依赖、删残余
 ```
 
 ### 入口修改（贯穿全程）
@@ -108,7 +108,7 @@ themeStore.toggle()                 // 调用 action
 
 ---
 
-### Step 1：ThemeStore — 写 store + 改 UI + 删旧文件
+### ✅ Step 1：ThemeStore — 写 store + 改 UI + 删旧文件（已完成）
 
 这是最简单的切入点（主题不依赖其他 store，依赖方清晰）。
 
@@ -206,7 +206,7 @@ class MyWidget extends HookWidget {
 
 **③ 删旧文件：** `lib/theme/provider.dart`、`lib/theme/provider.g.dart`、`lib/theme/theme_settings.dart`（如果无其他地方引用）
 
-**④ 验证：** `flutter analyze` 无错误
+**④ 验证：** `flutter analyze` 无错误 ✅
 
 ---
 
@@ -736,19 +736,6 @@ class LlmStore {
 ```
 
 **每一步都要能独立编译通过**，不要出现"改了一半编译不过"的状态。如果一次改动文件太多导致编译不过，说明步子迈大了，拆小。
-
-### 3.8 测试策略
-
-- **Store 层**：纯 Dart 类，可以直接写单元测试
-- **UI 层**：`HookWidget` 的测试方式与普通 widget 测试一致
-- **回归测试清单**：
-  - [ ] 主题切换（亮/暗/跟随系统）
-  - [ ] 会话选择与切换
-  - [ ] 发送消息与流式输出
-  - [ ] 模型选择器
-  - [ ] 终端启动与交互
-  - [ ] 设置页面（provider/model/MCP 配置）
-  - [ ] 主题颜色自定义
 
 ---
 

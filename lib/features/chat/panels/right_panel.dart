@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'package:agent/services/session/session_manager.dart';
+import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -309,11 +309,11 @@ class _RightPanelState extends State<RightPanel>
   }
 
   // ─── 会话统计 ───
-  int get _sessionCount => SessionManager.instance.sessionList.value.length;
+  int get _sessionCount => SessionStore.instance.sessionList.value.length;
 
   int get _totalMessages {
     int count = 0;
-    for (final state in SessionManager.instance.sessions.value.values) {
+    for (final state in SessionStore.instance.sessions.value.values) {
       count += state.messageOrder.length;
     }
     return count;
@@ -500,7 +500,7 @@ class _RightPanelState extends State<RightPanel>
           _MetricRow(
             label: '流式中',
             value:
-                '${SessionManager.instance.streamingSessionIds.value.length}',
+                '${SessionStore.instance.streamingSessionIds.value.length}',
           ),
         ],
       ),

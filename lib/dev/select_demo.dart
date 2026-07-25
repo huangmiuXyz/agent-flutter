@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/field/app_field.dart';
@@ -8,11 +8,11 @@ import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Demo page section for showcasing select/dropdown variants.
-class SelectDemo extends HookConsumerWidget {
+class SelectDemo extends HookWidget {
   const SelectDemo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final fruit = useState<String?>(null);
     final color = useState<String?>(null);

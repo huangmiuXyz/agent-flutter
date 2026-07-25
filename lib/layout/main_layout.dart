@@ -5,13 +5,13 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
-import 'package:agent/services/llm/llm_providers.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 /// The hidden settings child-window controller, created on first use.
 WindowController? settingsWindow;
@@ -218,14 +218,14 @@ class MainLayout extends StatelessWidget {
 }
 
 /// 启动时初始化 MCP，失败则显示 SnackBar
-class _McpInitSnackBar extends ConsumerStatefulWidget {
+class _McpInitSnackBar extends StatefulWidget {
   const _McpInitSnackBar();
 
   @override
-  ConsumerState<_McpInitSnackBar> createState() => _McpInitSnackBarState();
+  State<_McpInitSnackBar> createState() => _McpInitSnackBarState();
 }
 
-class _McpInitSnackBarState extends ConsumerState<_McpInitSnackBar> {
+class _McpInitSnackBarState extends State<_McpInitSnackBar> {
   @override
   void initState() {
     super.initState();
@@ -234,7 +234,7 @@ class _McpInitSnackBarState extends ConsumerState<_McpInitSnackBar> {
 
   Future<void> _init() async {
     try {
-      final configPath = ref.read(configPathProvider);
+      final configPath = ConfigStore.instance.configPath;
       final errors = await api.initMcp(configPath: configPath);
       if (errors.isNotEmpty && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {

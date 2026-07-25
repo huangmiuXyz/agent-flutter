@@ -3,11 +3,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 
-import 'package:agent/services/config_service.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -21,7 +21,7 @@ import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// MCP 服务器编辑/详情页。
-class McpServerConfigPage extends HookConsumerWidget {
+class McpServerConfigPage extends HookWidget {
   final McpServerInfo server;
   final VoidCallback onBack;
 
@@ -32,9 +32,9 @@ class McpServerConfigPage extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final store = ref.watch(configFileStoreProvider);
+    final store = ConfigStore.instance;
 
     final nameCtrl = useTextEditingController(text: server.name);
     final commandCtrl = useTextEditingController(text: server.command);
@@ -77,7 +77,7 @@ class McpServerConfigPage extends HookConsumerWidget {
             );
 
       try {
-        final data = store.readAll();
+        final data = store.data.value;
         final existing = loadMcpServers(data);
         final idx = existing.indexWhere((s) => s.name == server.name);
         final List<McpServerInfo> updatedList;
@@ -88,7 +88,7 @@ class McpServerConfigPage extends HookConsumerWidget {
           updatedList[idx] = updated;
         }
         saveMcpServers(data, updatedList);
-        store.writeAll(data);
+        store.data.value = data;
 
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -115,11 +115,11 @@ class McpServerConfigPage extends HookConsumerWidget {
       if (confirmed != true) return;
 
       try {
-        final delData = store.readAll();
+        final delData = store.data.value;
         final existing = loadMcpServers(delData);
         existing.removeWhere((s) => s.name == server.name);
         saveMcpServers(delData, existing);
-        store.writeAll(delData);
+        store.data.value = delData;
 
         if (context.mounted) {
           ScaffoldMessenger.of(

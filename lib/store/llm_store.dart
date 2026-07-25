@@ -1,0 +1,53 @@
+import 'package:signals/signals.dart';
+
+import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/store/config_store.dart';
+import 'package:agent/services/llm/llm_service.dart';
+
+class LlmStore {
+  static final instance = LlmStore._();
+  LlmStore._();
+
+  final service = LlmService();
+  final initialized = signal(false);
+
+  final currentProvider = signal('');
+  final currentModel = signal('');
+
+  final providers = signal(<api.ProviderSummary>[]);
+  final providersLoading = signal(true);
+
+  final models = signal(<String>[]);
+  final modelsLoading = signal(true);
+
+  Future<void> init() async {
+    await service.init();
+    initialized.value = true;
+    await loadProviders(ConfigStore.instance.configPath);
+  }
+
+  Future<void> loadProviders(String configPath) async {
+    providersLoading.value = true;
+    try {
+      providers.value = await service.listProviders(configPath: configPath);
+    } finally {
+      providersLoading.value = false;
+    }
+  }
+
+  Future<void> loadModels(String configPath) async {
+    if (currentProvider.value.isEmpty) return;
+    modelsLoading.value = true;
+    try {
+      models.value = await service.listModels(
+        provider: currentProvider.value,
+        configPath: configPath,
+      );
+    } finally {
+      modelsLoading.value = false;
+    }
+  }
+
+  void selectProvider(String p) => currentProvider.value = p;
+  void selectModel(String m) => currentModel.value = m;
+}

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:xterm2/xterm.dart';
 
-import 'package:agent/theme/provider.dart';
-
-part 'terminal_palette.g.dart';
+import 'package:agent/theme/custom_theme.dart';
 
 extension on TerminalTheme {
   TerminalTheme copyWith({
@@ -113,13 +110,10 @@ final _lightTheme = TerminalTheme(
   searchHitForeground: Color(0xFFFFFFFF),
 );
 
-@riverpod
-TerminalTheme xtermTheme(Ref ref) {
-  final settings = ref.watch(themeProvider);
-  final brightness = ref.watch(effectiveBrightnessProvider);
-  final effective = settings.effectiveFor(brightness);
+/// 根据当前主题色构建终端主题
+TerminalTheme buildTerminalTheme(CustomTheme custom, Brightness brightness) {
   return (brightness == Brightness.dark ? _darkTheme : _lightTheme).copyWith(
-    foreground: effective.colors.textPrimary,
-    background: effective.colors.background,
+    foreground: custom.colors.textPrimary,
+    background: custom.colors.background,
   );
 }

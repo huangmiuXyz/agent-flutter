@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 import 'package:reactive_forms/reactive_forms.dart';
 
 import 'package:agent/theme/custom_theme.dart';
@@ -11,11 +11,11 @@ import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Demo page for reactive_forms wrappers.
-class ReactiveDemo extends HookConsumerWidget {
+class ReactiveDemo extends HookWidget {
   const ReactiveDemo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final submitted = useState<Map<String, dynamic>?>(null);
     final form = useMemoized(() => fb.group({

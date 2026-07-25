@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'package:agent/theme/provider.dart';
+import 'package:agent/store/theme_store.dart';
 import 'package:agent/router/router.dart';
 import 'package:agent/theme/app_theme.dart';
 
@@ -33,19 +34,19 @@ class _NoOverscrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-class AgentApp extends ConsumerWidget {
+class AgentApp extends HookWidget {
   const AgentApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(themeProvider);
+  Widget build(BuildContext context) {
+    final settings = useExistingSignal(ThemeStore.instance.settings);
 
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Agent',
-      themeMode: config.themeMode,
-      theme: resolveTheme(config, Brightness.light),
-      darkTheme: resolveTheme(config, Brightness.dark),
+      themeMode: settings.value.themeMode,
+      theme: resolveTheme(settings.value, Brightness.light),
+      darkTheme: resolveTheme(settings.value, Brightness.dark),
       scrollBehavior: const _NoOverscrollBehavior(),
       // Zero duration: avoid flicker when resolving light/dark theme on startup.
       themeAnimationDuration: Duration.zero,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -10,11 +10,11 @@ import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Demo page section for showcasing button variants.
-class ButtonDemo extends ConsumerWidget {
+class ButtonDemo extends StatelessWidget {
   const ButtonDemo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
     return ListView(

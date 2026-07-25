@@ -1,16 +1,16 @@
 /// Add custom provider page — form to create a new OpenAI-compatible provider.
 ///
-/// Persists to config.json via [ConfigFileStore]:
+/// Persists to config.json via [ConfigStore]:
 ///   language_models.openai_compatible.{name}.api_url
 ///   language_models.openai_compatible.{name}.api_key
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import 'package:agent/services/config_service.dart';
-import 'package:agent/services/llm/llm_providers.dart';
+
+import 'package:agent/store/config_store.dart';
+import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -19,14 +19,14 @@ import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen form for adding a custom OpenAI-compatible provider.
-class AddProviderPage extends HookConsumerWidget {
+class AddProviderPage extends HookWidget {
   /// Called when the user wants to go back to the provider list.
   final VoidCallback onBack;
 
   const AddProviderPage({super.key, required this.onBack});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final nameCtrl = useTextEditingController();
     final apiKeyCtrl = useTextEditingController();
@@ -40,7 +40,6 @@ class AddProviderPage extends HookConsumerWidget {
         errorMsg.value = '请输入提供商名称';
         return;
       }
-      // Check if the provider ID is valid (no special chars, not empty)
       final providerId = name.replaceAll(RegExp(r'\s+'), '_').toLowerCase();
       if (providerId.isEmpty) {
         errorMsg.value = '提供商名称不能为空';
@@ -51,23 +50,21 @@ class AddProviderPage extends HookConsumerWidget {
       errorMsg.value = null;
 
       try {
-        final store = ref.read(configFileStoreProvider);
-        final keyPrefix = 'language_models.openai_compatible.$providerId';
+        final url = endpointCtrl.text.trim().isNotEmpty
+            ? endpointCtrl.text.trim()
+            : 'https://api.openai.com/v1';
 
-        store.writePath(
-          '$keyPrefix.api_url',
-          endpointCtrl.text.trim().isNotEmpty
-              ? endpointCtrl.text.trim()
-              : 'https://api.openai.com/v1',
-        );
-        if (apiKeyCtrl.text.trim().isNotEmpty) {
-          store.writePath(
-            '$keyPrefix.api_key',
-            apiKeyCtrl.text.trim(),
-          );
-        }
+        ConfigStore.instance.mutate((m) {
+          final cfg = m['language_models']['openai_compatible']
+              .putIfAbsent(providerId, () => <String, dynamic>{})
+              as Map<String, dynamic>;
+          cfg['api_url'] = url;
+          if (apiKeyCtrl.text.trim().isNotEmpty) {
+            cfg['api_key'] = apiKeyCtrl.text.trim();
+          }
+        });
 
-        ref.invalidate(providersListProvider);
+        LlmStore.instance.loadProviders(ConfigStore.instance.configPath);
 
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -88,7 +85,6 @@ class AddProviderPage extends HookConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ---- Breadcrumb ----
             AppBreadcrumb(
               items: [
                 AppBreadcrumbItem('设置', onTap: () {}),
@@ -98,7 +94,6 @@ class AddProviderPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.lg),
 
-            // ---- Title ----
             AppText('添加自定义提供商', variant: AppTextVariant.h2),
             SizedBox(height: custom.spacing.xs),
             AppText(
@@ -108,7 +103,6 @@ class AddProviderPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.lg + 4),
 
-            // ---- Provider Name ----
             AppField(
               label: '提供商名称',
               placeholder: '例如：我的模型服务',
@@ -121,7 +115,6 @@ class AddProviderPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ---- API Key ----
             AppField(
               label: 'API Key',
               placeholder: '输入 API Key',
@@ -130,7 +123,6 @@ class AddProviderPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ---- Endpoint ----
             AppField(
               label: 'API Endpoint',
               placeholder: 'https://api.openai.com/v1',
@@ -138,7 +130,6 @@ class AddProviderPage extends HookConsumerWidget {
             ),
             SizedBox(height: custom.spacing.md),
 
-            // ---- Error message ----
             if (errorMsg.value != null)
               Padding(
                 padding: EdgeInsets.only(bottom: custom.spacing.sm),
@@ -149,7 +140,6 @@ class AddProviderPage extends HookConsumerWidget {
                 ),
               ),
 
-            // ---- Actions ----
             Row(
               children: [
                 AppPrimaryButton(

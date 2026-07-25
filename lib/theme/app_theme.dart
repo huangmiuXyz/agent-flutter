@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'custom_theme.dart';
-import 'provider.dart';
+import 'theme_settings.dart';
 
 ThemeData _buildTheme(CustomTheme custom) => ThemeData(
   brightness: custom.brightness,

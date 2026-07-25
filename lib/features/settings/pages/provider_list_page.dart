@@ -1,15 +1,14 @@
 /// Provider list page — shows all available model providers in an [AppBigList].
-///
-/// Uses the real [api.listProviders] data via [providersList] Riverpod provider.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/services/llm/llm_providers.dart';
+import 'package:agent/store/config_store.dart';
+import 'package:agent/store/llm_store.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -19,7 +18,7 @@ import 'package:agent/widgets/list/app_big_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Displays all providers in an [AppBigList] with search and status dots.
-class ProviderListPage extends HookConsumerWidget {
+class ProviderListPage extends HookWidget {
   /// Called when the user taps a provider row.
   final ValueChanged<ProviderInfo> onProviderTap;
 
@@ -29,17 +28,16 @@ class ProviderListPage extends HookConsumerWidget {
   const ProviderListPage({super.key, required this.onProviderTap, this.onAddProvider});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // ── Load providers from Rust backend ──
-    final configPath = ref.read(configPathProvider);
-    final providersAsync = ref.watch(providersListProvider);
+  Widget build(BuildContext context) {
+    final configPath = ConfigStore.instance.configPath;
+    final loading = useExistingSignal(LlmStore.instance.providersLoading);
+    final providers = useExistingSignal(LlmStore.instance.providers);
 
-    return providersAsync.when(
-      data: (providers) => _buildList(providers, configPath),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) =>
-          Center(child: AppText('加载失败: $err', variant: AppTextVariant.body)),
-    );
+    if (loading.value) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return _buildList(providers.value, configPath);
   }
 
   Widget _buildList(List<api.ProviderSummary> providers, String configPath) {

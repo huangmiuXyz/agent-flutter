@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'package:agent/store/xterm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/text/app_text.dart';
-import 'package:agent/widgets/terminal/xterm_provider.dart';
 
-class ExecutePanel extends HookConsumerWidget {
+class ExecutePanel extends HookWidget {
   const ExecutePanel({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final controller = useTextEditingController();
     final output = useState('');
     final running = useState(false);
     final custom = CustomTheme.of(context);
 
     void sendSigint() {
-      final registry = ref.read(xtermRegistryProvider);
-      final ids = registry.ids.toList();
+      final ids = XtermStore.instance.activeIds.value;
       if (ids.isEmpty) return;
-      ref.read(xtermManagerProvider(ids.first).notifier).sendInput('\x03');
+      XtermStore.instance.forId(ids.first).sendInput('\x03');
     }
 
     Future<void> execute() async {
@@ -33,17 +31,14 @@ class ExecutePanel extends HookConsumerWidget {
       output.value = '';
 
       try {
-        final registry = ref.read(xtermRegistryProvider);
-        final ids = registry.ids.toList();
+        final ids = XtermStore.instance.activeIds.value;
         if (ids.isEmpty) {
           output.value = '[error: no active terminal]';
           return;
         }
 
         final id = ids.first;
-        final result = await ref
-            .read(xtermManagerProvider(id).notifier)
-            .execute(cmd);
+        final result = await XtermStore.instance.forId(id).execute(cmd);
         if (context.mounted) output.value = result;
       } catch (e) {
         if (context.mounted) output.value = '[error: $e]';

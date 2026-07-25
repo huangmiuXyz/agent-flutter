@@ -3,10 +3,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
-import 'package:agent/services/config_service.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
@@ -16,7 +16,7 @@ import 'package:agent/widgets/list/app_big_list.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
 
 /// MCP 服务器列表页。
-class McpServerListPage extends HookConsumerWidget {
+class McpServerListPage extends HookWidget {
   final ValueChanged<McpServerInfo> onServerTap;
   final VoidCallback? onAddServer;
 
@@ -27,11 +27,11 @@ class McpServerListPage extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final store = ref.watch(configFileStoreProvider);
+  Widget build(BuildContext context) {
+    final store = ConfigStore.instance;
     final refreshKey = useState(0);
 
-    final data = store.readAll();
+    final data = store.data.value;
     final servers = loadMcpServers(data);
     final enabled = servers.where((s) => !s.disabled).toList();
     final disabled = servers.where((s) => s.disabled).toList();
@@ -45,7 +45,7 @@ class McpServerListPage extends HookConsumerWidget {
       final copy = [...servers];
       copy[idx] = updated;
       saveMcpServers(data, copy);
-      store.writeAll(data);
+      store.data.value = data;
       refreshKey.value++;
     }
 

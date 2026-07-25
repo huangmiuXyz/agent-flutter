@@ -1,4 +1,4 @@
-/// SessionManager — 多会话并发管理器（信号版）
+/// SessionStore — 多会话并发管理器（信号版）
 ///
 /// 职责：会话生命周期编排、响应式信号暴露。
 /// 数据模型见 [SessionState]，流事件处理见 [StreamEventProcessor]。
@@ -9,18 +9,18 @@ import 'dart:async';
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 
-import '../llm/llm_service.dart';
-import 'session_state.dart';
-import 'stream_event_processor.dart';
+import 'package:agent/services/llm/llm_service.dart';
+import 'package:agent/services/session/session_state.dart';
+import 'package:agent/services/session/stream_event_processor.dart';
 
-// ─── SessionManager ───
+// ─── SessionStore ───
 
 /// 会话管理器 — 纯信号驱动
 ///
 /// 所有可观察状态都是 [signal]，UI 层通过 [SignalBuilder] 自动追踪依赖。
-class SessionManager {
-  static final instance = SessionManager._();
-  SessionManager._();
+class SessionStore {
+  static final instance = SessionStore._();
+  SessionStore._();
 
   // ── 响应式状态 ──
 

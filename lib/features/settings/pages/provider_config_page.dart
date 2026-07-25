@@ -5,16 +5,14 @@
 ///   language_models.{protocol}.{id}.api_key
 library;
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
+
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
-import 'package:agent/services/config_service.dart';
-import 'package:agent/services/llm/llm_providers.dart';
+import 'package:agent/store/config_store.dart';
+import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -27,7 +25,7 @@ import 'package:agent/widgets/text/app_text.dart';
 /// Full-screen config form for a single provider.
 ///
 /// Manages navigation between the config form and model management page.
-class ProviderConfigPage extends HookConsumerWidget {
+class ProviderConfigPage extends HookWidget {
   final ProviderInfo provider;
 
   /// Called when the user wants to go back to the provider list.
@@ -40,7 +38,7 @@ class ProviderConfigPage extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final showModels = useState(false);
 
     return showModels.value
@@ -57,7 +55,7 @@ class ProviderConfigPage extends HookConsumerWidget {
 }
 
 /// The config form body (extracted to avoid conditional hooks).
-class _ConfigForm extends HookConsumerWidget {
+class _ConfigForm extends HookWidget {
   final ProviderInfo provider;
   final VoidCallback onBack;
   final VoidCallback onManageModels;
@@ -69,7 +67,7 @@ class _ConfigForm extends HookConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final apiKeyCtrl = useTextEditingController();
     final endpointCtrl = useTextEditingController(text: provider.baseUrl ?? '');
     // Detect protocol from provider type
@@ -78,19 +76,17 @@ class _ConfigForm extends HookConsumerWidget {
     // ── Load existing config on mount ──
     useEffect(() {
       try {
-        final store = ref.read(configFileStoreProvider);
-        final keyPrefix = 'language_models.$protocol.${provider.name}';
-        final rawUrl = store.readPath('$keyPrefix.api_url');
-        if (rawUrl != null && rawUrl != 'null') {
-          final url = jsonDecode(rawUrl) as String;
-          if (url.isNotEmpty) {
+        final section =
+            (ConfigStore.instance.data.value['language_models']
+                    as Map<String, dynamic>?)
+                ?[protocol]?[provider.name] as Map<String, dynamic>?;
+        if (section != null) {
+          final url = section['api_url'] as String?;
+          if (url != null && url.isNotEmpty) {
             endpointCtrl.text = url;
           }
-        }
-        final rawKey = store.readPath('$keyPrefix.api_key');
-        if (rawKey != null && rawKey != 'null') {
-          final key = jsonDecode(rawKey) as String;
-          if (key.isNotEmpty) {
+          final key = section['api_key'] as String?;
+          if (key != null && key.isNotEmpty) {
             apiKeyCtrl.text = key;
           }
         }
@@ -103,15 +99,18 @@ class _ConfigForm extends HookConsumerWidget {
     // ── Save handler ──
     Future<void> handleSave() async {
       try {
-        final store = ref.read(configFileStoreProvider);
-        final keyPrefix = 'language_models.$protocol.${provider.name}';
+        ConfigStore.instance.mutate((m) {
+          final cfg = (m['language_models'] as Map<String, dynamic>?)
+              ?[protocol]?[provider.name] as Map<String, dynamic>?;
+          if (cfg != null) {
+            cfg['api_url'] = endpointCtrl.text;
+            if (apiKeyCtrl.text.isNotEmpty) {
+              cfg['api_key'] = apiKeyCtrl.text;
+            }
+          }
+        });
 
-        store.writePath('$keyPrefix.api_url', endpointCtrl.text);
-        if (apiKeyCtrl.text.isNotEmpty) {
-          store.writePath('$keyPrefix.api_key', apiKeyCtrl.text);
-        }
-
-        ref.invalidate(providersListProvider);
+        LlmStore.instance.loadProviders(ConfigStore.instance.configPath);
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
@@ -182,7 +181,7 @@ class _ConfigForm extends HookConsumerWidget {
                 if (provider.configured)
                   AppSecondaryButton(
                     text: '删除配置',
-                    onPressed: () => _handleDelete(context, ref),
+                    onPressed: () => _handleDelete(context),
                   ),
               ],
             ),
@@ -192,7 +191,7 @@ class _ConfigForm extends HookConsumerWidget {
     );
   }
 
-  Future<void> _handleDelete(BuildContext context, WidgetRef ref) async {
+  Future<void> _handleDelete(BuildContext context) async {
     final confirmed = await AppDialog.show(
       context: context,
       title: '确认删除',
@@ -202,8 +201,7 @@ class _ConfigForm extends HookConsumerWidget {
     if (confirmed != true) return;
 
     try {
-      final store = ref.read(configFileStoreProvider);
-      final data = store.readAll();
+      final data = ConfigStore.instance.data.value;
 
       // Remove the provider's config section if it exists
       final protocol = _protocolFor(provider.name);
@@ -221,8 +219,8 @@ class _ConfigForm extends HookConsumerWidget {
         }
       }
 
-      store.writeAll(data);
-      ref.invalidate(providersListProvider);
+      ConfigStore.instance.data.value = data;
+      LlmStore.instance.loadProviders(ConfigStore.instance.configPath);
       debugPrint('Deleted provider config: $protocol.${provider.name}');
 
       if (context.mounted) {
