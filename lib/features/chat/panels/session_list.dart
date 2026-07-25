@@ -89,8 +89,9 @@ class SessionList extends HookWidget {
                   size: FieldSize.sm,
                   onSubmitted: (newName) async {
                     if (newName.trim().isEmpty ||
-                        newName.trim() == session.name)
+                        newName.trim() == session.name) {
                       return;
+                    }
                     final service = LlmStore.instance.service;
                     final dbPath = ConfigStore.instance.dbPath;
                     await service.renameSession(

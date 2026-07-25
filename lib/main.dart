@@ -7,6 +7,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'features/editor/editor_window.dart';
 import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
 import 'store/llm_store.dart';
@@ -49,6 +50,31 @@ void main() async {
             );
           });
           runApp(const _SettingsWindow());
+          return;
+        }
+
+        // ── 编辑器子窗口 ──
+        if (controller.arguments.startsWith('editor:')) {
+          final filePath = controller.arguments.substring(7);
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            await windowManager.ensureInitialized();
+            await windowManager.setTitle(
+              '编辑 — ${filePath.split('/').last}',
+            );
+            await windowManager.center();
+            await windowManager.focus();
+            await windowManager.setPreventClose(true);
+            windowManager.addListener(
+              WindowCloseIntercept(() => windowManager.hide()),
+            );
+          });
+          runApp(MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: '编辑 — ${filePath.split('/').last}',
+            theme: appLightTheme,
+            darkTheme: appDarkTheme,
+            home: EditorWindow(filePath: filePath),
+          ));
           return;
         }
       } catch (_) {

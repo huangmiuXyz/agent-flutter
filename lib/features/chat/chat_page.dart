@@ -44,15 +44,11 @@ class ChatDemo extends StatelessWidget {
       minSize: 180,
       initialSize: 256,
       maxSize: 400,
-      // RightPanel on the right side (direction: left → child is on the right)
-      child: const RightPanel(),
       other: ResizeBox(
         direction: ResizeDirection.right,
         minSize: 180,
         initialSize: 256,
         maxSize: 400,
-        // LeftPanel on the left side (direction: right → child is on the left)
-        child: const LeftPanel(),
         other: ResizeBox(
           direction: ResizeDirection.top,
           minSize: 100,
@@ -63,7 +59,9 @@ class ChatDemo extends StatelessWidget {
           other: const ChatContent(),
           child: const TerminalPanel(),
         ),
+        child: const LeftPanel(),
       ),
+      child: const RightPanel(),
     );
   }
 
@@ -73,7 +71,6 @@ class ChatDemo extends StatelessWidget {
       minSize: 180,
       initialSize: 256,
       maxSize: 400,
-      child: const LeftPanel(),
       other: ResizeBox(
         direction: ResizeDirection.top,
         minSize: 100,
@@ -84,6 +81,7 @@ class ChatDemo extends StatelessWidget {
         other: const ChatContent(),
         child: const TerminalPanel(),
       ),
+      child: const LeftPanel(),
     );
   }
 }

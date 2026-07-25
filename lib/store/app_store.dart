@@ -1,4 +1,5 @@
 /// app_store — 汇聚所有 store，方便统一导入
+library;
 
 export 'theme_store.dart';
 export 'config_store.dart';

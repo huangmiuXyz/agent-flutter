@@ -101,8 +101,7 @@ class ChatExpandablePart extends HookWidget {
     final resultAvailable = resultText != null && resultText.isNotEmpty;
     final hasContent = argumentsText.isNotEmpty || resultAvailable;
 
-    return Container(
-      child: Column(
+    return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -200,7 +199,6 @@ class ChatExpandablePart extends HookWidget {
               ),
             ),
         ],
-      ),
-    );
+      );
   }
 }

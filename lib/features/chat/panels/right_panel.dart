@@ -41,7 +41,7 @@ class _PerformanceSnapshot {
         'FPS: ${fps.toStringAsFixed(1)}  '
         'Build: ${buildTimeMs.toStringAsFixed(2)}ms  '
         'Raster: ${rasterTimeMs.toStringAsFixed(2)}ms  '
-        'Mem: ${memoryMb}  '
+        'Mem: $memoryMb  '
         'Frames: $frameCount';
   }
 }
@@ -427,7 +427,7 @@ class _RightPanelState extends State<RightPanel>
           _MetricRow(
             label: 'FPS',
             value: _data.frameCount > 0 && _data.currentFps > 0
-                ? '${_data.currentFps.toStringAsFixed(1)}'
+                ? _data.currentFps.toStringAsFixed(1)
                 : '等待数据…',
             valueColor: _data.frameCount > 0
                 ? _fpsColor(_data.currentFps)

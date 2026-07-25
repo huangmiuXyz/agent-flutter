@@ -223,7 +223,7 @@ class ChatMessageItem extends HookWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (modelBadge != null) modelBadge,
+        ?modelBadge,
         for (int i = 0; i < visibleParts.length; i++)
           _buildPartWithSpacing(
             i, visibleParts, custom, minPartHeight,

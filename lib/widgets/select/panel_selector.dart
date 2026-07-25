@@ -115,7 +115,7 @@ class PanelSelector<T> extends HookWidget {
     }, [value, allOptions]);
 
     /// Build the menu items list, grouping by the `group` key.
-    List<MenuItem> _buildMenuItems() {
+    List<MenuItem> buildMenuItems() {
       if (data != null) {
         final result = <MenuItem>[];
         final currentVal = value;
@@ -194,7 +194,7 @@ class PanelSelector<T> extends HookWidget {
         position: menuPosition,
         minWidth: menuMinWidth,
         link: layerLink,
-        items: _buildMenuItems(),
+        items: buildMenuItems(),
       );
     }
 
