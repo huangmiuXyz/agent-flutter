@@ -1,0 +1,14 @@
+E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\deps\serde-0e32e5a7190b8bfb.d: C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\build\serde-166251a9d110c235\out/private.rs
+
+E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\deps\libserde-0e32e5a7190b8bfb.rlib: C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\build\serde-166251a9d110c235\out/private.rs
+
+E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\deps\libserde-0e32e5a7190b8bfb.rmeta: C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\build\serde-166251a9d110c235\out/private.rs
+
+C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\cc\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+E:\code\private\agent-qi\agent-flutter\.patches\code_forge\rust\target\release\build\serde-166251a9d110c235\out/private.rs:
+
+# env-dep:OUT_DIR=E:\\code\\private\\agent-qi\\agent-flutter\\.patches\\code_forge\\rust\\target\\release\\build\\serde-166251a9d110c235\\out
