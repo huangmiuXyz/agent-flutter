@@ -40,7 +40,7 @@ else
 	flutter_rust_bridge_codegen generate
 endif
 
-# 仅重新生成 Dart 代码（freezed/riverpod 等）
+# 仅重新生成 Dart 代码（freezed）
 build:
 	dart run build_runner build --delete-conflicting-outputs
 
@@ -51,4 +51,4 @@ watch:
 # 清理生成文件 + 缓存
 clean:
 	dart run build_runner clean
-	find . -name "*.freezed.dart" -o -name "*.g.dart" -delete
+	find . -name "*.freezed.dart" -delete
