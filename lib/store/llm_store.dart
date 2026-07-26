@@ -11,8 +11,17 @@ class LlmStore {
   final service = LlmService();
   final initialized = signal(false);
 
-  final currentProvider = signal('');
-  final currentModel = signal('');
+  final currentProvider = computed<String>(() {
+    final dm = ConfigStore.instance.data.value['default_model'];
+    if (dm is Map) return dm['provider'] as String? ?? '';
+    return '';
+  });
+
+  final currentModel = computed<String>(() {
+    final dm = ConfigStore.instance.data.value['default_model'];
+    if (dm is Map) return dm['model'] as String? ?? '';
+    return '';
+  });
 
   final providers = signal(<api.ProviderSummary>[]);
   final providersLoading = signal(true);
@@ -47,7 +56,4 @@ class LlmStore {
       modelsLoading.value = false;
     }
   }
-
-  void selectProvider(String p) => currentProvider.value = p;
-  void selectModel(String m) => currentModel.value = m;
 }

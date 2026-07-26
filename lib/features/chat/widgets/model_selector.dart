@@ -51,7 +51,9 @@ class ModelSelector extends HookWidget {
       }
     }
 
-    final currentValue = currentModel.value.isNotEmpty ? currentModel.value : null;
+    final currentValue = currentModel.value.isNotEmpty
+        ? currentModel.value
+        : null;
 
     void onModelChanged(dynamic val) {
       if (val == null) return;
@@ -63,10 +65,8 @@ class ModelSelector extends HookWidget {
       }
       if (name == null || name.isEmpty) return;
 
-      LlmStore.instance.selectModel(name);
       final provider = modelToProvider[name];
       if (provider != null && provider.isNotEmpty) {
-        LlmStore.instance.selectProvider(provider);
         ConfigStore.instance.mutate((m) {
           m['default_model'] = {'provider': provider, 'model': name};
         });
