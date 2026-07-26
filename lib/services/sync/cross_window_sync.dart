@@ -10,6 +10,8 @@
 /// ```
 library;
 
+import 'dart:async';
+
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
 class CrossWindowSync {
@@ -53,7 +55,7 @@ class CrossWindowSync {
   static void notify(String type) {
     try {
       const channel = WindowMethodChannel('cross_window_sync');
-      channel.invokeMethod(type);
+      unawaited(channel.invokeMethod(type).catchError((_) {}));
     } catch (_) {
       // 非桌面环境忽略
     }

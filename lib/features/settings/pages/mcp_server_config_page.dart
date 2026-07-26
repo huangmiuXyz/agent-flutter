@@ -55,6 +55,20 @@ class McpServerConfigPage extends HookWidget {
       return servers.where((s) => s.name == server.name).firstOrNull ?? server;
     }, [configVersion, server]);
 
+    // 跨窗口同步时更新表单字段
+    useEffect(() {
+      final servers = loadMcpServers(store.data.value);
+      final updated = servers.where((s) => s.name == server.name).firstOrNull;
+      if (updated == null) return null;
+      nameCtrl.text = updated.name;
+      commandCtrl.text = updated.command;
+      argsCtrl.text = updated.args.join(' ');
+      urlCtrl.text = updated.url;
+      isStdio.value = updated.isStdio;
+      disabled.value = updated.disabled;
+      return null;
+    }, [configVersion, server.name]);
+
     Future<void> handleSave() async {
       final name = nameCtrl.text.trim();
       if (name.isEmpty) {

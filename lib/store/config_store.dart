@@ -77,9 +77,14 @@ class ConfigStore {
     final file = File(configPath);
     if (!file.existsSync()) return;
     try {
-      data.value = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+      final newData =
+          jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+      // 深度比较：内容没变就不更新 data，避免触发 effect(_writeFile)
+      // 进而导致 写文件 → FileWatcher → _load → 写文件 的死循环
+      if (data.value == newData) return;
+      data.value = newData;
     } catch (_) {
-      data.value = {};
+      // JSON 解析失败时不更新 data，避免触发 _writeFile 以空内容覆盖文件
     }
   }
 
@@ -87,10 +92,21 @@ class ConfigStore {
 
   void _writeFile() {
     final file = File(configPath);
+    final content =
+        '${const JsonEncoder.withIndent('  ').convert(data.value)}\n';
+    if (file.existsSync()) {
+      try {
+        final existing = file.readAsStringSync();
+        if (existing == content) return;
+        // 文件内容不同，但若当前文件 JSON 不合法就不覆盖，
+        // 防止用户编辑器里正在编辑/文件损坏时被重置
+        jsonDecode(existing);
+      } catch (_) {
+        return;
+      }
+    }
     file.parent.createSync(recursive: true);
-    file.writeAsStringSync(
-      '${const JsonEncoder.withIndent('  ').convert(data.value)}\n',
-    );
+    file.writeAsStringSync(content);
     _lastWriteMs = DateTime.now().millisecondsSinceEpoch;
   }
 

@@ -6,7 +6,6 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -37,11 +36,8 @@ class McpDetailPage extends HookWidget {
     final tools = useState<List<api.McpItemInfo>>([]);
     final resources = useState<List<api.McpItemInfo>>([]);
     final searchQuery = useState('');
-    // 订阅 config 变化，跨窗口同步后刷新
-    // 使用 .value 确保 useEffect 在值变化时重跑
-    final configVersion = useExistingSignal(ConfigStore.instance.data).value;
 
-    // ── 从 Rust 后端加载数据 ──
+    // ── 从 Rust 后端加载数据（仅在首次或切换服务器时加载）──
     useEffect(() {
       Future<void> load() async {
         loading.value = true;
@@ -58,7 +54,7 @@ class McpDetailPage extends HookWidget {
 
       load();
       return null;
-    }, [server.name, configVersion]);
+    }, [server.name]);
 
     // ── 切换开关 ──
     Future<void> handleToggle(String name, bool enabled) async {
