@@ -119,31 +119,34 @@ class SessionList extends HookWidget {
                   );
                 },
                 hoverActions: [
-                  AppIconButton(
-                    icon: 'trash2',
-                    size: ButtonSize.sm,
-                    hoverStyle: false,
-                    tooltip: '删除会话',
-                    onPressed: () async {
-                      final confirmed = await AppDialog.show(
-                        context: context,
-                        title: '删除会话',
-                        child: AppText('确定要删除「${session.name}」吗？此操作不可恢复。'),
-                        onOk: () {},
-                      );
-                      if (confirmed == true) {
-                        final service = LlmStore.instance.service;
-                        final dbPath = ConfigStore.instance.dbPath;
-                        await service.deleteSession(
-                          dbPath: dbPath,
-                          sessionId: session.id,
+                  Transform.translate(
+                    offset: const Offset(0, -1),
+                    child: AppIconButton(
+                      icon: 'trash2',
+                      size: ButtonSize.sm,
+                      hoverStyle: false,
+                      tooltip: '删除会话',
+                      onPressed: () async {
+                        final confirmed = await AppDialog.show(
+                          context: context,
+                          title: '删除会话',
+                          child: AppText('确定要删除「${session.name}」吗？此操作不可恢复。'),
+                          onOk: () {},
                         );
-                        if (selectedId == session.id) {
-                          SessionStore.instance.selectedId.value = null;
+                        if (confirmed == true) {
+                          final service = LlmStore.instance.service;
+                          final dbPath = ConfigStore.instance.dbPath;
+                          await service.deleteSession(
+                            dbPath: dbPath,
+                            sessionId: session.id,
+                          );
+                          if (selectedId == session.id) {
+                            SessionStore.instance.selectedId.value = null;
+                          }
+                          SessionStore.instance.removeSession(session.id);
                         }
-                        SessionStore.instance.removeSession(session.id);
-                      }
-                    },
+                      },
+                    ),
                   ),
                 ],
               );
