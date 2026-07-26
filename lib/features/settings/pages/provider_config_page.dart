@@ -73,7 +73,7 @@ class _ConfigForm extends HookWidget {
     final protocol = _protocolFor(provider.name);
 
     // 订阅 config 变化，跨窗口同步后重新加载表单
-    final configVersion = useExistingSignal(ConfigStore.instance.data);
+    final configVersion = useExistingSignal(ConfigStore.instance.data).value;
 
     // ── Load existing config on mount or config change ──
     useEffect(() {

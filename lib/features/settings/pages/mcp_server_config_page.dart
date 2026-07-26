@@ -39,7 +39,7 @@ class McpServerConfigPage extends HookWidget {
     final store = ConfigStore.instance;
 
     // 订阅 config 变化，跨窗口同步后立即更新标题等静态展示
-    final configVersion = useExistingSignal(store.data);
+    final configVersion = useExistingSignal(store.data).value;
 
     final nameCtrl = useTextEditingController(text: server.name);
     final commandCtrl = useTextEditingController(text: server.command);
