@@ -11,7 +11,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
 import 'package:agent/store/config_store.dart';
-import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -111,7 +110,6 @@ class _ConfigForm extends HookWidget {
           }
         });
 
-        LlmStore.instance.loadProviders();
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
@@ -202,27 +200,27 @@ class _ConfigForm extends HookWidget {
     if (confirmed != true) return;
 
     try {
-      final data = ConfigStore.instance.data.value;
-
-      // Remove the provider's config section if it exists
-      final protocol = _protocolFor(provider.name);
-      final models = data['language_models'] as Map<String, dynamic>?;
-      if (models != null) {
-        final protocolConfig = models[protocol] as Map<String, dynamic>?;
-        if (protocolConfig != null) {
-          protocolConfig.remove(provider.name);
-          if (protocolConfig.isEmpty) {
-            models.remove(protocol);
+      ConfigStore.instance.mutate((data) {
+        // Remove the provider's config section if it exists
+        final protocol = _protocolFor(provider.name);
+        final models = data['language_models'] as Map<String, dynamic>?;
+        if (models != null) {
+          final protocolConfig = models[protocol] as Map<String, dynamic>?;
+          if (protocolConfig != null) {
+            protocolConfig.remove(provider.name);
+            if (protocolConfig.isEmpty) {
+              models.remove(protocol);
+            }
+          }
+          if (models.isEmpty) {
+            data.remove('language_models');
           }
         }
-        if (models.isEmpty) {
-          data.remove('language_models');
-        }
-      }
+      });
 
-      ConfigStore.instance.data.value = data;
-      LlmStore.instance.loadProviders();
-      debugPrint('Deleted provider config: $protocol.${provider.name}');
+      debugPrint(
+        'Deleted provider config: ${_protocolFor(provider.name)}.${provider.name}',
+      );
 
       if (context.mounted) {
         ScaffoldMessenger.of(

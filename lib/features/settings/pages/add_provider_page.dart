@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/store/config_store.dart';
-import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -67,8 +66,6 @@ class AddProviderPage extends HookWidget {
             cfg['api_key'] = apiKeyCtrl.text.trim();
           }
         });
-
-        LlmStore.instance.loadProviders();
 
         if (context.mounted) {
           ScaffoldMessenger.of(

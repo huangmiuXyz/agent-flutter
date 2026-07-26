@@ -3,12 +3,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/store/config_store.dart';
-import 'package:agent/store/llm_store.dart';
+import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -34,8 +33,24 @@ class ProviderListPage extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final configPath = ConfigStore.instance.configPath;
-    final loading = useExistingSignal(LlmStore.instance.providersLoading);
-    final providers = useExistingSignal(LlmStore.instance.providers);
+    final providers = useState<List<api.ProviderSummary>>([]);
+    final loading = useState(true);
+
+    useEffect(() {
+      Future<void> load() async {
+        loading.value = true;
+        try {
+          providers.value = await LlmService().listProviders(
+            configPath: configPath,
+          );
+        } finally {
+          loading.value = false;
+        }
+      }
+
+      load();
+      return null;
+    }, [configPath]);
 
     if (loading.value) {
       return const Center(child: CircularProgressIndicator());

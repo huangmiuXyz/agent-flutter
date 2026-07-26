@@ -10,7 +10,8 @@ import 'app.dart';
 import 'features/editor/editor_window.dart';
 import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
-import 'store/llm_store.dart';
+import 'services/sync/app_sync.dart';
+import 'services/llm/llm_service.dart';
 import 'theme/app_theme.dart';
 
 import 'package:code_forge/code_forge.dart' as code_forge;
@@ -35,7 +36,7 @@ void main() async {
 
       await frb.RustLib.init();
       await code_forge.RustLib.init();
-      await LlmStore.instance.init();
+      await LlmService().init();
 
       // Check if this is a child window (e.g. settings child window).
       try {
@@ -52,6 +53,7 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
+          initAppSync();
           runApp(const _SettingsWindow());
           return;
         }
@@ -99,6 +101,7 @@ void main() async {
         await windowManager.focus();
       });
 
+      initAppSync();
       runApp(const AgentApp());
     },
     (error, stack) {

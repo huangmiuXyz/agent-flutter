@@ -5,8 +5,8 @@ import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/store/config_store.dart';
-import 'package:agent/store/llm_store.dart';
 import 'package:agent/store/session_store.dart';
+import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -89,7 +89,7 @@ class SessionList extends HookWidget {
                         newName.trim() == session.name) {
                       return;
                     }
-                    final service = LlmStore.instance.service;
+                    final service = LlmService();
                     final dbPath = ConfigStore.instance.dbPath;
                     await service.renameSession(
                       dbPath: dbPath,
@@ -127,7 +127,7 @@ class SessionList extends HookWidget {
                           onOk: () {},
                         );
                         if (confirmed == true) {
-                          final service = LlmStore.instance.service;
+                          final service = LlmService();
                           final dbPath = ConfigStore.instance.dbPath;
                           await service.deleteSession(
                             dbPath: dbPath,

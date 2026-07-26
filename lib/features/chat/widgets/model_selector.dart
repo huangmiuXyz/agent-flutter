@@ -5,7 +5,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/store/config_store.dart';
-import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -16,7 +15,9 @@ class ModelSelector extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentModel = useExistingSignal(LlmStore.instance.currentModel);
+    final currentModel = useExistingSignal(ConfigStore.instance.currentModel);
+    // 监听 ConfigStore.data 变化，确保列表在跨窗口同步后刷新
+    useExistingSignal(ConfigStore.instance.data);
 
     // 从 config.json 读取所有已激活的模型
     final allData = ConfigStore.instance.data.value;

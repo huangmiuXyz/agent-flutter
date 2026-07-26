@@ -6,7 +6,7 @@ import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
-import 'package:agent/store/llm_store.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
@@ -34,8 +34,8 @@ class ChatInput extends HookWidget {
           .trim();
       if (text.isEmpty) return;
 
-      final provider = LlmStore.instance.currentProvider.value;
-      final model = LlmStore.instance.currentModel.value;
+      final provider = ConfigStore.instance.currentProvider.value;
+      final model = ConfigStore.instance.currentModel.value;
       if (provider.isEmpty || model.isEmpty) return;
 
       sending.value = true;

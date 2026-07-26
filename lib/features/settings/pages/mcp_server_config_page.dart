@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 
-import 'package:agent/store/mcp_store.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -33,7 +33,7 @@ class McpServerConfigPage extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final mcpStore = McpStore.instance;
+    final store = ConfigStore.instance;
 
     final nameCtrl = useTextEditingController(text: server.name);
     final commandCtrl = useTextEditingController(text: server.command);
@@ -76,7 +76,14 @@ class McpServerConfigPage extends HookWidget {
             );
 
       try {
-        mcpStore.update(server.name, updated);
+        store.updateMcpServers((list) {
+          final idx = list.indexWhere((s) => s.name == server.name);
+          if (idx == -1) {
+            list.add(updated);
+          } else {
+            list[idx] = updated;
+          }
+        });
 
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -103,7 +110,9 @@ class McpServerConfigPage extends HookWidget {
       if (confirmed != true) return;
 
       try {
-        mcpStore.remove(server.name);
+        store.updateMcpServers((list) {
+          list.removeWhere((s) => s.name == server.name);
+        });
 
         if (context.mounted) {
           ScaffoldMessenger.of(
