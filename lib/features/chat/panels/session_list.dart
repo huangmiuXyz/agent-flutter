@@ -136,6 +136,15 @@ class SessionList extends HookWidget {
                           if (selectedId == session.id) {
                             SessionStore.instance.selectedId.value = null;
                           }
+                          // 如果被删的是当前显示的会话，清理显示状态和内存中的消息数据
+                          if (SessionStore.instance.displayedSessionId.value ==
+                              session.id) {
+                            SessionStore.instance.displayedSessionId.value =
+                                null;
+                          }
+                          SessionStore.instance.sessions.value = Map.from(
+                            SessionStore.instance.sessions.value,
+                          )..remove(session.id);
                           SessionStore.instance.removeSession(session.id);
                         }
                       },
