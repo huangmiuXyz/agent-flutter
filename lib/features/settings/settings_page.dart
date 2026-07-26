@@ -8,6 +8,7 @@ import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/add_mcp_server_page.dart';
 import 'package:agent/features/settings/pages/add_provider_page.dart';
+import 'package:agent/features/settings/pages/mcp_detail_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
 import 'package:agent/features/settings/pages/provider_config_page.dart';
@@ -42,6 +43,7 @@ class SettingsPage extends HookWidget {
     final showAddProvider = useState(false);
     final selectedMcp = useState<McpServerInfo?>(null);
     final showAddMcp = useState(false);
+    final selectedMcpDetail = useState<McpServerInfo?>(null);
 
     // ── Right content ──
     Widget content;
@@ -63,14 +65,18 @@ class SettingsPage extends HookWidget {
           );
         }
       case SettingsTab.mcp:
-        if (showAddMcp.value) {
-          content = AddMcpServerPage(
-            onBack: () => showAddMcp.value = false,
+        if (selectedMcpDetail.value != null) {
+          content = McpDetailPage(
+            server: selectedMcpDetail.value!,
+            onBack: () => selectedMcpDetail.value = null,
           );
+        } else if (showAddMcp.value) {
+          content = AddMcpServerPage(onBack: () => showAddMcp.value = false);
         } else if (selectedMcp.value != null) {
           content = McpServerConfigPage(
             server: selectedMcp.value!,
             onBack: () => selectedMcp.value = null,
+            onManageDetail: () => selectedMcpDetail.value = selectedMcp.value,
           );
         } else {
           content = McpServerListPage(
@@ -99,10 +105,7 @@ class SettingsPage extends HookWidget {
                       custom.spacing.sm,
                       custom.spacing.sm,
                     ),
-                    child: AppText(
-                      '设置',
-                      variant: AppTextVariant.subtitle,
-                    ),
+                    child: AppText('设置', variant: AppTextVariant.subtitle),
                   ),
                   SingleChildScrollView(
                     padding: EdgeInsets.symmetric(

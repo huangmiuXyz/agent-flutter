@@ -24,11 +24,13 @@ import 'package:agent/widgets/text/app_text.dart';
 class McpServerConfigPage extends HookWidget {
   final McpServerInfo server;
   final VoidCallback onBack;
+  final VoidCallback? onManageDetail;
 
   const McpServerConfigPage({
     super.key,
     required this.server,
     required this.onBack,
+    this.onManageDetail,
   });
 
   @override
@@ -235,6 +237,12 @@ class McpServerConfigPage extends HookWidget {
               children: [
                 AppPrimaryButton(text: '保存', onPressed: handleSave),
                 const Spacer(),
+                AppSecondaryButton(
+                  text: '管理详情',
+                  size: ButtonSize.md,
+                  onPressed: onManageDetail,
+                ),
+                SizedBox(width: custom.spacing.sm),
                 AppSecondaryButton(
                   text: '删除',
                   size: ButtonSize.md,

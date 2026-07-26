@@ -12,6 +12,8 @@ class McpServerInfo {
   final String url; // HTTP 模式
   final Map<String, String> headers; // HTTP 模式
   final bool disabled; // 设为 true 则跳过
+  final List<String> disabledTools;
+  final List<String> disabledResources;
 
   /// [command] 不为空时为 stdio 模式，否则为 http 模式。
   const McpServerInfo({
@@ -22,6 +24,8 @@ class McpServerInfo {
     this.url = '',
     this.headers = const {},
     this.disabled = false,
+    this.disabledTools = const [],
+    this.disabledResources = const [],
   });
 
   /// 是否 stdio 模式
@@ -50,6 +54,12 @@ class McpServerInfo {
     if (disabled) {
       result['disabled'] = true;
     }
+    if (disabledTools.isNotEmpty) {
+      result['disabledTools'] = disabledTools;
+    }
+    if (disabledResources.isNotEmpty) {
+      result['disabledResources'] = disabledResources;
+    }
     return result;
   }
 
@@ -58,6 +68,17 @@ class McpServerInfo {
   factory McpServerInfo.fromJson(String name, Map<String, dynamic> json) {
     final command = json['command'] as String? ?? '';
     final disabled = json['disabled'] as bool? ?? false;
+    final disabledTools =
+        (json['disabledTools'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    final disabledResources =
+        (json['disabledResources'] as List<dynamic>?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+
     if (command.isNotEmpty) {
       return McpServerInfo(
         name: name,
@@ -73,6 +94,8 @@ class McpServerInfo {
             ) ??
             {},
         disabled: disabled,
+        disabledTools: disabledTools,
+        disabledResources: disabledResources,
       );
     }
     return McpServerInfo(
@@ -84,6 +107,8 @@ class McpServerInfo {
           ) ??
           {},
       disabled: disabled,
+      disabledTools: disabledTools,
+      disabledResources: disabledResources,
     );
   }
 
@@ -95,6 +120,8 @@ class McpServerInfo {
     String? url,
     Map<String, String>? headers,
     bool? disabled,
+    List<String>? disabledTools,
+    List<String>? disabledResources,
   }) => McpServerInfo(
     name: name ?? this.name,
     command: command ?? this.command,
@@ -103,6 +130,8 @@ class McpServerInfo {
     url: url ?? this.url,
     headers: headers ?? this.headers,
     disabled: disabled ?? this.disabled,
+    disabledTools: disabledTools ?? this.disabledTools,
+    disabledResources: disabledResources ?? this.disabledResources,
   );
 
   @override
