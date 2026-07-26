@@ -70,6 +70,7 @@ Future<LspConfig> lsp({
   args: [
     if (_resolveExec(executable).length > 1)
       ..._resolveExec(executable).skip(1),
+    // ignore: use_null_aware_elements
     if (args != null) ...args,
   ],
   workspacePath: workspacePath,

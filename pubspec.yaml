@@ -28,6 +28,7 @@ dependencies:
   signals_hooks: ^7.1.0
   reactive_forms: ^18.2.2
   desktop_multi_window: ^0.3.0
+  watcher: ^1.2.1
   freezed_annotation: ^3.0.0
   code_forge:
     path: .patches/code_forge
