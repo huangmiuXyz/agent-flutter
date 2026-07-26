@@ -82,9 +82,13 @@ class PanelSelector<T> extends HookWidget {
     if (data != null) {
       return data!.map((item) {
         final label = item is Map
-            ? (item['label'] as String? ?? item['name'] as String? ?? item.toString())
+            ? (item['label'] as String? ??
+                  item['name'] as String? ??
+                  item.toString())
             : item.toString();
-        final val = item is Map ? ((item['value'] as T?) ?? (item['name'] as T?) ?? item as T) : item as T;
+        final val = item is Map
+            ? ((item['value'] as T?) ?? (item['name'] as T?) ?? item as T)
+            : item as T;
         return PanelSelectorOption<T>(
           value: val,
           label: label,
@@ -107,12 +111,15 @@ class PanelSelector<T> extends HookWidget {
     // Memoize options so they don't recreate on every build.
     final allOptions = useMemoized(() => _allOptions, [data, options]);
 
-    // Find the label for the current value.
+    // 找出当前选中值的显示文本
     final selectedLabel = useMemoized(() {
       if (value == null) return null;
       final idx = allOptions.indexWhere((o) => o.value == value);
       return idx >= 0 ? allOptions[idx].label : null;
     }, [value, allOptions]);
+
+    // 上次打开菜单时的位置，用于原地刷新
+    final lastPosition = useRef<Offset?>(null);
 
     /// Build the menu items list, grouping by the `group` key.
     List<MenuItem> buildMenuItems() {
@@ -140,7 +147,9 @@ class PanelSelector<T> extends HookWidget {
 
           for (final item in entry.value) {
             final label = item is Map
-                ? (item['label'] as String? ?? item['name'] as String? ?? item.toString())
+                ? (item['label'] as String? ??
+                      item['name'] as String? ??
+                      item.toString())
                 : item.toString();
             final itemValue = item is Map
                 ? ((item['value'] as T?) ?? (item['name'] as T?) ?? item as T)
@@ -149,7 +158,9 @@ class PanelSelector<T> extends HookWidget {
               MenuItem(
                 label: label,
                 icon: item is Map ? item['icon'] as String? : null,
-                enabled: item is Map ? !(item['disabled'] as bool? ?? false) : true,
+                enabled: item is Map
+                    ? !(item['disabled'] as bool? ?? false)
+                    : true,
                 selected: itemValue == currentVal,
                 onTap: () => onChanged?.call(itemValue),
               ),
@@ -173,6 +184,22 @@ class PanelSelector<T> extends HookWidget {
       ];
     }
 
+    // 当 data/options 变化时，如果下拉面板已打开，原地刷新内容
+    useEffect(() {
+      if (!ContextMenu.isOpen || lastPosition.value == null) return null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!ContextMenu.isOpen) return;
+        ContextMenu.show(
+          context,
+          position: lastPosition.value!,
+          minWidth: menuMinWidth,
+          link: layerLink,
+          items: buildMenuItems(),
+        );
+      });
+      return null;
+    }, [data, options]);
+
     void onTap() {
       // Get the button's global position to anchor the menu.
       final renderBox =
@@ -180,14 +207,12 @@ class PanelSelector<T> extends HookWidget {
       if (renderBox == null || !renderBox.hasSize) return;
 
       final position = renderBox.localToGlobal(Offset.zero);
+      lastPosition.value = position;
 
       // Place the menu above the button, left-aligned.
       // The anchor point is the top-left of the button; the menu will appear
       // above it so it never blocks the selection box.
-      final menuPosition = Offset(
-        position.dx,
-        position.dy,
-      );
+      final menuPosition = Offset(position.dx, position.dy);
 
       ContextMenu.show(
         context,

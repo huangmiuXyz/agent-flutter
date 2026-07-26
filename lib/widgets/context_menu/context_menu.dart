@@ -48,10 +48,8 @@ class MenuItem {
       isHeader = false;
 
   /// Creates a group header item (non-selectable, bold label).
-  const MenuItem.header({
-    required this.label,
-    this.icon,
-  }) : shortcut = null,
+  const MenuItem.header({required this.label, this.icon})
+    : shortcut = null,
       enabled = false,
       selected = false,
       submenu = null,
@@ -81,6 +79,9 @@ class ContextMenu {
     _lastItems = null;
     _lastOnDismiss = null;
   }
+
+  /// 菜单面板是否正在显示。
+  static bool get isOpen => _overlayEntry != null;
 
   static void show(
     BuildContext context, {
@@ -252,13 +253,15 @@ class _MenuOverlay extends HookWidget {
         if (link != null)
           CompositedTransformFollower(
             link: link!,
-            targetAnchor:
-                showAbove ? Alignment.topLeft : Alignment.bottomLeft,
-            followerAnchor:
-                showAbove ? Alignment.bottomLeft : Alignment.topLeft,
+            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            followerAnchor: showAbove
+                ? Alignment.bottomLeft
+                : Alignment.topLeft,
             offset: Offset(
               0,
-              showAbove ? -custom.spacing.edgeMargin : custom.spacing.edgeMargin,
+              showAbove
+                  ? -custom.spacing.edgeMargin
+                  : custom.spacing.edgeMargin,
             ),
             child: menuContent,
           )

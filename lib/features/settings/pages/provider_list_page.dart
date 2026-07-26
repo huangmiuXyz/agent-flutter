@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -36,6 +37,9 @@ class ProviderListPage extends HookWidget {
     final providers = useState<List<api.ProviderSummary>>([]);
     final loading = useState(true);
 
+    // 订阅 config 变化，数据变更后自动重新拉取提供商列表
+    final configVersion = useExistingSignal(ConfigStore.instance.data).value;
+
     useEffect(() {
       Future<void> load() async {
         loading.value = true;
@@ -50,7 +54,7 @@ class ProviderListPage extends HookWidget {
 
       load();
       return null;
-    }, [configPath]);
+    }, [configVersion, configPath]);
 
     if (loading.value) {
       return const Center(child: CircularProgressIndicator());

@@ -7,6 +7,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
@@ -71,7 +72,10 @@ class _ConfigForm extends HookWidget {
     // Detect protocol from provider type
     final protocol = _protocolFor(provider.name);
 
-    // ── Load existing config on mount ──
+    // 订阅 config 变化，跨窗口同步后重新加载表单
+    final configVersion = useExistingSignal(ConfigStore.instance.data);
+
+    // ── Load existing config on mount or config change ──
     useEffect(() {
       try {
         final section =
@@ -90,7 +94,7 @@ class _ConfigForm extends HookWidget {
         }
       } catch (_) {}
       return null;
-    }, [provider.name]);
+    }, [configVersion, provider.name]);
 
     final custom = CustomTheme.of(context);
 

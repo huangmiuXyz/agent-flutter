@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/store/config_store.dart';
@@ -29,7 +30,8 @@ class McpServerListPage extends HookWidget {
   Widget build(BuildContext context) {
     final store = ConfigStore.instance;
 
-    final data = store.data.value;
+    // 订阅 data 信号变化，确保 toggle / 增删改后立即重建
+    final data = useExistingSignal(store.data).value;
     final servers = loadMcpServers(data);
     final enabled = servers.where((s) => !s.disabled).toList();
     final disabled = servers.where((s) => s.disabled).toList();

@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 
@@ -35,6 +36,9 @@ class McpServerConfigPage extends HookWidget {
     final custom = CustomTheme.of(context);
     final store = ConfigStore.instance;
 
+    // 订阅 config 变化，跨窗口同步后立即更新标题等静态展示
+    final configVersion = useExistingSignal(store.data);
+
     final nameCtrl = useTextEditingController(text: server.name);
     final commandCtrl = useTextEditingController(text: server.command);
     final argsCtrl = useTextEditingController(text: server.args.join(' '));
@@ -42,6 +46,12 @@ class McpServerConfigPage extends HookWidget {
     final isStdio = useState(server.isStdio);
     final disabled = useState(server.disabled);
     final errorMsg = useState<String?>(null);
+
+    // 从 ConfigStore 取最新的 server 数据（响应式）
+    final latestServer = useMemoized(() {
+      final servers = loadMcpServers(store.data.value);
+      return servers.where((s) => s.name == server.name).firstOrNull ?? server;
+    }, [configVersion, server]);
 
     Future<void> handleSave() async {
       final name = nameCtrl.text.trim();
@@ -139,12 +149,12 @@ class McpServerConfigPage extends HookWidget {
               items: [
                 AppBreadcrumbItem('设置', onTap: () {}),
                 AppBreadcrumbItem('MCP 服务器', onTap: onBack),
-                AppBreadcrumbItem(server.name),
+                AppBreadcrumbItem(latestServer.name),
               ],
             ),
             SizedBox(height: custom.spacing.lg),
 
-            AppText(server.name, variant: AppTextVariant.h2),
+            AppText(latestServer.name, variant: AppTextVariant.h2),
             SizedBox(height: custom.spacing.xs),
             AppText(
               '编辑 MCP 服务器配置',
