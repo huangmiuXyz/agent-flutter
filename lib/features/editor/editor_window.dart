@@ -13,6 +13,7 @@ import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
 import 'language_map.dart';
+import '../../services/sync/file_watcher.dart';
 
 /// 在子窗口中打开一个文件进行编辑。
 class EditorWindow extends StatefulWidget {
@@ -33,6 +34,13 @@ class _EditorWindowState extends State<EditorWindow> {
   List<LspErrors> _diagnostics = [];
   double _diagnosticPanelHeight = 150;
   bool _diagnosticPanelVisible = false;
+
+  /// 文件变更监听，外部修改时自动刷新编辑器内容
+  WatcherDisposable? _fileWatcher;
+
+  /// 自身保存标志，避免 watcher 将自身写入当作外部修改
+  bool _saving = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,7 +76,21 @@ class _EditorWindowState extends State<EditorWindow> {
     // 监听诊断更新
     _controller!.diagnosticsNotifier.addListener(_onDiagnosticsChanged);
 
+    // 监听文件外部变更，自动刷新编辑器
+    _fileWatcher = watchFileChanges(
+      widget.filePath,
+      _onFileExternallyChanged,
+      ignoreOwnWrites: () => _saving,
+    );
+
     if (mounted) setState(() => _ready = true);
+  }
+
+  /// 文件被外部修改时，重新加载编辑器内容
+  void _onFileExternallyChanged() {
+    final newContent = _readFile();
+    if (_controller == null || _controller!.text == newContent) return;
+    _controller!.text = newContent;
   }
 
   void _onDiagnosticsChanged() {
@@ -125,6 +147,7 @@ class _EditorWindowState extends State<EditorWindow> {
 
   @override
   void dispose() {
+    _fileWatcher?.dispose();
     _controller?.diagnosticsNotifier.removeListener(_onDiagnosticsChanged);
     _controller?.dispose();
     _undoController.dispose();
@@ -133,9 +156,13 @@ class _EditorWindowState extends State<EditorWindow> {
 
   Future<void> _save() async {
     if (_controller == null) return;
+    _saving = true;
     try {
       await File(widget.filePath).writeAsString(_controller!.text);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _saving = false;
+    }
   }
 
   void _scrollToLine(int line) {

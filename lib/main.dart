@@ -71,6 +71,7 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
+          initAppSync();
           runApp(
             MaterialApp(
               debugShowCheckedModeBanner: false,
