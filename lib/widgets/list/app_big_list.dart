@@ -8,6 +8,8 @@
 /// - [AppBigGroup] — card container with rounded corners + group label.
 /// - [AppBigRow] — single row with optional leading icon/avatar, name,
 ///   description, status dot, and hover-revealed action buttons.
+/// - [AppBigSection] — data class for virtualized sectioned lists; used with
+///   [AppBigList.sections].
 library;
 
 import 'package:flutter/material.dart';
@@ -18,6 +20,41 @@ import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/list/app_list.dart';
+
+// ---------------------------------------------------------------------------
+// AppBigSection — data class for virtualized sections
+// ---------------------------------------------------------------------------
+
+/// A virtualized section inside [AppBigList] rendered via [ListView.builder].
+///
+/// Each section shows a [label] header followed by [itemCount] items built
+/// lazily by [itemBuilder]. The builder receives the index plus [isFirst] and
+/// [isLast] flags so it can apply card-aware decoration.
+class AppBigSection {
+  /// Section header label (e.g. "已配置", "未配置").
+  final String label;
+
+  /// Number of items in this section.
+  final int itemCount;
+
+  /// Called to build each item.
+  ///
+  /// [isFirst] is true for the first item in the section,
+  /// [isLast] is true for the last item.
+  final Widget Function(
+    BuildContext context,
+    int index, {
+    required bool isFirst,
+    required bool isLast,
+  })
+  itemBuilder;
+
+  const AppBigSection({
+    required this.label,
+    required this.itemCount,
+    required this.itemBuilder,
+  });
+}
 
 // ---------------------------------------------------------------------------
 // AppBigRow
@@ -353,24 +390,23 @@ class AppBigGroup extends StatelessWidget {
 /// Provides a header with count + action buttons, a search bar, group slots,
 /// and an empty state.
 ///
+/// When [sections] is provided (instead of [children]), the list body renders
+/// as a virtualized [ListView.builder] — items are built lazily as the user
+/// scrolls. This is the recommended approach for lists with many items.
+///
 /// ```dart
 /// AppBigList(
 ///   count: filteredCount,
-///   countLabel: '个智能体',
+///   countLabel: '个提供商',
+///   showSearch: true,
 ///   searchTerm: searchQuery,
 ///   onSearchChanged: (v) => searchQuery = v,
-///   searchPlaceholder: '搜索智能体',
-///   actions: [
-///     AppPrimaryButton(text: '创建智能体', ...),
-///   ],
-///   emptyState: AppBigEmpty(
-///     icon: 'robot',
-///     title: '尚未创建智能体',
-///     hint: '点击"创建智能体"开始配置',
-///   ),
-///   children: [
-///     AppBigGroup(label: '内置', children: [...]),
-///     AppBigGroup(label: '自定义', children: [...]),
+///   sections: [
+///     AppBigSection(
+///       label: '已配置',
+///       itemCount: configured.length,
+///       itemBuilder: (ctx, i, {isFirst, isLast}) => ...,
+///     ),
 ///   ],
 /// )
 /// ```
@@ -397,9 +433,19 @@ class AppBigList extends StatelessWidget {
   final List<Widget>? actions;
 
   /// Groups inside the list (typically [AppBigGroup] widgets).
+  ///
+  /// Pre-built children are rendered eagerly in a [Column]. Prefer [sections]
+  /// for large lists.
   final List<Widget>? children;
 
-  /// Widget shown when [count] is 0.
+  /// Virtualized sections rendered lazily via [ListView.builder].
+  ///
+  /// When provided, [children] is ignored and the list body is virtualized.
+  /// The parent must provide bounded height (e.g. via [Expanded] or
+  /// [SizedBox]). Set [ContentFrame.scrollable] to false when using this mode.
+  final List<AppBigSection>? sections;
+
+  /// Widget shown when [count] is 0 and no [sections] have items.
   final Widget? emptyState;
 
   const AppBigList({
@@ -412,6 +458,7 @@ class AppBigList extends StatelessWidget {
     this.searchPlaceholder = '搜索',
     this.actions,
     this.children,
+    this.sections,
     this.emptyState,
   });
 
@@ -419,6 +466,56 @@ class AppBigList extends StatelessWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
+    // ---- Virtualized path (sections) ----
+    if (sections != null && sections!.isNotEmpty) {
+      return _buildVirtualized(context, custom);
+    }
+
+    // ---- Static path (children) ----
+    return _buildStatic(context, custom);
+  }
+
+  /// Renders header + search + sectioned virtual list.
+  Widget _buildVirtualized(BuildContext context, CustomTheme custom) {
+    final totalItems = sections!.fold<int>(0, (s, sec) => s + sec.itemCount);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        custom.spacing.sm,
+        0,
+        custom.spacing.sm,
+        custom.spacing.xs,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ---- Header ----
+          if (count != null && actions != null) _buildHeader(custom),
+
+          // ---- Search ----
+          if (showSearch)
+            Padding(
+              padding: EdgeInsets.only(bottom: custom.spacing.sm),
+              child: _SettingsSearchBar(
+                value: searchTerm,
+                placeholder: searchPlaceholder,
+                onChanged: onSearchChanged,
+              ),
+            ),
+
+          // ---- Virtualized list body ----
+          if (totalItems > 0)
+            Expanded(child: _VirtualSectionList(sections: sections!))
+          else if (emptyState != null)
+            Flexible(child: emptyState!),
+        ],
+      ),
+    );
+  }
+
+  /// Renders the original Column-based layout (backward compat).
+  Widget _buildStatic(BuildContext context, CustomTheme custom) {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         custom.spacing.sm,
@@ -430,33 +527,7 @@ class AppBigList extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ---- Header ----
-          if (count != null && actions != null)
-            Padding(
-              padding: EdgeInsets.only(
-                top: custom.spacing.sm,
-                bottom: custom.spacing.sm,
-                left: 2,
-              ),
-              child: Row(
-                children: [
-                  if (count != null) ...[
-                    AppText(count.toString(), variant: AppTextVariant.title),
-                    if (countLabel != null)
-                      Padding(
-                        padding: EdgeInsets.only(left: 4),
-                        child: AppText(
-                          countLabel!,
-                          variant: AppTextVariant.caption,
-                          color: custom.colors.textSecondary,
-                        ),
-                      ),
-                  ],
-                  const Spacer(),
-                  if (actions != null)
-                    Row(mainAxisSize: MainAxisSize.min, children: actions!),
-                ],
-              ),
-            ),
+          if (count != null && actions != null) _buildHeader(custom),
 
           // ---- Search ----
           if (showSearch)
@@ -484,6 +555,157 @@ class AppBigList extends StatelessWidget {
           if (count == 0 && emptyState != null) emptyState!,
         ],
       ),
+    );
+  }
+
+  /// Shared header: count label + action buttons.
+  Widget _buildHeader(CustomTheme custom) {
+    return Padding(
+      padding: EdgeInsets.only(
+        top: custom.spacing.sm,
+        bottom: custom.spacing.sm,
+        left: 2,
+      ),
+      child: Row(
+        children: [
+          if (count != null) ...[
+            AppText(count.toString(), variant: AppTextVariant.title),
+            if (countLabel != null)
+              Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: AppText(
+                  countLabel!,
+                  variant: AppTextVariant.caption,
+                  color: custom.colors.textSecondary,
+                ),
+              ),
+          ],
+          const Spacer(),
+          if (actions != null)
+            Row(mainAxisSize: MainAxisSize.min, children: actions!),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _VirtualSectionList — internal ListView.builder wrapper
+// ---------------------------------------------------------------------------
+
+/// Renders [AppBigSection]s as a flat virtualized list with card-style
+/// decoration on section items and group headers between sections.
+class _VirtualSectionList extends StatelessWidget {
+  final List<AppBigSection> sections;
+
+  const _VirtualSectionList({required this.sections});
+
+  /// Flat index count: per section, 1 label + itemCount items.
+  int get _flattenedCount {
+    int total = 0;
+    for (final sec in sections) {
+      total += 1 + sec.itemCount;
+    }
+    return total;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: _flattenedCount,
+      itemBuilder: (ctx, flatIndex) => _buildItem(ctx, flatIndex),
+    );
+  }
+
+  Widget _buildItem(BuildContext context, int flatIndex) {
+    final custom = CustomTheme.of(context);
+
+    int cursor = 0;
+    for (final sec in sections) {
+      // Section label header
+      if (cursor == flatIndex) {
+        return Padding(
+          padding: EdgeInsets.only(
+            top: custom.spacing.xs + 2,
+            bottom: custom.spacing.xs,
+          ),
+          child: AppText(
+            sec.label,
+            variant: AppTextVariant.caption,
+            color: custom.colors.textSecondary,
+          ),
+        );
+      }
+      cursor++;
+
+      // Items within this section
+      if (flatIndex < cursor + sec.itemCount) {
+        final itemIndex = flatIndex - cursor;
+        return _CardSlot(
+          isFirst: itemIndex == 0,
+          isLast: itemIndex == sec.itemCount - 1,
+          child: sec.itemBuilder(
+            context,
+            itemIndex,
+            isFirst: itemIndex == 0,
+            isLast: itemIndex == sec.itemCount - 1,
+          ),
+        );
+      }
+      cursor += sec.itemCount;
+    }
+
+    return const SizedBox.shrink();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _CardSlot — per-item card decoration wrapper
+// ---------------------------------------------------------------------------
+
+/// Wraps a single item in card-style decoration appropriate for its position.
+///
+/// The first item in a section gets top-rounded corners and a top border.
+/// The last item gets bottom-rounded corners and a bottom border.
+/// Solo items (first == last) get all corners rounded.
+class _CardSlot extends StatelessWidget {
+  final bool isFirst;
+  final bool isLast;
+  final Widget child;
+
+  const _CardSlot({
+    required this.isFirst,
+    required this.isLast,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    final solo = isFirst && isLast;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: custom.colors.cardBackground,
+        borderRadius: BorderRadius.only(
+          topLeft: isFirst ? const Radius.circular(12) : Radius.zero,
+          topRight: isFirst ? const Radius.circular(12) : Radius.zero,
+          bottomLeft: isLast ? const Radius.circular(12) : Radius.zero,
+          bottomRight: isLast ? const Radius.circular(12) : Radius.zero,
+        ),
+        border: Border(
+          top: isFirst
+              ? BorderSide(color: custom.colors.border)
+              : BorderSide.none,
+          bottom: isLast
+              ? BorderSide(color: custom.colors.border)
+              : BorderSide.none,
+          left: BorderSide(color: custom.colors.border),
+          right: BorderSide(color: custom.colors.border),
+        ),
+      ),
+      clipBehavior: solo ? Clip.antiAlias : Clip.none,
+      child: child,
     );
   }
 }

@@ -8,7 +8,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
 import 'package:agent/store/config_store.dart';
@@ -78,8 +77,8 @@ class _ConfigForm extends HookWidget {
       try {
         final section =
             (ConfigStore.instance.data.value['language_models']
-                    as Map<String, dynamic>?)
-                ?[protocol]?[provider.name] as Map<String, dynamic>?;
+                    as Map<String, dynamic>?)?[protocol]?[provider.name]
+                as Map<String, dynamic>?;
         if (section != null) {
           final url = section['api_url'] as String?;
           if (url != null && url.isNotEmpty) {
@@ -100,8 +99,10 @@ class _ConfigForm extends HookWidget {
     Future<void> handleSave() async {
       try {
         ConfigStore.instance.mutate((m) {
-          final cfg = (m['language_models'] as Map<String, dynamic>?)
-              ?[protocol]?[provider.name] as Map<String, dynamic>?;
+          final cfg =
+              (m['language_models']
+                      as Map<String, dynamic>?)?[protocol]?[provider.name]
+                  as Map<String, dynamic>?;
           if (cfg != null) {
             cfg['api_url'] = endpointCtrl.text;
             if (apiKeyCtrl.text.isNotEmpty) {
@@ -157,7 +158,7 @@ class _ConfigForm extends HookWidget {
             AppField(
               label: 'API Key',
               placeholder: '输入 ${provider.label} 的 API Key',
-              obscureText: true,
+              obscureText: false,
               controller: apiKeyCtrl,
             ),
             SizedBox(height: custom.spacing.md),

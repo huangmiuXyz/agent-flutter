@@ -4,7 +4,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 
 import 'package:agent/store/config_store.dart';

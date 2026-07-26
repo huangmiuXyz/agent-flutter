@@ -8,7 +8,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/llm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -30,7 +29,9 @@ class AddProviderPage extends HookWidget {
     final custom = CustomTheme.of(context);
     final nameCtrl = useTextEditingController();
     final apiKeyCtrl = useTextEditingController();
-    final endpointCtrl = useTextEditingController(text: 'https://api.openai.com/v1');
+    final endpointCtrl = useTextEditingController(
+      text: 'https://api.openai.com/v1',
+    );
     final saving = useState(false);
     final errorMsg = useState<String?>(null);
 
@@ -55,9 +56,12 @@ class AddProviderPage extends HookWidget {
             : 'https://api.openai.com/v1';
 
         ConfigStore.instance.mutate((m) {
-          final cfg = m['language_models']['openai_compatible']
-              .putIfAbsent(providerId, () => <String, dynamic>{})
-              as Map<String, dynamic>;
+          final cfg =
+              m['language_models']['openai_compatible'].putIfAbsent(
+                    providerId,
+                    () => <String, dynamic>{},
+                  )
+                  as Map<String, dynamic>;
           cfg['api_url'] = url;
           if (apiKeyCtrl.text.trim().isNotEmpty) {
             cfg['api_key'] = apiKeyCtrl.text.trim();
@@ -118,7 +122,7 @@ class AddProviderPage extends HookWidget {
             AppField(
               label: 'API Key',
               placeholder: '输入 API Key',
-              obscureText: true,
+              obscureText: false,
               controller: apiKeyCtrl,
             ),
             SizedBox(height: custom.spacing.md),

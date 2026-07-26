@@ -25,7 +25,11 @@ class ProviderListPage extends HookWidget {
   /// Called when the user wants to add a custom provider.
   final VoidCallback? onAddProvider;
 
-  const ProviderListPage({super.key, required this.onProviderTap, this.onAddProvider});
+  const ProviderListPage({
+    super.key,
+    required this.onProviderTap,
+    this.onAddProvider,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -41,52 +45,54 @@ class ProviderListPage extends HookWidget {
   }
 
   Widget _buildList(List<api.ProviderSummary> providers, String configPath) {
-    final providerInfos = providers.map(ProviderInfo.fromRust).toList();
-
-    // ── Search ──
     final searchQuery = useState('');
     final query = searchQuery.value.trim().toLowerCase();
 
+    // ── Memoized filtering ──
     bool matches(ProviderInfo p) {
       if (query.isEmpty) return true;
       return p.label.toLowerCase().contains(query) ||
           p.name.toLowerCase().contains(query);
     }
 
-    final configured = providerInfos
-        .where((p) => p.configured && matches(p))
-        .toList();
-    final unconfigured = providerInfos
-        .where((p) => !p.configured && matches(p))
-        .toList();
+    // Filter once — section builders reference these closures lazily.
+    final configured = <ProviderInfo>[];
+    final unconfigured = <ProviderInfo>[];
+    for (final p in providers.map(ProviderInfo.fromRust)) {
+      if (!matches(p)) continue;
+      if (p.configured) {
+        configured.add(p);
+      } else {
+        unconfigured.add(p);
+      }
+    }
     final total = configured.length + unconfigured.length;
 
-    // Build groups
-    final groups = <Widget>[];
+    // ── Build sections (lazy — only visible items are built) ──
+    final sections = <AppBigSection>[];
     if (configured.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
+      sections.add(
+        AppBigSection(
           label: '已配置',
-          children: [
-            for (final p in configured)
-              _providerRow(p, onProviderTap: onProviderTap),
-          ],
+          itemCount: configured.length,
+          itemBuilder: (ctx, i, {required isFirst, required isLast}) =>
+              _providerRow(configured[i], onProviderTap: onProviderTap),
         ),
       );
     }
     if (unconfigured.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
+      sections.add(
+        AppBigSection(
           label: '未配置',
-          children: [
-            for (final p in unconfigured)
-              _providerRow(p, onProviderTap: onProviderTap),
-          ],
+          itemCount: unconfigured.length,
+          itemBuilder: (ctx, i, {required isFirst, required isLast}) =>
+              _providerRow(unconfigured[i], onProviderTap: onProviderTap),
         ),
       );
     }
 
     return ContentFrame(
+      scrollable: sections.isEmpty,
       child: AppBigList(
         count: total,
         countLabel: '个提供商',
@@ -113,7 +119,7 @@ class ProviderListPage extends HookWidget {
           title: query.isEmpty ? '暂无可用提供商' : '没有匹配的提供商',
           hint: query.isEmpty ? '' : '试试其他关键词',
         ),
-        children: groups,
+        sections: sections.isNotEmpty ? sections : null,
       ),
     );
   }
@@ -145,7 +151,7 @@ class _ProviderAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(7),
         color: Colors.primaries[name.hashCode % Colors.primaries.length]
-            .withValues(alpha: 0.2)
+            .withValues(alpha: 0.2),
       ),
       child: Center(
         child: AppText(name[0].toUpperCase(), variant: AppTextVariant.body),

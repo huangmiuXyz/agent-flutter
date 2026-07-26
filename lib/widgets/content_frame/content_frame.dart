@@ -4,27 +4,59 @@ import 'package:agent/utils/layout_utils.dart' show readingWidth;
 
 /// A layout container that provides scroll, horizontal centering,
 /// reading-width constraint, and page-level top/bottom spacing.
+///
+/// When [scrollable] is false, the [child] is rendered without a wrapping
+/// [SingleChildScrollView], allowing an inner [ListView.builder] to own the
+/// scroll. Use this for virtualized lists with [AppBigList.sections].
 class ContentFrame extends StatelessWidget {
   final Widget child;
 
-  const ContentFrame({super.key, required this.child});
+  /// Whether to wrap [child] in a [SingleChildScrollView].
+  ///
+  /// Set to false when [child] is a virtualized list (e.g. [AppBigList]
+  /// with [AppBigList.sections]) that provides its own scrolling.
+  final bool scrollable;
+
+  const ContentFrame({super.key, required this.child, this.scrollable = true});
 
   @override
   Widget build(BuildContext context) {
     final spacing = CustomTheme.of(context).spacing;
-    return SingleChildScrollView(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: Padding(
-          padding: EdgeInsets.only(
-            top: spacing.pageTop,
-            bottom: spacing.pageBottom,
-            left: spacing.edgeMargin,
-            right: spacing.edgeMargin,
-          ),
-          child: SizedBox(width: readingWidth, child: child),
-        ),
+
+    final padded = Padding(
+      padding: EdgeInsets.only(
+        top: spacing.pageTop,
+        bottom: spacing.sm,
+        left: spacing.edgeMargin,
+        right: spacing.edgeMargin,
       ),
+      child: SizedBox(width: readingWidth, child: child),
+    );
+
+    if (!scrollable) {
+      // Pass through bounded height so inner [Expanded] / [ListView.builder]
+      // can virtualize. Without this, [Align] with loose constraints would
+      // make the child measure itself, losing the viewport height.
+      return LayoutBuilder(
+        builder: (ctx, constraints) {
+          return Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : null,
+              height: constraints.maxHeight.isFinite
+                  ? constraints.maxHeight
+                  : null,
+              child: padded,
+            ),
+          );
+        },
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Align(alignment: Alignment.topCenter, child: padded),
     );
   }
 }
