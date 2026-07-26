@@ -36,10 +36,7 @@ class SessionList extends HookWidget {
   Widget build(BuildContext context) {
     // 加载会话列表
     useEffect(() {
-      SessionStore.instance.loadSessions(
-        service: LlmStore.instance.service,
-        dbPath: ConfigStore.instance.dbPath,
-      );
+      SessionStore.instance.loadSessions();
       return null;
     }, []);
 
@@ -112,11 +109,7 @@ class SessionList extends HookWidget {
                 onTap: () {
                   // 立即更新选中态，让 UI 先切换，不等待数据加载
                   SessionStore.instance.selectedId.value = session.id;
-                  SessionStore.instance.switchTo(
-                    session.id,
-                    service: LlmStore.instance.service,
-                    dbPath: ConfigStore.instance.dbPath,
-                  );
+                  SessionStore.instance.switchTo(session.id);
                 },
                 hoverActions: [
                   Transform.translate(

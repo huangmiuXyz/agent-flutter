@@ -6,7 +6,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/store/config_store.dart';
 import 'package:agent/store/llm_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -191,68 +190,66 @@ class _MessageList extends StatelessWidget {
                     child: Opacity(
                       opacity: isListVisible.value ? 1.0 : 0.0,
                       child: ListView.builder(
-                      controller: scrollController,
-                      physics: savedMaxExtent.value != null
-                          ? _KeepAtBottomPhysics(
-                              savedMaxExtent: savedMaxExtent.value,
-                            )
-                          : null,
-                      padding: EdgeInsets.only(
-                        top: custom.spacing.sm,
-                        bottom: 40,
+                        controller: scrollController,
+                        physics: savedMaxExtent.value != null
+                            ? _KeepAtBottomPhysics(
+                                savedMaxExtent: savedMaxExtent.value,
+                              )
+                            : null,
+                        padding: EdgeInsets.only(
+                          top: custom.spacing.sm,
+                          bottom: 40,
+                        ),
+                        itemCount: messageOrder.length,
+                        itemBuilder: (context, index) {
+                          final msgId = messageOrder[index];
+                          final parts = partsByMsg[msgId] ?? [];
+                          final role = messageRoles[msgId] ?? '';
+
+                          // 纯工具类消息不占位
+                          if (parts.isNotEmpty &&
+                              parts.every(
+                                (p) =>
+                                    p.partType == 'tool_result' ||
+                                    p.partType == 'tool_call_frag',
+                              )) {
+                            return const SizedBox.shrink();
+                          }
+
+                          final dimmed =
+                              focusedMsgId.value != null &&
+                              index > messageOrder.indexOf(focusedMsgId.value!);
+
+                          return ChatMessageItem(
+                            key: ValueKey(msgId),
+                            sessionId: sessionId,
+                            msgId: msgId,
+                            role: role,
+                            parts: parts,
+                            streaming: isStreaming,
+                            toolCallResults: toolCallResults,
+                            autoExpandLast: index == lastExpandableMsgIndex,
+                            modelName: isFirstInTurn[index] == true
+                                ? messageModels[msgId]
+                                : null,
+                            dimmed: dimmed,
+                            onFocusChanged: (focused) {
+                              focusedMsgId.value = focused ? msgId : null;
+                            },
+                            onRetry: (msgId, newContent) {
+                              final mgr = SessionStore.instance;
+                              mgr.retryMessage(
+                                sessionId: sessionId,
+                                msgId: msgId,
+                                newPrompt: newContent,
+                                provider:
+                                    LlmStore.instance.currentProvider.value,
+                                model: LlmStore.instance.currentModel.value,
+                              );
+                            },
+                          );
+                        },
                       ),
-                      itemCount: messageOrder.length,
-                      itemBuilder: (context, index) {
-                        final msgId = messageOrder[index];
-                        final parts = partsByMsg[msgId] ?? [];
-                        final role = messageRoles[msgId] ?? '';
-
-                        // 纯工具类消息不占位
-                        if (parts.isNotEmpty &&
-                            parts.every(
-                              (p) =>
-                                  p.partType == 'tool_result' ||
-                                  p.partType == 'tool_call_frag',
-                            )) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final dimmed =
-                            focusedMsgId.value != null &&
-                            index > messageOrder.indexOf(focusedMsgId.value!);
-
-                        return ChatMessageItem(
-                          key: ValueKey(msgId),
-                          sessionId: sessionId,
-                          msgId: msgId,
-                          role: role,
-                          parts: parts,
-                          streaming: isStreaming,
-                          toolCallResults: toolCallResults,
-                          autoExpandLast: index == lastExpandableMsgIndex,
-                          modelName: isFirstInTurn[index] == true
-                              ? messageModels[msgId]
-                              : null,
-                          dimmed: dimmed,
-                          onFocusChanged: (focused) {
-                            focusedMsgId.value = focused ? msgId : null;
-                          },
-                          onRetry: (msgId, newContent) {
-                            final mgr = SessionStore.instance;
-                            mgr.retryMessage(
-                              sessionId: sessionId,
-                              msgId: msgId,
-                              newPrompt: newContent,
-                              provider: LlmStore.instance.currentProvider.value,
-                              model: LlmStore.instance.currentModel.value,
-                              service: LlmStore.instance.service,
-                              dbPath: ConfigStore.instance.dbPath,
-                              configPath: ConfigStore.instance.configPath,
-                            );
-                          },
-                        );
-                      },
-                    ),
                     ),
                   ),
                 ),

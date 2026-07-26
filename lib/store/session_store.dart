@@ -10,6 +10,7 @@ import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 
 import 'package:agent/services/llm/llm_service.dart';
+import 'package:agent/store/config_store.dart';
 import 'package:agent/services/session/session_state.dart';
 import 'package:agent/services/session/stream_event_processor.dart';
 
@@ -38,13 +39,12 @@ class SessionStore {
   final sessionListLoading = signal(true);
 
   /// 加载会话列表
-  Future<void> loadSessions({
-    required LlmService service,
-    required String dbPath,
-  }) async {
+  Future<void> loadSessions() async {
     sessionListLoading.value = true;
     try {
-      sessionList.value = await service.listSessions(dbPath: dbPath);
+      sessionList.value = await LlmService().listSessions(
+        dbPath: ConfigStore.instance.dbPath,
+      );
     } finally {
       sessionListLoading.value = false;
     }
@@ -99,7 +99,7 @@ class SessionStore {
     // 清理流状态
     streamingSessionIds.value = {
       for (final id in streamingSessionIds.value)
-        if (id != sessionId) id
+        if (id != sessionId) id,
     };
     _emit();
   }
@@ -107,28 +107,27 @@ class SessionStore {
   // ── 操作 ──
 
   /// 创建新会话并设为当前会话
-  Future<String> createSession({
-    required LlmService service,
-    required String dbPath,
-  }) async {
+  Future<String> createSession() async {
     final now = DateTime.now();
     final name =
         '新对话 ${now.month}/${now.day} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    final session = await service.createSession(dbPath: dbPath, name: name);
+    final session = await LlmService().createSession(
+      dbPath: ConfigStore.instance.dbPath,
+      name: name,
+    );
     addSession(session);
     selectedId.value = session.id;
     displayedSessionId.value = session.id;
     return session.id;
   }
 
-  Future<void> switchTo(
-    String sessionId, {
-    required LlmService service,
-    required String dbPath,
-  }) async {
+  Future<void> switchTo(String sessionId) async {
     if (!sessions.value.containsKey(sessionId)) {
       sessions.value = {...sessions.value, sessionId: SessionState(sessionId)};
     }
+
+    final service = LlmService();
+    final dbPath = ConfigStore.instance.dbPath;
 
     // ── 1. 订阅 + buffer ──
     final buffer = <api.StreamEvent>[];
@@ -141,14 +140,14 @@ class SessionStore {
 
     // ── 2. 读 DB（并发） ──
     await Future.wait([
-      service.listMessagesBySession(
-        dbPath: dbPath, sessionId: sessionId,
-      ).then((m) => sessions.value[sessionId]!.loadFromMessages(m))
-       .catchError((_) {}),
-      service.listPartsBySession(
-        dbPath: dbPath, sessionId: sessionId,
-      ).then((p) => sessions.value[sessionId]!.loadFromParts(p))
-       .catchError((_) {}),
+      service
+          .listMessagesBySession(dbPath: dbPath, sessionId: sessionId)
+          .then((m) => sessions.value[sessionId]!.loadFromMessages(m))
+          .catchError((_) {}),
+      service
+          .listPartsBySession(dbPath: dbPath, sessionId: sessionId)
+          .then((p) => sessions.value[sessionId]!.loadFromParts(p))
+          .catchError((_) {}),
     ]);
     _emit();
 
@@ -191,11 +190,14 @@ class SessionStore {
     }
 
     if (missingPartIds.isNotEmpty) {
-      await Future.wait(missingPartIds.map((partId) =>
-        service.readPart(dbPath: dbPath, partId: partId)
-            .then((content) => s.updatePartContent(partId, content))
-            .catchError((_) {})
-      ));
+      await Future.wait(
+        missingPartIds.map(
+          (partId) => service
+              .readPart(dbPath: dbPath, partId: partId)
+              .then((content) => s.updatePartContent(partId, content))
+              .catchError((_) {}),
+        ),
+      );
     }
 
     _emit();
@@ -207,10 +209,10 @@ class SessionStore {
     required String provider,
     required String model,
     required String prompt,
-    required LlmService service,
-    required String dbPath,
-    required String configPath,
   }) async {
+    final service = LlmService();
+    final dbPath = ConfigStore.instance.dbPath;
+    final configPath = ConfigStore.instance.configPath;
     final s = _ensureState(sessionId);
 
     // ── 用户消息直接显示 ──
@@ -262,11 +264,10 @@ class SessionStore {
         } else if (event is api.StreamEvent_ReasoningChunk) {
           eMsgId = event.msgId;
         }
-        if (eMsgId != null && eMsgId.isNotEmpty &&
+        if (eMsgId != null &&
+            eMsgId.isNotEmpty &&
             !s.messageModels.containsKey(eMsgId)) {
-          final label = provider.isNotEmpty
-              ? '$provider / $model'
-              : model;
+          final label = provider.isNotEmpty ? '$provider / $model' : model;
           s.messageModels[eMsgId] = label;
         }
 
@@ -275,7 +276,7 @@ class SessionStore {
     } finally {
       streamingSessionIds.value = {
         for (final id in streamingSessionIds.value)
-          if (id != sessionId) id
+          if (id != sessionId) id,
       };
       _emit();
     }
@@ -290,10 +291,10 @@ class SessionStore {
     required String newPrompt,
     required String provider,
     required String model,
-    required LlmService service,
-    required String dbPath,
-    required String configPath,
   }) async {
+    final service = LlmService();
+    final dbPath = ConfigStore.instance.dbPath;
+    final configPath = ConfigStore.instance.configPath;
     final s = _ensureState(sessionId);
 
     // 1. 更新本地用户消息的文本内容
@@ -366,11 +367,10 @@ class SessionStore {
         } else if (event is api.StreamEvent_ReasoningChunk) {
           eMsgId = event.msgId;
         }
-        if (eMsgId != null && eMsgId.isNotEmpty &&
+        if (eMsgId != null &&
+            eMsgId.isNotEmpty &&
             !s.messageModels.containsKey(eMsgId)) {
-          final label = provider.isNotEmpty
-              ? '$provider / $model'
-              : model;
+          final label = provider.isNotEmpty ? '$provider / $model' : model;
           s.messageModels[eMsgId] = label;
         }
 
@@ -379,7 +379,7 @@ class SessionStore {
     } finally {
       streamingSessionIds.value = {
         for (final id in streamingSessionIds.value)
-          if (id != sessionId) id
+          if (id != sessionId) id,
       };
       _emit();
     }

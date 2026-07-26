@@ -32,25 +32,27 @@ class LlmStore {
   Future<void> init() async {
     await service.init();
     initialized.value = true;
-    await loadProviders(ConfigStore.instance.configPath);
+    await loadProviders();
   }
 
-  Future<void> loadProviders(String configPath) async {
+  Future<void> loadProviders() async {
     providersLoading.value = true;
     try {
-      providers.value = await service.listProviders(configPath: configPath);
+      providers.value = await service.listProviders(
+        configPath: ConfigStore.instance.configPath,
+      );
     } finally {
       providersLoading.value = false;
     }
   }
 
-  Future<void> loadModels(String configPath) async {
+  Future<void> loadModels() async {
     if (currentProvider.value.isEmpty) return;
     modelsLoading.value = true;
     try {
       models.value = await service.listModels(
         provider: currentProvider.value,
-        configPath: configPath,
+        configPath: ConfigStore.instance.configPath,
       );
     } finally {
       modelsLoading.value = false;

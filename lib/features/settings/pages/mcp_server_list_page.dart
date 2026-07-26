@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/mcp_store.dart';
 import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
@@ -27,26 +28,11 @@ class McpServerListPage extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final store = ConfigStore.instance;
-    final refreshKey = useState(0);
+    final mcpStore = McpStore.instance;
 
-    final data = store.data.value;
-    final servers = loadMcpServers(data);
-    final enabled = servers.where((s) => !s.disabled).toList();
-    final disabled = servers.where((s) => s.disabled).toList();
-    final total = servers.length;
-
-    void toggleDisabled(McpServerInfo server, bool value) {
-      final idx = servers.indexWhere((s) => s.name == server.name);
-      if (idx == -1) return;
-      // value 来自 AppSwitch.onChanged（!value），需要取反得到实际的 disabled 状态
-      final updated = server.copyWith(disabled: !value);
-      final copy = [...servers];
-      copy[idx] = updated;
-      saveMcpServers(data, copy);
-      store.data.value = data;
-      refreshKey.value++;
-    }
+    final enabled = mcpStore.enabledServers.value;
+    final disabled = mcpStore.disabledServers.value;
+    final total = mcpStore.servers.value.length;
 
     final groups = <Widget>[];
     if (enabled.isNotEmpty) {
@@ -58,7 +44,7 @@ class McpServerListPage extends HookWidget {
               _ServerRow(
                 server: s,
                 onTap: () => onServerTap(s),
-                onToggle: (v) => toggleDisabled(s, v),
+                onToggle: (v) => mcpStore.toggleEnabled(s.name, v),
               ),
           ],
         ),
@@ -73,7 +59,7 @@ class McpServerListPage extends HookWidget {
               _ServerRow(
                 server: s,
                 onTap: () => onServerTap(s),
-                onToggle: (v) => toggleDisabled(s, v),
+                onToggle: (v) => mcpStore.toggleEnabled(s.name, v),
               ),
           ],
         ),
@@ -82,7 +68,6 @@ class McpServerListPage extends HookWidget {
 
     return ContentFrame(
       child: AppBigList(
-        key: ValueKey('mcp_list_$refreshKey'),
         count: total,
         countLabel: '个服务器',
         showSearch: false,
@@ -97,7 +82,7 @@ class McpServerListPage extends HookWidget {
             text: '配置文件',
             icon: 'fileCode',
             size: ButtonSize.sm,
-            onPressed: () => openFile(store.configPath),
+            onPressed: () => openFile(ConfigStore.instance.configPath),
           ),
         ],
         emptyState: AppBigEmpty(

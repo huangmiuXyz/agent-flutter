@@ -115,21 +115,3 @@ class McpServerInfo {
   @override
   int get hashCode => name.hashCode;
 }
-
-// ─── 配置文件读写 ─────────────────────────────────────
-
-/// 从 config.json 读取所有 MCP Server 配置。
-List<McpServerInfo> loadMcpServers(Map<String, dynamic> data) {
-  final map = data['mcpServers'] as Map<String, dynamic>?;
-  if (map == null) return [];
-  return map.entries
-      .map(
-        (e) => McpServerInfo.fromJson(e.key, e.value as Map<String, dynamic>),
-      )
-      .toList();
-}
-
-/// 将 MCP Server 列表写回 config.json。
-void saveMcpServers(Map<String, dynamic> data, List<McpServerInfo> servers) {
-  data['mcpServers'] = {for (final s in servers) s.name: s.toJson()};
-}

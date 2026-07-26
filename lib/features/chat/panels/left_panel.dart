@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:agent/features/chat/panels/session_list.dart';
-import 'package:agent/store/config_store.dart';
-import 'package:agent/store/llm_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
@@ -57,16 +55,9 @@ class LeftPanel extends StatelessWidget {
 
   Future<void> _createSession(BuildContext context) async {
     try {
-      final sessionId = await SessionStore.instance.createSession(
-        service: LlmStore.instance.service,
-        dbPath: ConfigStore.instance.dbPath,
-      );
+      final sessionId = await SessionStore.instance.createSession();
       // createSession 已设置 selectedId，switchTo 异步加载数据不阻塞
-      SessionStore.instance.switchTo(
-        sessionId,
-        service: LlmStore.instance.service,
-        dbPath: ConfigStore.instance.dbPath,
-      );
+      SessionStore.instance.switchTo(sessionId);
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
-import 'package:agent/store/config_store.dart';
+import 'package:agent/store/mcp_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -24,7 +24,7 @@ class AddMcpServerPage extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final store = ConfigStore.instance;
+    final mcpStore = McpStore.instance;
 
     final nameCtrl = useTextEditingController();
     final commandCtrl = useTextEditingController(text: 'npx');
@@ -50,8 +50,7 @@ class AddMcpServerPage extends HookWidget {
         return;
       }
 
-      final data = store.data.value;
-      final existing = loadMcpServers(data);
+      final existing = mcpStore.servers.value;
       if (existing.any((s) => s.name == name)) {
         errorMsg.value = '服务器名称 "$name" 已存在';
         return;
@@ -78,8 +77,7 @@ class AddMcpServerPage extends HookWidget {
                 disabled: disabled.value,
               );
 
-        saveMcpServers(data, [...existing, server]);
-        store.data.value = data;
+        mcpStore.add(server);
 
         if (context.mounted) {
           ScaffoldMessenger.of(

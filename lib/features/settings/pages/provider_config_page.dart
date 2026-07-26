@@ -111,7 +111,7 @@ class _ConfigForm extends HookWidget {
           }
         });
 
-        LlmStore.instance.loadProviders(ConfigStore.instance.configPath);
+        LlmStore.instance.loadProviders();
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
@@ -221,7 +221,7 @@ class _ConfigForm extends HookWidget {
       }
 
       ConfigStore.instance.data.value = data;
-      LlmStore.instance.loadProviders(ConfigStore.instance.configPath);
+      LlmStore.instance.loadProviders();
       debugPrint('Deleted provider config: $protocol.${provider.name}');
 
       if (context.mounted) {

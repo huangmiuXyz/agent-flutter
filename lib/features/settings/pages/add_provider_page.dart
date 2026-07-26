@@ -68,7 +68,7 @@ class AddProviderPage extends HookWidget {
           }
         });
 
-        LlmStore.instance.loadProviders(ConfigStore.instance.configPath);
+        LlmStore.instance.loadProviders();
 
         if (context.mounted) {
           ScaffoldMessenger.of(
