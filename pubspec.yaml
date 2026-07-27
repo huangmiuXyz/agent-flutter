@@ -13,7 +13,7 @@ dependencies:
   go_router: ^17.3.0
   window_manager: ^0.5.2
   lucide_icons_flutter: ^3.1.14+2
-  xterm2: ^5.0.0
+  xterm2: ^5.2.0
   path: ^1.9.0
   meta: ^1.18.0
   flutter_pty_new: ^1.0.0
@@ -29,19 +29,16 @@ dependencies:
   reactive_forms: ^18.2.2
   desktop_multi_window: ^0.3.0
   watcher: ^1.2.1
-  freezed_annotation: ^3.0.0
+
   code_forge:
     path: .patches/code_forge
   re_highlight: ^0.0.3
+  freezed_annotation: ^3.0.0
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  integration_test:
-    sdk: flutter
   flutter_lints: ^6.0.0
-  build_runner: ^2.15.0
   freezed: ^3.0.0
+  build_runner: ^2.4.0
 
 flutter:
   fonts:

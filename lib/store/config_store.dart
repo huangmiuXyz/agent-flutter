@@ -33,10 +33,7 @@ class ConfigStore {
   /// 默认配置（文件不存在或缺少字段时使用）。
   static Map<String, dynamic> _defaultConfig() => {
     'provider': <String>[],
-    'default_model': {
-      'provider': '',
-      'model': '',
-    },
+    'default_model': {'provider': '', 'model': ''},
     'mcp_servers': <Map<String, dynamic>>[],
   };
 
@@ -99,7 +96,7 @@ class ConfigStore {
         final dm = Map<String, dynamic>.from(
           _defaultConfig()['default_model'] as Map,
         );
-        dm.addAll(raw['default_model'] as Map);
+        dm.addAll(Map<String, dynamic>.from(raw['default_model'] as Map));
         merged['default_model'] = dm;
       }
       // 深度比较：内容没变就不更新 data，避免触发 effect(_writeFile)
