@@ -10,6 +10,8 @@ import 'app.dart';
 import 'features/editor/editor_window.dart';
 import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
+import 'services/engine/engine_client.dart';
+import 'services/engine/frontend_tools.dart';
 import 'services/sync/app_sync.dart';
 import 'services/llm/llm_service.dart';
 import 'theme/app_theme.dart';
@@ -86,6 +88,12 @@ void main() async {
       } catch (_) {
         // Not a child window — proceed to main window setup.
       }
+
+      // ── 主窗口：连接统一引擎事件流 + 注册前端工具 ──
+      // 注意：必须在子窗口检查之后调用，避免子窗口的 sink 覆盖主窗口的 sink
+      // （ENGINE_SINK 是进程级单例，重复 connect 会覆盖）
+      await EngineClient.instance.connect();
+      await registerFrontendTools();
 
       await windowManager.ensureInitialized();
 

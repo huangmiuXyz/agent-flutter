@@ -1,9 +1,11 @@
 import 'package:nanoid/nanoid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/shell_utils.dart';
+import 'package:agent/store/xterm_store.dart';
 import 'package:agent/widgets/terminal/xterm_widget.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -17,27 +19,31 @@ class TerminalTabs extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabs = useState<List<_TabState>>([
-      _TabState(id: nanoid(8), shell: resolveShell()),
-    ]);
-    final activeIndex = useState(0);
+    final tabsList = useExistingSignal(XtermStore.instance.tabs);
+    final activeId = useExistingSignal(XtermStore.instance.activeTabId);
     final custom = CustomTheme.of(context);
 
-    void addTab(String shell) {
-      tabs.value = [...tabs.value, _TabState(id: nanoid(8), shell: shell)];
-      activeIndex.value = tabs.value.length - 1;
-    }
-
-    void closeTab(int index) {
-      if (tabs.value.length <= 1) return;
-      final newTabs = [...tabs.value]..removeAt(index);
-      tabs.value = newTabs;
-      if (activeIndex.value >= newTabs.length) {
-        activeIndex.value = newTabs.length - 1;
-      } else if (activeIndex.value > index) {
-        activeIndex.value = activeIndex.value - 1;
+    // 首次挂载时如果没有 tab，创建一个默认 tab。
+    // 必须延迟到 post-frame，避免在 build 期间修改 signal 触发循环重建。
+    // 用 addTab 而非 openTab —— 启动时不应自动展开面板。
+    useEffect(() {
+      if (XtermStore.instance.tabs.value.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (XtermStore.instance.tabs.value.isEmpty) {
+            XtermStore.instance.addTab(nanoid(8), shell: resolveShell());
+          }
+        });
       }
+      return null;
+    }, []);
+
+    // 计算激活索引
+    final tabs = tabsList.value;
+    if (tabs.isEmpty) {
+      return const SizedBox.shrink();
     }
+    int activeIndex = tabs.indexWhere((t) => t.id == activeId.value);
+    if (activeIndex < 0) activeIndex = 0;
 
     final tabBarHeight = custom.controls.mediumHeight;
 
@@ -53,14 +59,14 @@ class TerminalTabs extends HookWidget {
             SizedBox(height: custom.spacing.xs),
             Expanded(
               child: IndexedStack(
-                index: activeIndex.value,
+                index: activeIndex,
                 children: [
-                  for (var i = 0; i < tabs.value.length; i++)
+                  for (var i = 0; i < tabs.length; i++)
                     XtermTerminalWidget(
-                      key: ValueKey(tabs.value[i].id),
-                      id: tabs.value[i].id,
-                      shell: tabs.value[i].shell,
-                      visible: active && activeIndex.value == i,
+                      key: ValueKey(tabs[i].id),
+                      id: tabs[i].id,
+                      shell: tabs[i].shell,
+                      visible: active && activeIndex == i,
                     ),
                 ],
               ),
@@ -89,14 +95,16 @@ class TerminalTabs extends HookWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            for (var i = 0; i < tabs.value.length; i++)
+                            for (var i = 0; i < tabs.length; i++)
                               _TabItem(
-                                label: shellLabel(tabs.value[i].shell),
-                                active: activeIndex.value == i,
+                                label: shellLabel(tabs[i].shell),
+                                active: activeIndex == i,
                                 isFirst: i == 0,
-                                onTap: () => activeIndex.value = i,
-                                onClose: tabs.value.length > 1
-                                    ? () => closeTab(i)
+                                onTap: () =>
+                                    XtermStore.instance.setActiveTab(tabs[i].id),
+                                onClose: tabs.length > 1
+                                    ? () =>
+                                        XtermStore.instance.closeTab(tabs[i].id)
                                     : null,
                               ),
                           ],
@@ -106,7 +114,8 @@ class TerminalTabs extends HookWidget {
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onDoubleTap: () => addTab(resolveShell()),
+                      onDoubleTap: () => XtermStore.instance
+                          .addTab(nanoid(8), shell: resolveShell()),
                     ),
                   ),
                 ],
@@ -117,12 +126,6 @@ class TerminalTabs extends HookWidget {
       ],
     );
   }
-}
-
-class _TabState {
-  final String id;
-  final String shell;
-  const _TabState({required this.id, this.shell = ''});
 }
 
 class _TabItem extends StatelessWidget {

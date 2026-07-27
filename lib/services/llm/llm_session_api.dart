@@ -1,11 +1,14 @@
-/// LLM 会话管理 API（CRUD、数据读取、实时订阅）
+/// LLM 会话管理 API（CRUD、数据读取、前端工具注册）
+///
+/// 注意：在统一 `ENGINE_SINK` 模型下，已无 `subscribeSession`。
+/// 事件订阅通过 [EngineClient.subscribeSession] 完成。
 library;
 
 import 'package:agent/rust_bridge/api.dart' as api;
 
 import 'llm_shared.dart';
 
-/// 会话相关 API — CRUD、数据读取、实时订阅
+/// 会话相关 API — CRUD、数据读取、前端工具注册
 mixin SessionApi {
   /// 子类必须提供初始化检查
   void ensureInitialized();
@@ -79,21 +82,6 @@ mixin SessionApi {
     }
   }
 
-  // ─── 实时订阅 ───────────────────────────────────────
-
-  /// 订阅一个会话的实时事件
-  Stream<api.StreamEvent> subscribeSession({
-    required String dbPath,
-    required String sessionId,
-  }) {
-    ensureInitialized();
-    try {
-      return api.subscribeSession(dbPath: dbPath, sessionId: sessionId);
-    } catch (e) {
-      return Stream.value(api.StreamEvent.error('订阅失败: $e'));
-    }
-  }
-
   // ─── 取消流 ───────────────────────────────────────
 
   /// 取消正在进行的流式生成
@@ -149,6 +137,64 @@ mixin SessionApi {
       return await api.listPartsBySession(dbPath: dbPath, sessionId: sessionId);
     } catch (e) {
       throw LlmException('获取 part 列表失败: $e');
+    }
+  }
+
+  // ─── 前端工具注册 ─────────────────────────────────
+
+  /// 注册一个前端工具。LLM 在 chat 中可调用该工具，调用时通过
+  /// `EngineEvent_FrontendToolCall` 推送到 Flutter，Flutter 执行后通过
+  /// [submitFrontendToolResult] 回传结果。
+  ///
+  /// - `name`: 工具名（唯一，重复注册会覆盖）
+  /// - `description`: 工具描述（LLM 看到的）
+  /// - `parameters`: JSON Schema 字符串，描述入参
+  Future<void> registerFrontendTool({
+    required String name,
+    required String description,
+    required String parameters,
+  }) async {
+    ensureInitialized();
+    try {
+      await api.registerFrontendTool(
+        name: name,
+        description: description,
+        parameters: parameters,
+      );
+    } catch (e) {
+      throw LlmException('注册前端工具失败: $e');
+    }
+  }
+
+  /// 注销一个前端工具。返回 true 表示成功注销；false 表示工具不存在。
+  Future<bool> unregisterFrontendTool({required String name}) async {
+    ensureInitialized();
+    try {
+      return await api.unregisterFrontendTool(name: name);
+    } catch (e) {
+      throw LlmException('注销前端工具失败: $e');
+    }
+  }
+
+  /// 提交前端工具调用的结果。
+  ///
+  /// Flutter 收到 `EngineEvent_FrontendToolCall` 后，执行工具（如弹终端、
+  /// UI 交互），然后调用此 API 把结果回传给 Rust，恢复挂起的
+  /// `FrontendTool::execute()`，LLM 继续生成。
+  ///
+  /// 返回 true 表示成功匹配并完成；false 表示 call_id 不存在（可能已超时或被取消）。
+  Future<bool> submitFrontendToolResult({
+    required String callId,
+    required String result,
+  }) async {
+    ensureInitialized();
+    try {
+      return await api.submitFrontendToolResult(
+        callId: callId,
+        result: result,
+      );
+    } catch (e) {
+      throw LlmException('提交前端工具结果失败: $e');
     }
   }
 }

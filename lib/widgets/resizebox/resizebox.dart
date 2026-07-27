@@ -17,6 +17,43 @@ enum ResizeDirection {
   bool get isVertical => !isHorizontal;
 }
 
+/// 外部控制 [ResizeBox] 展开/折叠的控制器。
+///
+/// 传入 [ResizeBox.controller] 后，外部可通过 [expand] / [collapse] 编程式
+/// 控制 panel 状态。用户拖拽仍可正常工作（会同步回 controller）。
+class ResizeBoxController {
+  ResizeBoxController({
+    bool initialCollapsed = false,
+    double initialSize = 256,
+  })  : isCollapsed = ValueNotifier<bool>(initialCollapsed),
+        targetSize = ValueNotifier<double>(
+          initialCollapsed ? 0.0 : initialSize,
+        );
+
+  /// 当前是否折叠
+  final ValueNotifier<bool> isCollapsed;
+
+  /// 目标尺寸（展开时）
+  final ValueNotifier<double> targetSize;
+
+  /// 编程式展开到指定尺寸
+  void expand(double size) {
+    targetSize.value = size;
+    isCollapsed.value = false;
+  }
+
+  /// 编程式折叠
+  void collapse() {
+    isCollapsed.value = true;
+    targetSize.value = 0;
+  }
+
+  void dispose() {
+    isCollapsed.dispose();
+    targetSize.dispose();
+  }
+}
+
 /// A resizable split-panel with two slots and VS Code-style auto-collapse.
 ///
 /// [child] is the resizable panel. [other] fills the remaining space.
@@ -32,6 +69,7 @@ class ResizeBox extends HookWidget {
     this.collapseThreshold = 80,
     this.initialCollapsed = false,
     this.onCollapseChanged,
+    this.controller,
   });
 
   final Widget child;
@@ -44,13 +82,25 @@ class ResizeBox extends HookWidget {
   final bool initialCollapsed;
   final ValueChanged<bool>? onCollapseChanged;
 
+  /// 可选的外部控制器。提供后，折叠/尺寸状态由 controller 管理，
+  /// 外部可调用 `controller.expand(size)` 编程式展开面板。
+  final ResizeBoxController? controller;
+
   @override
   Widget build(BuildContext context) {
     final isHorizontal = direction.isHorizontal;
-    final targetSize = useState(
+
+    // Hooks 必须无条件调用；controller 存在时用 controller 的 notifier，否则用内部 state
+    final internalCollapsed = useState(initialCollapsed);
+    final internalSize = useState<double>(
       initialCollapsed ? 0.0 : initialSize.clamp(minSize, maxSize),
     );
-    final isCollapsed = useState(initialCollapsed);
+    final isCollapsed = controller?.isCollapsed ?? internalCollapsed;
+    final targetSize = controller?.targetSize ?? internalSize;
+    // controller 的 ValueNotifier 变化时触发 rebuild（useState 已自动监听，重复监听无害）
+    useListenable(isCollapsed);
+    useListenable(targetSize);
+
     final isDragging = useState(false);
     final dragRawTarget = useRef(0.0);
     final dragRenderBox = useRef<RenderBox?>(null);

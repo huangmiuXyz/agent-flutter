@@ -2,13 +2,20 @@
 ///
 /// 职责：会话生命周期编排、响应式信号暴露。
 /// 数据模型见 [SessionState]，流事件处理见 [StreamEventProcessor]。
+///
+/// 在统一 `ENGINE_SINK` 模型下，事件订阅通过 [EngineClient] 完成：
+/// - 启动时调用 `EngineClient.connect()` 建立全局 stream
+/// - 切换会话或发送消息时，订阅对应 session 的事件流
+/// - 事件通过 `StreamEventProcessor` 应用到 [SessionState]
 library;
 
 import 'dart:async';
 
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/events.dart';
 
+import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/services/session/session_state.dart';
@@ -37,6 +44,29 @@ class SessionStore {
   /// 会话列表
   final sessionList = signal(<api.SessionInfo>[]);
   final sessionListLoading = signal(true);
+
+  /// 当前正在流式输出的会话 ID 集合
+  final streamingSessionIds = signal(<String>{});
+
+  // ── 内部 ──
+
+  /// 每个 session 的事件订阅句柄（用于切换会话或销毁时取消）
+  final Map<String, StreamSubscription<EngineEvent>> _sessionSubs = {};
+
+  /// 每个 session 最近一次 sendMessage/retryMessage 的 (provider, model) 上下文，
+  /// 用于在收到 Chunk 事件时为新建 assistant 消息打上模型标签。
+  final Map<String, _SendContext> _sendContext = {};
+
+  /// 数据变更前的回调（供 ChatScrollObserver 记录位置）
+  void Function()? onBeforeEmit;
+
+  /// 全量变更（新增/删除消息 / 流完成）
+  void _emit() {
+    onBeforeEmit?.call();
+    sessions.value = Map.from(sessions.value);
+  }
+
+  // ── 会话列表 ──
 
   /// 加载会话列表
   Future<void> loadSessions() async {
@@ -73,23 +103,11 @@ class SessionStore {
     ];
   }
 
-  /// 当前正在流式输出的会话 ID 集合
-  final streamingSessionIds = signal(<String>{});
+  // ── 状态访问 ──
 
   /// 快速访问当前会话的状态
   SessionState? stateFor(String? sessionId) =>
       sessionId != null ? sessions.value[sessionId] : null;
-
-  // ── 内部 ──
-
-  /// 数据变更前的回调（供 ChatScrollObserver 记录位置）
-  void Function()? onBeforeEmit;
-
-  /// 全量变更（新增/删除消息 / 流完成）
-  void _emit() {
-    onBeforeEmit?.call();
-    sessions.value = Map.from(sessions.value);
-  }
 
   /// 取消当前会话的流式生成
   Future<void> cancelStreaming(String sessionId) async {
@@ -121,24 +139,22 @@ class SessionStore {
     return session.id;
   }
 
+  /// 切换到指定会话：订阅事件流 + 加载 DB 历史。
+  ///
+  /// 在统一 `ENGINE_SINK` 模型下，事件订阅是持续的（不依赖 stream lifecycle），
+  /// 因此无需 buffer —— 切换会话期间产生的事件会立即通过订阅应用到状态。
   Future<void> switchTo(String sessionId) async {
     if (!sessions.value.containsKey(sessionId)) {
       sessions.value = {...sessions.value, sessionId: SessionState(sessionId)};
     }
 
+    // ── 1. 订阅 session 事件流（如尚未订阅） ──
+    _ensureSessionSubscription(sessionId);
+
     final service = LlmService();
     final dbPath = ConfigStore.instance.dbPath;
 
-    // ── 1. 订阅 + buffer ──
-    final buffer = <api.StreamEvent>[];
-    StreamSubscription<api.StreamEvent>? bufferSub;
-    try {
-      bufferSub = service
-          .subscribeSession(dbPath: dbPath, sessionId: sessionId)
-          .listen((e) => buffer.add(e), onError: (_) {});
-    } catch (_) {}
-
-    // ── 2. 读 DB（并发） ──
+    // ── 2. 读 DB（parts + messages） ──
     await Future.wait([
       service
           .listMessagesBySession(dbPath: dbPath, sessionId: sessionId)
@@ -149,61 +165,12 @@ class SessionStore {
           .then((p) => sessions.value[sessionId]!.loadFromParts(p))
           .catchError((_) {}),
     ]);
-    _emit();
-
-    // ── 3. 回放 buffer（total_len 去重） ──
-    bufferSub?.cancel();
-    for (final event in buffer) {
-      StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
-    }
-
-    // ── 4. gap 检测（并发补全） ──
-    final s = sessions.value[sessionId]!;
-    final missingPartIds = <String>[];
-    for (final event in buffer) {
-      String partId;
-      BigInt totalLen;
-      if (event is api.StreamEvent_Text) {
-        partId = event.partId;
-        totalLen = event.totalLen;
-      } else if (event is api.StreamEvent_ToolCallFragment) {
-        partId = event.partId;
-        totalLen = event.totalLen;
-      } else {
-        continue;
-      }
-      if (partId.isEmpty || totalLen == BigInt.zero) continue;
-
-      bool hasFullContent = false;
-      for (final parts in s.partsByMsg.values) {
-        for (final part in parts) {
-          if (part.id == partId) {
-            hasFullContent = part.content.length >= totalLen.toInt();
-            break;
-          }
-        }
-        if (hasFullContent) break;
-      }
-      if (!hasFullContent) {
-        missingPartIds.add(partId);
-      }
-    }
-
-    if (missingPartIds.isNotEmpty) {
-      await Future.wait(
-        missingPartIds.map(
-          (partId) => service
-              .readPart(dbPath: dbPath, partId: partId)
-              .then((content) => s.updatePartContent(partId, content))
-              .catchError((_) {}),
-        ),
-      );
-    }
 
     _emit();
     displayedSessionId.value = sessionId;
   }
 
+  /// 发送消息 — 触发后端 chat_stream，事件通过订阅异步到达。
   Future<void> sendMessage({
     required String sessionId,
     required String provider,
@@ -232,11 +199,15 @@ class SessionStore {
 
     _emit();
 
+    // ── 确保订阅 + 标记流式 ──
+    _ensureSessionSubscription(sessionId);
+    _sendContext[sessionId] = _SendContext(provider, model);
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 
+    // ── 触发后端任务（不 await Stream，事件通过 EngineClient 推送） ──
     try {
-      final stream = service.chatStream(
+      await service.chatStream(
         configPath: configPath,
         provider: provider,
         model: model,
@@ -245,41 +216,16 @@ class SessionStore {
         dbPath: dbPath,
         sessionId: sessionId,
       );
-
-      await for (final event in stream) {
-        // 错误事件：追加到助理消息
-        if (event is api.StreamEvent_Error) {
-          StreamEventProcessor.appendPartContent(
-            s,
-            'err_${DateTime.now().millisecondsSinceEpoch}',
-            '[错误] ${event.field0}',
-          );
-        }
-        StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
-
-        // 流式创建的 assistant 消息，记录模型名
-        String? eMsgId;
-        if (event is api.StreamEvent_Text) {
-          eMsgId = event.msgId;
-        } else if (event is api.StreamEvent_ReasoningChunk) {
-          eMsgId = event.msgId;
-        }
-        if (eMsgId != null &&
-            eMsgId.isNotEmpty &&
-            !s.messageModels.containsKey(eMsgId)) {
-          final label = provider.isNotEmpty ? '$provider / $model' : model;
-          s.messageModels[eMsgId] = label;
-        }
-
-        _emit();
-      }
-    } finally {
-      streamingSessionIds.value = {
-        for (final id in streamingSessionIds.value)
-          if (id != sessionId) id,
-      };
-      _emit();
+    } catch (e) {
+      // 启动失败：追加错误消息并清理流状态
+      StreamEventProcessor.appendPartContent(
+        s,
+        'err_${DateTime.now().millisecondsSinceEpoch}',
+        '[错误] $e',
+      );
+      _clearStreaming(sessionId);
     }
+    // 流式事件由 _ensureSessionSubscription 注册的 listener 异步应用
   }
 
   /// 重试（编辑）用户消息
@@ -319,7 +265,6 @@ class SessionStore {
     final msgIndex = s.messageOrder.indexOf(msgId);
     if (msgIndex >= 0 && msgIndex + 1 < s.messageOrder.length) {
       final tailIds = s.messageOrder.sublist(msgIndex + 1);
-      // 收集待清理的 partId
       final tailPartIds = <String>{};
       for (final id in tailIds) {
         final parts = s.partsByMsg.remove(id);
@@ -336,12 +281,14 @@ class SessionStore {
       s.messageOrder.removeRange(msgIndex + 1, s.messageOrder.length);
     }
 
-    // 3. 通过 Rust 后端重试（替换 DB 中的消息内容 + 删除后续消息 + 重新请求 LLM）
+    // 3. 触发后端重试（事件通过订阅异步到达）
+    _ensureSessionSubscription(sessionId);
+    _sendContext[sessionId] = _SendContext(provider, model);
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 
     try {
-      final stream = service.chatRetry(
+      await service.chatRetry(
         configPath: configPath,
         provider: provider,
         model: model,
@@ -350,39 +297,99 @@ class SessionStore {
         sessionId: sessionId,
         dbPath: dbPath,
       );
-
-      await for (final event in stream) {
-        if (event is api.StreamEvent_Error) {
-          StreamEventProcessor.appendPartContent(
-            s,
-            'err_${DateTime.now().millisecondsSinceEpoch}',
-            '[错误] ${event.field0}',
-          );
-        }
-        StreamEventProcessor.applyEvent(sessions.value, sessionId, event);
-
-        String? eMsgId;
-        if (event is api.StreamEvent_Text) {
-          eMsgId = event.msgId;
-        } else if (event is api.StreamEvent_ReasoningChunk) {
-          eMsgId = event.msgId;
-        }
-        if (eMsgId != null &&
-            eMsgId.isNotEmpty &&
-            !s.messageModels.containsKey(eMsgId)) {
-          final label = provider.isNotEmpty ? '$provider / $model' : model;
-          s.messageModels[eMsgId] = label;
-        }
-
-        _emit();
-      }
-    } finally {
-      streamingSessionIds.value = {
-        for (final id in streamingSessionIds.value)
-          if (id != sessionId) id,
-      };
-      _emit();
+    } catch (e) {
+      StreamEventProcessor.appendPartContent(
+        s,
+        'err_${DateTime.now().millisecondsSinceEpoch}',
+        '[错误] $e',
+      );
+      _clearStreaming(sessionId);
     }
+  }
+
+  // ── 事件订阅管理 ──
+
+  /// 为指定 session 建立事件订阅（如已存在则跳过）。
+  ///
+  /// 订阅会持续到 [unsubscribeSession] 或应用退出。
+  void _ensureSessionSubscription(String sessionId) {
+    if (_sessionSubs.containsKey(sessionId)) return;
+
+    final stream = EngineClient.instance.subscribeSession(sessionId);
+    final s = _ensureState(sessionId);
+
+    final sub = stream.listen(
+      (event) => _onSessionEvent(sessionId, s, event),
+      onError: (Object e, StackTrace st) {
+        // 引擎层 onError 已处理，这里只重置流式状态
+        _clearStreaming(sessionId);
+      },
+    );
+    _sessionSubs[sessionId] = sub;
+  }
+
+  /// 关闭指定 session 的事件订阅（用于会话销毁或重置）。
+  void unsubscribeSession(String sessionId) {
+    _sessionSubs.remove(sessionId)?.cancel();
+    EngineClient.instance.unsubscribeSession(sessionId);
+  }
+
+  /// 单个事件应用到 session state。
+  ///
+  /// 处理 Chunk / ReasoningChunk / ToolCallFragment / ToolCall / Done / Error。
+  /// FrontendToolCall 不在此处理（由 EngineClient 直接路由到 handler）。
+  void _onSessionEvent(String sessionId, SessionState s, EngineEvent event) {
+    // 流式创建的 assistant 消息，记录模型名
+    String? eMsgId;
+    if (event is EngineEvent_Chunk) {
+      eMsgId = event.msgId;
+    } else if (event is EngineEvent_ReasoningChunk) {
+      eMsgId = event.msgId;
+    }
+
+    if (event is EngineEvent_Done) {
+      _clearStreaming(sessionId);
+      _emit();
+      return;
+    }
+
+    if (event is EngineEvent_Error) {
+      StreamEventProcessor.appendPartContent(
+        s,
+        'err_${DateTime.now().millisecondsSinceEpoch}',
+        '[错误] ${event.message}',
+      );
+      _clearStreaming(sessionId);
+      _emit();
+      return;
+    }
+
+    // 应用 Chunk / ToolCallFragment / ToolCall / ReasoningChunk
+    StreamEventProcessor.applyToState(s, event);
+
+    // 记录 assistant 消息的模型标签（从最近一次 send 上下文取）
+    if (eMsgId != null &&
+        eMsgId.isNotEmpty &&
+        !s.messageModels.containsKey(eMsgId)) {
+      final ctx = _sendContext[sessionId];
+      if (ctx != null) {
+        final label = ctx.provider.isNotEmpty
+            ? '${ctx.provider} / ${ctx.model}'
+            : ctx.model;
+        s.messageModels[eMsgId] = label;
+      }
+    }
+
+    _emit();
+  }
+
+  /// 清理指定 session 的流式状态
+  void _clearStreaming(String sessionId) {
+    if (!streamingSessionIds.value.contains(sessionId)) return;
+    streamingSessionIds.value = {
+      for (final id in streamingSessionIds.value)
+        if (id != sessionId) id,
+    };
   }
 
   SessionState _ensureState(String sessionId) {
@@ -392,5 +399,17 @@ class SessionStore {
     return sessions.value[sessionId]!;
   }
 
-  void dispose() {}
+  void dispose() {
+    for (final sub in _sessionSubs.values) {
+      sub.cancel();
+    }
+    _sessionSubs.clear();
+  }
+}
+
+/// 一次 sendMessage / retryMessage 的 (provider, model) 上下文。
+class _SendContext {
+  final String provider;
+  final String model;
+  _SendContext(this.provider, this.model);
 }

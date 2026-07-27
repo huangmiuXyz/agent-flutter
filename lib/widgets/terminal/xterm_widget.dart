@@ -39,8 +39,11 @@ class XtermTerminalWidget extends HookWidget {
     final isDragging = useState(false);
 
     useEffect(() {
-      _manager.startPty(shell: shell);
-      return () => XtermStore.instance.dispose(id);
+      // 确保 PTY 已启动（如已由 openTab/工具 handler 启动则跳过，避免覆盖）
+      _manager.ensurePtyStarted(shell: shell);
+      // 不在 widget unmount 时销毁 session —— session 生命周期由
+      // XtermStore.closeTab 控制，widget 重建/切换 tab 不应销毁底层 PTY
+      return null;
     }, []);
 
     useEffect(() {

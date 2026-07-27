@@ -1,4 +1,4 @@
-/// 流事件处理 — 将 [api.StreamEvent] 应用到 [SessionState]
+/// 流事件处理 — 将 [EngineEvent] 应用到 [SessionState]
 ///
 /// 纯逻辑层，无状态、无副作用依赖（只修改传入的 [SessionState]）。
 library;
@@ -6,6 +6,7 @@ library;
 import 'dart:convert';
 
 import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/events.dart';
 
 import 'session_state.dart';
 
@@ -14,7 +15,7 @@ class StreamEventProcessor {
   static void applyEvent(
     Map<String, SessionState> sessions,
     String sid,
-    api.StreamEvent event,
+    EngineEvent event,
   ) {
     final s = sessions[sid];
     if (s == null) return;
@@ -22,8 +23,8 @@ class StreamEventProcessor {
   }
 
   /// 直接将事件应用到指定的 [SessionState]
-  static void applyToState(SessionState s, api.StreamEvent event) {
-    if (event is api.StreamEvent_Text) {
+  static void applyToState(SessionState s, EngineEvent event) {
+    if (event is EngineEvent_Chunk) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
 
@@ -31,7 +32,7 @@ class StreamEventProcessor {
         appendPartContent(s, event.partId, event.content,
             msgId: event.msgId.isNotEmpty ? event.msgId : null);
       }
-    } else if (event is api.StreamEvent_ToolCallFragment) {
+    } else if (event is EngineEvent_ToolCallFragment) {
       if (s.isTextRedundant(event.partId, event.totalLen)) return;
       s.trackTextLength(event.partId, event.totalLen);
 
@@ -46,9 +47,9 @@ class StreamEventProcessor {
         // 新建 tool_call_frag part，带初始合并内容
         addToolCallFragPart(s, event, merged);
       }
-    } else if (event is api.StreamEvent_ToolCall) {
-      handleToolCall(s, event.msgId, event.name, event.arguments, event.result);
-    } else if (event is api.StreamEvent_ReasoningChunk) {
+    } else if (event is EngineEvent_ToolCall) {
+      handleToolCall(s, event.msgId, event.toolName, event.arguments, event.result);
+    } else if (event is EngineEvent_ReasoningChunk) {
       if (s.isReasoningRedundant(event.partId, event.totalLen)) return;
       s.trackReasoningLength(event.partId, event.totalLen);
 
@@ -57,6 +58,7 @@ class StreamEventProcessor {
             msgId: event.msgId.isNotEmpty ? event.msgId : null);
       }
     }
+    // FrontendToolCall / Done / Error 不在此处理 — 由上层（SessionStore / EngineClient）处理
   }
 
   /// 在 partsByMsg 中找到 partId 对应的 reasoning part，追加内容。
@@ -190,7 +192,7 @@ class StreamEventProcessor {
   /// 合并新的 tool_call_frag 事件到已有内容中
   static String mergeToolCallFrag(
     String prev,
-    api.StreamEvent_ToolCallFragment event,
+    EngineEvent_ToolCallFragment event,
   ) {
     final parsed = prev.isNotEmpty
         ? (jsonDecode(prev) as Map<String, dynamic>)
@@ -207,7 +209,7 @@ class StreamEventProcessor {
   /// 动态添加 tool_call_frag 到 partsByMsg
   static void addToolCallFragPart(
     SessionState s,
-    api.StreamEvent_ToolCallFragment event,
+    EngineEvent_ToolCallFragment event,
     String initialContent,
   ) {
     final segs = event.partId.split('_');
