@@ -759,8 +759,8 @@ final _languageMap = <String, EditorLanguageConfig>{
   'json': EditorLanguageConfig(
     mode: langJson,
     lspFactory: (f, w) => lsp(
-      executable: 'cmd',
-      args: ['/c', 'vscode-json-languageserver', '--stdio'],
+      executable: 'vscode-json-languageserver',
+      args: ['--stdio'],
       workspacePath: w,
       languageId: 'json',
     ),

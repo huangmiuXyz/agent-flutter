@@ -7,14 +7,14 @@
 set -euo pipefail
 
 APP="${FLUTTER_APP:-build/macos/Build/Products/${CONFIGURATION:-Debug}/agent.app}"
-PLUGIN_DIR="$HOME/.pub-cache/hosted/pub.dev/code_forge-10.8.0"
-DYLIB_SRC="$PLUGIN_DIR/rust/target/release/libcode_forge.dylib"
+PATCH_DIR="$(cd "$(dirname "$0")/../.patches/code_forge" && pwd)"
+DYLIB_SRC="$PATCH_DIR/rust/target/release/libcode_forge.dylib"
 FWDIR="$APP/Contents/Frameworks/code_forge.framework"
 
 # 1. 编译 code_forge 的 Rust 库（如果还没编译）
 if [ ! -f "$DYLIB_SRC" ]; then
-  echo "→ 编译 code_forge Rust 库..."
-  (cd "$PLUGIN_DIR/rust" && cargo build --release)
+  echo "→ 编译 code_forge Rust 库 (from .patches)..."
+  (cd "$PATCH_DIR/rust" && cargo build --release)
 fi
 
 # 2. 创建 framework 结构
