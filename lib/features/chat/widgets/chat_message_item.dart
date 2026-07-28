@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/card/app_card.dart';
+
 import 'package:agent/widgets/text/app_text.dart';
 
 import 'chat_expandable_part.dart';
@@ -63,7 +63,9 @@ class _UserMessage extends HookWidget {
       (p) => p!.partType == 'text',
       orElse: () => null,
     );
-    final initialText = textPart != null ? ChatTextPart.extractDisplayText(textPart.content) : '';
+    final initialText = textPart != null
+        ? ChatTextPart.extractDisplayText(textPart.content)
+        : '';
 
     useEffect(() {
       ctrl.text = initialText;
@@ -92,7 +94,14 @@ class _UserMessage extends HookWidget {
 
     return Padding(
       padding: messagePadding,
-      child: AppCard(
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: custom.colors.cardBackground,
+          borderRadius: custom.radii.sm,
+          border: Border.all(color: custom.colors.cardBorder, width: 1),
+          boxShadow: custom.shadows.small,
+        ),
         padding: EdgeInsets.all(custom.spacing.xs),
         child: Shortcuts(
           shortcuts: {
@@ -100,9 +109,7 @@ class _UserMessage extends HookWidget {
             SingleActivator(LogicalKeyboardKey.enter): const _RetryIntent(),
           },
           child: Actions(
-            actions: {
-              _RetryIntent: _RetryAction(onSubmit: handleSubmit),
-            },
+            actions: {_RetryIntent: _RetryAction(onSubmit: handleSubmit)},
             child: TextField(
               focusNode: focusNode,
               controller: ctrl,
@@ -125,7 +132,6 @@ class _UserMessage extends HookWidget {
       ),
     );
   }
-
 }
 
 /// 单条消息的渲染组件
@@ -226,7 +232,10 @@ class ChatMessageItem extends HookWidget {
         ?modelBadge,
         for (int i = 0; i < visibleParts.length; i++)
           _buildPartWithSpacing(
-            i, visibleParts, custom, minPartHeight,
+            i,
+            visibleParts,
+            custom,
+            minPartHeight,
             isLastExpandable: i == effectiveLastIdx,
           ),
       ],
@@ -282,7 +291,9 @@ class ChatMessageItem extends HookWidget {
     return constrained;
   }
 
-  Widget _buildPart(api.PartInfo part, CustomTheme custom, {
+  Widget _buildPart(
+    api.PartInfo part,
+    CustomTheme custom, {
     bool isLastExpandable = false,
   }) {
     return switch (part.partType) {
@@ -303,12 +314,18 @@ class ChatMessageItem extends HookWidget {
         resultContent: _lookupResult(part.content),
       ),
       'tool_result' => const SizedBox.shrink(),
-      'tool_call_frag' => _buildFragPart(part, custom, isLastExpandable: isLastExpandable),
+      'tool_call_frag' => _buildFragPart(
+        part,
+        custom,
+        isLastExpandable: isLastExpandable,
+      ),
       _ => const SizedBox.shrink(),
     };
   }
 
-  Widget _buildFragPart(api.PartInfo part, CustomTheme custom, {
+  Widget _buildFragPart(
+    api.PartInfo part,
+    CustomTheme custom, {
     bool isLastExpandable = false,
   }) {
     final raw = part.content;
