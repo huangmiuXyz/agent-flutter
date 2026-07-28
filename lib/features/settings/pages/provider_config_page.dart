@@ -102,15 +102,22 @@ class _ConfigForm extends HookWidget {
     Future<void> handleSave() async {
       try {
         ConfigStore.instance.mutate((m) {
+          // Ensure the full path exists, creating missing sections as needed
+          final languageModels =
+              m.putIfAbsent('language_models', () => <String, dynamic>{})
+                  as Map<String, dynamic>;
+          final protocolConfig =
+              languageModels.putIfAbsent(protocol, () => <String, dynamic>{})
+                  as Map<String, dynamic>;
           final cfg =
-              (m['language_models']
-                      as Map<String, dynamic>?)?[protocol]?[provider.name]
-                  as Map<String, dynamic>?;
-          if (cfg != null) {
-            cfg['api_url'] = endpointCtrl.text;
-            if (apiKeyCtrl.text.isNotEmpty) {
-              cfg['api_key'] = apiKeyCtrl.text;
-            }
+              protocolConfig.putIfAbsent(
+                    provider.name,
+                    () => <String, dynamic>{},
+                  )
+                  as Map<String, dynamic>;
+          cfg['api_url'] = endpointCtrl.text;
+          if (apiKeyCtrl.text.isNotEmpty) {
+            cfg['api_key'] = apiKeyCtrl.text;
           }
         });
 
