@@ -35,6 +35,7 @@ class ConfigStore {
     'provider': <String>[],
     'default_model': {'provider': '', 'model': ''},
     'mcp_servers': <Map<String, dynamic>>[],
+    'skills': <String, dynamic>{},
   };
 
   // ── 便捷更新 ──
@@ -76,6 +77,34 @@ class ConfigStore {
       fn(servers);
       saveMcpServers(data, servers);
     });
+  }
+
+  /// 更新技能启禁状态，[fn] 拿到当前 skill_id → enabled 映射，修改后自动写回。
+  /// 和 [updateMcpServers] 模式完全一致。
+  void updateSkills(void Function(Map<String, bool>) fn) {
+    mutate((data) {
+      final states = loadSkillStates(data);
+      fn(states);
+      _saveSkillStates(data, states);
+    });
+  }
+
+  /// 从 data 中读取技能启禁状态，返回 skill_id → enabled。
+  Map<String, bool> loadSkillStates(Map<String, dynamic> data) {
+    final map = data['skills'] as Map<String, dynamic>?;
+    if (map == null) return {};
+    return map.map((k, v) {
+      final entry = v as Map<String, dynamic>?;
+      return MapEntry(k, entry?['enabled'] == true);
+    });
+  }
+
+  /// 将技能启禁状态写回 data。
+  void _saveSkillStates(Map<String, dynamic> data, Map<String, bool> states) {
+    data['skills'] = {
+      for (final e in states.entries)
+        e.key: {'enabled': e.value},
+    };
   }
 
   // ── 内部 ──

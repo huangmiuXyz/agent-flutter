@@ -22,6 +22,7 @@ mixin ChatApi {
     required String prompt,
     String? dbPath,
     String? sessionId,
+    String? systemPrompt,
   }) async {
     ensureInitialized();
     try {
@@ -32,6 +33,7 @@ mixin ChatApi {
         prompt: prompt,
         dbPath: dbPath,
         sessionId: sessionId,
+        systemPrompt: systemPrompt,
       );
       return result.text;
     } catch (e) {
@@ -53,6 +55,7 @@ mixin ChatApi {
     String? userMsgId,
     String? dbPath,
     String? sessionId,
+    String? systemPrompt,
   }) async {
     ensureInitialized();
     try {
@@ -64,6 +67,7 @@ mixin ChatApi {
         userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
+        systemPrompt: systemPrompt,
       );
     } catch (e) {
       throw LlmException('启动流式聊天失败: $e');

@@ -13,16 +13,22 @@ import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
 import 'package:agent/features/settings/pages/provider_config_page.dart';
 import 'package:agent/features/settings/pages/provider_list_page.dart';
+import 'package:agent/features/skills/models/skill_info.dart';
+import 'package:agent/features/skills/pages/skill_detail_page.dart';
+import 'package:agent/features/skills/pages/skill_list_page.dart';
+import 'package:agent/features/skills/store/skill_store.dart';
+import 'package:agent/rust_bridge/api.dart' as bridge;
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Settings category tabs.
-enum SettingsTab { models, mcp }
+enum SettingsTab { models, mcp, skills }
 
 const _sidebarsItems = [
   _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
   _TabItem(SettingsTab.mcp, 'MCP 服务器', 'server'),
+  _TabItem(SettingsTab.skills, '技能', 'puzzle'),
 ];
 
 class _TabItem {
@@ -44,6 +50,19 @@ class SettingsPage extends HookWidget {
     final selectedMcp = useState<McpServerInfo?>(null);
     final showAddMcp = useState(false);
     final selectedMcpDetail = useState<McpServerInfo?>(null);
+    final selectedSkill = useState<SkillInfo?>(null);
+    final skills = useState<List<SkillInfo>>([]);
+
+    // ── 切换到技能 tab 时自动扫描 ──
+    useEffect(() {
+      if (activeTab.value == SettingsTab.skills && skills.value.isEmpty) {
+        bridge.scanGlobalSkills().then((discovered) {
+          SkillStore.instance.load(discovered);
+          skills.value = SkillStore.instance.skills.value.values.toList();
+        });
+      }
+      return null;
+    }, [activeTab.value]);
 
     // ── Right content ──
     Widget content;
@@ -82,6 +101,23 @@ class SettingsPage extends HookWidget {
           content = McpServerListPage(
             onServerTap: (s) => selectedMcp.value = s,
             onAddServer: () => showAddMcp.value = true,
+          );
+        }
+      case SettingsTab.skills:
+        if (selectedSkill.value != null) {
+          content = SkillDetailPage(
+            skill: selectedSkill.value!,
+            onBack: () => selectedSkill.value = null,
+          );
+        } else {
+          content = SkillListPage(
+            skills: skills.value,
+            onSkillTap: (s) => selectedSkill.value = s,
+            onRescan: () async {
+              final discovered = await bridge.scanGlobalSkills();
+              SkillStore.instance.load(discovered);
+              skills.value = SkillStore.instance.skills.value.values.toList();
+            },
           );
         }
     }
@@ -125,6 +161,7 @@ class SettingsPage extends HookWidget {
                               showAddProvider.value = false;
                               selectedMcp.value = null;
                               showAddMcp.value = false;
+                              selectedSkill.value = null;
                             },
                           ),
                       ],

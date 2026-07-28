@@ -17,6 +17,7 @@ import 'package:agent/rust_bridge/events.dart';
 
 import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
+import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/services/session/session_state.dart';
 import 'package:agent/services/session/stream_event_processor.dart';
@@ -207,6 +208,7 @@ class SessionStore {
 
     // ── 触发后端任务（不 await Stream，事件通过 EngineClient 推送） ──
     try {
+      final catalog = SkillStore.instance.buildSkillCatalog();
       await service.chatStream(
         configPath: configPath,
         provider: provider,
@@ -215,6 +217,7 @@ class SessionStore {
         userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
+        systemPrompt: catalog.isNotEmpty ? catalog : null,
       );
     } catch (e) {
       // 启动失败：追加错误消息并清理流状态
