@@ -208,7 +208,13 @@ class AppBigRow extends HookWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppText(name, variant: AppTextVariant.body, color: foreground),
+              AppText(
+                name,
+                variant: AppTextVariant.body,
+                color: foreground,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               if (description != null && description!.isNotEmpty)
                 Padding(
                   padding: EdgeInsets.only(top: 1),
@@ -216,6 +222,8 @@ class AppBigRow extends HookWidget {
                     description!,
                     variant: AppTextVariant.caption,
                     color: custom.colors.textSecondary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
             ],

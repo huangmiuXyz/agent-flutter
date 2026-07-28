@@ -184,16 +184,19 @@ class AppTypography {
 
   String? get effectiveFontFamily => fontFamily;
 
-  AppTypography copyWith({FontWeight? bodyWeight}) => AppTypography(
-    fontFamily: fontFamily,
-    captionSize: captionSize,
-    bodySize: bodySize,
-    subtitleSize: subtitleSize,
-    titleSize: titleSize,
-    heading2Size: heading2Size,
-    heading1Size: heading1Size,
-    bodyWeight: bodyWeight ?? this.bodyWeight,
-  );
+  AppTypography copyWith({FontWeight? bodyWeight, double? fontSizeScale}) {
+    final scale = fontSizeScale ?? 1.0;
+    return AppTypography(
+      fontFamily: fontFamily,
+      captionSize: captionSize * scale,
+      bodySize: bodySize * scale,
+      subtitleSize: subtitleSize * scale,
+      titleSize: titleSize * scale,
+      heading2Size: heading2Size * scale,
+      heading1Size: heading1Size * scale,
+      bodyWeight: bodyWeight ?? this.bodyWeight,
+    );
+  }
 
   TextStyle styleForSize(double size, Color color, {FontWeight? weight}) {
     final effectiveWeight = weight ?? bodyWeight;
@@ -216,6 +219,18 @@ class AppTypography {
         heading1Size: lerpDouble(a.heading1Size, b.heading1Size, t)!,
         bodyWeight: t < 0.5 ? a.bodyWeight : b.bodyWeight,
       );
+
+  /// Returns a copy scaled by [factor].
+  AppTypography scale(double factor) => AppTypography(
+    fontFamily: fontFamily,
+    captionSize: captionSize * factor,
+    bodySize: bodySize * factor,
+    subtitleSize: subtitleSize * factor,
+    titleSize: titleSize * factor,
+    heading2Size: heading2Size * factor,
+    heading1Size: heading1Size * factor,
+    bodyWeight: bodyWeight,
+  );
 }
 
 @immutable

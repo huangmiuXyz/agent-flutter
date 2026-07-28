@@ -19,6 +19,7 @@ import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/services/session/session_state.dart';
 import 'package:agent/services/session/stream_event_processor.dart';
 
@@ -353,6 +354,9 @@ class SessionStore {
     if (event is EngineEvent_Done) {
       _clearStreaming(sessionId);
       _emit();
+
+      // Done 后消费队列中的非 steer 消息（自动发出下一条）
+      _consumeNonSteer(sessionId);
       return;
     }
 
@@ -384,6 +388,24 @@ class SessionStore {
     }
 
     _emit();
+  }
+
+  /// Done 后消费非 steer 消息：取出第一条并自动发送
+  void _consumeNonSteer(String sessionId) {
+    final text = MessageQueueStore.instance.consumeNonSteer();
+    if (text == null) return;
+
+    // 复用 sendMessage 路径
+    final provider = ConfigStore.instance.currentProvider.value;
+    final model = ConfigStore.instance.currentModel.value;
+    if (provider.isEmpty || model.isEmpty) return;
+
+    sendMessage(
+      sessionId: sessionId,
+      provider: provider,
+      model: model,
+      prompt: text,
+    );
   }
 
   /// 清理指定 session 的流式状态

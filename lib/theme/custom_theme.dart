@@ -49,11 +49,15 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     Brightness brightness, {
     Map<AppColorRole, int> colorOverrides = const {},
     FontWeight fontWeight = FontWeight.w400,
+    double fontSizeScale = 1.0,
   }) {
     final base = brightness == Brightness.dark ? dark : light;
     return base.copyWith(
       colors: base.colors.apply(colorOverrides),
-      typography: base.typography.copyWith(bodyWeight: fontWeight),
+      typography: base.typography.copyWith(
+        bodyWeight: fontWeight,
+        fontSizeScale: fontSizeScale,
+      ),
     );
   }
 

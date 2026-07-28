@@ -12,6 +12,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
+import 'package:agent/features/chat/widgets/message_queue_panel.dart';
 import 'package:agent/widgets/loading/app_loading.dart';
 
 /// 保持底部用户在流式输出时始终在底部。
@@ -53,7 +54,10 @@ class _KeepAtBottomPhysics extends ScrollPhysics {
   }
 }
 
-/// 聊天内容区 — 消息列表（非 reverse ListView）+ 输入框
+/// 聊天内容区 — 消息列表 + 队列面板 + 输入框
+///
+/// 流式输出中按 Enter 发送的消息自动进入队列，
+/// 当前回复结束后自动发出。
 class ChatContent extends StatelessWidget {
   const ChatContent({super.key});
 
@@ -69,6 +73,13 @@ class ChatContent extends StatelessWidget {
                   ? _MessageList(sessionId: displayId)
                   : const SizedBox.shrink();
             },
+          ),
+        ),
+        Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: _readingWidth(),
+            child: const MessageQueuePanel(),
           ),
         ),
         const AppDivider(extent: 1, thickness: 1),
@@ -181,86 +192,94 @@ class _MessageList extends StatelessWidget {
               };
             }, [sessionId, scrollController]);
 
-            return Stack(
-              children: [
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: SizedBox(
-                    width: _readingWidth(),
-                    child: Opacity(
-                      opacity: isListVisible.value ? 1.0 : 0.0,
-                      child: ListView.builder(
-                        controller: scrollController,
-                        physics: savedMaxExtent.value != null
-                            ? _KeepAtBottomPhysics(
-                                savedMaxExtent: savedMaxExtent.value,
-                              )
+            return Align(
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: _readingWidth(),
+                child: Opacity(
+                  opacity: isListVisible.value ? 1.0 : 0.0,
+                  child: ListView.builder(
+                    controller: scrollController,
+                    physics: savedMaxExtent.value != null
+                        ? _KeepAtBottomPhysics(
+                            savedMaxExtent: savedMaxExtent.value,
+                          )
+                        : null,
+                    padding: EdgeInsets.only(
+                      top: custom.spacing.sm,
+                      bottom: 40,
+                    ),
+                    itemCount: messageOrder.length,
+                    itemBuilder: (context, index) {
+                      final msgId = messageOrder[index];
+                      final parts = partsByMsg[msgId] ?? [];
+                      final role = messageRoles[msgId] ?? '';
+
+                      // 纯工具类消息不占位
+                      if (parts.isNotEmpty &&
+                          parts.every(
+                            (p) =>
+                                p.partType == 'tool_result' ||
+                                p.partType == 'tool_call_frag',
+                          )) {
+                        return const SizedBox.shrink();
+                      }
+
+                      final dimmed =
+                          focusedMsgId.value != null &&
+                          index > messageOrder.indexOf(focusedMsgId.value!);
+
+                      final messageItem = ChatMessageItem(
+                        key: ValueKey(msgId),
+                        sessionId: sessionId,
+                        msgId: msgId,
+                        role: role,
+                        parts: parts,
+                        streaming: isStreaming,
+                        toolCallResults: toolCallResults,
+                        autoExpandLast: index == lastExpandableMsgIndex,
+                        modelName: isFirstInTurn[index] == true
+                            ? messageModels[msgId]
                             : null,
-                        padding: EdgeInsets.only(
-                          top: custom.spacing.sm,
-                          bottom: 40,
-                        ),
-                        itemCount: messageOrder.length,
-                        itemBuilder: (context, index) {
-                          final msgId = messageOrder[index];
-                          final parts = partsByMsg[msgId] ?? [];
-                          final role = messageRoles[msgId] ?? '';
-
-                          // 纯工具类消息不占位
-                          if (parts.isNotEmpty &&
-                              parts.every(
-                                (p) =>
-                                    p.partType == 'tool_result' ||
-                                    p.partType == 'tool_call_frag',
-                              )) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final dimmed =
-                              focusedMsgId.value != null &&
-                              index > messageOrder.indexOf(focusedMsgId.value!);
-
-                          return ChatMessageItem(
-                            key: ValueKey(msgId),
+                        dimmed: dimmed,
+                        onFocusChanged: (focused) {
+                          focusedMsgId.value = focused ? msgId : null;
+                        },
+                        onRetry: (msgId, newContent) {
+                          final mgr = SessionStore.instance;
+                          mgr.retryMessage(
                             sessionId: sessionId,
                             msgId: msgId,
-                            role: role,
-                            parts: parts,
-                            streaming: isStreaming,
-                            toolCallResults: toolCallResults,
-                            autoExpandLast: index == lastExpandableMsgIndex,
-                            modelName: isFirstInTurn[index] == true
-                                ? messageModels[msgId]
-                                : null,
-                            dimmed: dimmed,
-                            onFocusChanged: (focused) {
-                              focusedMsgId.value = focused ? msgId : null;
-                            },
-                            onRetry: (msgId, newContent) {
-                              final mgr = SessionStore.instance;
-                              mgr.retryMessage(
-                                sessionId: sessionId,
-                                msgId: msgId,
-                                newPrompt: newContent,
-                                provider:
-                                    ConfigStore.instance.currentProvider.value,
-                                model: ConfigStore.instance.currentModel.value,
-                              );
-                            },
+                            newPrompt: newContent,
+                            provider:
+                                ConfigStore.instance.currentProvider.value,
+                            model: ConfigStore.instance.currentModel.value,
                           );
                         },
-                      ),
-                    ),
+                      );
+
+                      // 流式输出中，最后一条消息下方显示 loading
+                      if (isStreaming && index == messageOrder.length - 1) {
+                        return Stack(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 20),
+                              child: messageItem,
+                            ),
+                            const Positioned(
+                              left: 16,
+                              bottom: 0,
+                              child: AppLoading(),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return messageItem;
+                    },
                   ),
                 ),
-                if (isStreaming)
-                  Positioned(
-                    bottom: 24,
-                    left: 0,
-                    right: 0,
-                    child: const Center(child: AppLoading()),
-                  ),
-              ],
+              ),
             );
           },
         );

@@ -7,6 +7,7 @@ import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
@@ -34,6 +35,19 @@ class ChatInput extends HookWidget {
           .trim();
       if (text.isEmpty) return;
 
+      final sid = SessionStore.instance.selectedId.value;
+      final isStreaming =
+          sid != null &&
+          SessionStore.instance.streamingSessionIds.value.contains(sid);
+
+      if (isStreaming) {
+        // 流式输出中 → 入队，等待当前回复结束后自动发送
+        MessageQueueStore.instance.enqueue(text);
+        controller.clear();
+        MessageQueueStore.instance.expand();
+        return;
+      }
+
       final provider = ConfigStore.instance.currentProvider.value;
       final model = ConfigStore.instance.currentModel.value;
       if (provider.isEmpty || model.isEmpty) return;
@@ -41,9 +55,7 @@ class ChatInput extends HookWidget {
       sending.value = true;
       controller.clear();
 
-      String sessionId =
-          SessionStore.instance.selectedId.value ??
-          await SessionStore.instance.createSession();
+      String sessionId = sid ?? await SessionStore.instance.createSession();
 
       try {
         await SessionStore.instance.sendMessage(

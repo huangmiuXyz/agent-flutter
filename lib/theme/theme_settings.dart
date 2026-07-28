@@ -8,6 +8,7 @@ class ThemeSettings {
     this.themeMode = ThemeMode.system,
     this.presetId = 'default',
     this.fontWeightValue = 400,
+    this.fontSizeScale = 1.0,
     this.lightOverrides = const {},
     this.darkOverrides = const {},
   });
@@ -15,6 +16,7 @@ class ThemeSettings {
   final ThemeMode themeMode;
   final String presetId;
   final int fontWeightValue;
+  final double fontSizeScale;
   final Map<AppColorRole, int> lightOverrides;
   final Map<AppColorRole, int> darkOverrides;
 
@@ -40,12 +42,14 @@ class ThemeSettings {
     ThemeMode? themeMode,
     String? presetId,
     int? fontWeightValue,
+    double? fontSizeScale,
     Map<AppColorRole, int>? lightOverrides,
     Map<AppColorRole, int>? darkOverrides,
   }) => ThemeSettings(
     themeMode: themeMode ?? this.themeMode,
     presetId: presetId ?? this.presetId,
     fontWeightValue: fontWeightValue ?? this.fontWeightValue,
+    fontSizeScale: fontSizeScale ?? this.fontSizeScale,
     lightOverrides: lightOverrides ?? this.lightOverrides,
     darkOverrides: darkOverrides ?? this.darkOverrides,
   );
@@ -56,12 +60,14 @@ extension ThemeSettingsResolution on ThemeSettings {
     Brightness.light,
     colorOverrides: lightOverrides,
     fontWeight: fontWeight,
+    fontSizeScale: fontSizeScale,
   );
 
   CustomTheme get effectiveDark => CustomTheme.resolve(
     Brightness.dark,
     colorOverrides: darkOverrides,
     fontWeight: fontWeight,
+    fontSizeScale: fontSizeScale,
   );
 
   CustomTheme effectiveFor(Brightness brightness) =>

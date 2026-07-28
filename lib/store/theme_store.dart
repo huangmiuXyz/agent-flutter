@@ -15,6 +15,7 @@ class ThemeStore {
 
   final themeMode = signal(ThemeMode.system);
   final fontWeightValue = signal(400);
+  final fontSizeScale = signal(1.0);
   final lightOverrides = signal(<AppColorRole, int>{});
   final darkOverrides = signal(<AppColorRole, int>{});
 
@@ -25,6 +26,7 @@ class ThemeStore {
     () => ThemeSettings(
       themeMode: themeMode.value,
       fontWeightValue: fontWeightValue.value,
+      fontSizeScale: fontSizeScale.value,
       lightOverrides: lightOverrides.value,
       darkOverrides: darkOverrides.value,
     ),
@@ -50,6 +52,8 @@ class ThemeStore {
   void setThemeMode(ThemeMode mode) => themeMode.value = mode;
 
   void setFontWeight(FontWeight weight) => fontWeightValue.value = weight.value;
+
+  void setFontSizeScale(double scale) => fontSizeScale.value = scale;
 
   void setColor(Brightness brightness, AppColorRole role, Color color) {
     final overrides = Map<AppColorRole, int>.of(
@@ -80,6 +84,7 @@ class ThemeStore {
   void resetAll() {
     themeMode.value = ThemeMode.system;
     fontWeightValue.value = 400;
+    fontSizeScale.value = 1.0;
     lightOverrides.value = {};
     darkOverrides.value = {};
   }
@@ -87,10 +92,15 @@ class ThemeStore {
   /// 根据亮度解析当前完整的 CustomTheme
   CustomTheme effectiveFor(Brightness brightness) {
     final s = settings.value;
-    final overrides =
-        brightness == Brightness.dark ? s.darkOverrides : s.lightOverrides;
-    return CustomTheme.resolve(brightness,
-        colorOverrides: overrides, fontWeight: s.fontWeight);
+    final overrides = brightness == Brightness.dark
+        ? s.darkOverrides
+        : s.lightOverrides;
+    return CustomTheme.resolve(
+      brightness,
+      colorOverrides: overrides,
+      fontWeight: s.fontWeight,
+      fontSizeScale: s.fontSizeScale,
+    );
   }
 
   // ── helpers ──

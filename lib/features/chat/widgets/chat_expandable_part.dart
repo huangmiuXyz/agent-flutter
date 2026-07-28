@@ -102,103 +102,113 @@ class ChatExpandablePart extends HookWidget {
     final hasContent = argumentsText.isNotEmpty || resultAvailable;
 
     return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── 头部（可点击切换展开/收起） ──
-          InkWell(
-            onTap: () => expanded.value = !expanded.value,
-            borderRadius: custom.radii.sm,
-            child: SizedBox(
-              height: collapsedHeight,
-              child: Padding(
-                padding: EdgeInsets.only(right: custom.spacing.sm),
-                child: Row(
-                  children: [
-                    AppIcon(
-                      iconName,
-                      size: custom.typography.captionSize,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── 头部（可点击切换展开/收起） ──
+        InkWell(
+          onTap: () => expanded.value = !expanded.value,
+          borderRadius: custom.radii.sm,
+          child: SizedBox(
+            height: collapsedHeight,
+            child: Padding(
+              padding: EdgeInsets.only(right: custom.spacing.sm),
+              child: Row(
+                children: [
+                  AppIcon(
+                    iconName,
+                    size: custom.typography.captionSize,
+                    color: titleColor,
+                  ),
+                  SizedBox(width: custom.spacing.xs),
+                  Expanded(
+                    child: AppText(
+                      title,
+                      variant: AppTextVariant.caption,
                       color: titleColor,
                     ),
-                    SizedBox(width: custom.spacing.xs),
-                    Expanded(
-                      child: AppText(
-                        title,
-                        variant: AppTextVariant.caption,
-                        color: titleColor,
-                      ),
+                  ),
+                  AppIcon(
+                    expanded.value ? 'chevronDown' : 'chevronRight',
+                    size: custom.typography.captionSize,
+                    color: custom.colors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ── 展开内容 ──
+        if (expanded.value && hasContent)
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              0,
+              0,
+              custom.spacing.sm,
+              custom.spacing.xs,
+            ),
+            child: Padding(
+              padding: EdgeInsets.only(left: 6),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(color: custom.colors.separator, width: 1),
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.only(left: custom.spacing.sm),
+                  child: Container(
+                    width: double.infinity,
+                    constraints: BoxConstraints(maxHeight: expandedMaxHeight),
+                    padding: EdgeInsets.all(custom.spacing.sm),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SelectableText(
+                          argumentsText,
+                          style: TextStyle(
+                            fontFamily: 'JetBrainsMono',
+                            fontSize: custom.typography.captionSize,
+                            color: custom.colors.textSecondary,
+                          ),
+                        ),
+                        if (resultText != null && resultText.isNotEmpty) ...[
+                          SizedBox(height: custom.spacing.sm),
+                          Container(height: 1, color: custom.colors.separator),
+                          SizedBox(height: custom.spacing.sm),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: VirtualParagraphText(
+                              text: resultText,
+                              splitMode: ParagraphSplitMode.newline,
+                              maxHeight: expandedMaxHeight,
+                              fontSize: custom.typography.captionSize,
+                              lineHeight: 18,
+                              paragraphPaddingBlock: 0,
+                              paragraphGap: 4,
+                              paragraphBuilder: (paragraph, index) {
+                                return SelectableText(
+                                  paragraph.text,
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrainsMono',
+                                    fontSize: custom.typography.captionSize,
+                                    color: custom.colors.success,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    AppIcon(
-                      expanded.value ? 'chevronDown' : 'chevronRight',
-                      size: custom.typography.captionSize,
-                      color: custom.colors.textSecondary,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-
-          // ── 展开内容 ──
-          if (expanded.value && hasContent)
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                custom.spacing.sm,
-                0,
-                custom.spacing.sm,
-                custom.spacing.xs,
-              ),
-              child: Container(
-                width: double.infinity,
-                constraints: BoxConstraints(maxHeight: expandedMaxHeight),
-                padding: EdgeInsets.all(custom.spacing.sm),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── 参数（固定头部） ──
-                    SelectableText(
-                      argumentsText,
-                      style: TextStyle(
-                        fontFamily: 'JetBrainsMono',
-                        fontSize: custom.typography.captionSize,
-                        color: custom.colors.textSecondary,
-                      ),
-                    ),
-
-                    // ── 结果分隔 + 虚拟滚动结果 ──
-                    if (resultText != null && resultText.isNotEmpty) ...[
-                      SizedBox(height: custom.spacing.sm),
-                      Container(height: 1, color: custom.colors.separator),
-                      SizedBox(height: custom.spacing.sm),
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: VirtualParagraphText(
-                          text: resultText,
-                          splitMode: ParagraphSplitMode.newline,
-                          maxHeight: expandedMaxHeight,
-                          fontSize: custom.typography.captionSize,
-                          lineHeight: 18,
-                          paragraphPaddingBlock: 0,
-                          paragraphGap: 4,
-                          paragraphBuilder: (paragraph, index) {
-                            return SelectableText(
-                              paragraph.text,
-                              style: TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: custom.typography.captionSize,
-                                color: custom.colors.success,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-        ],
-      );
+      ],
+    );
   }
 }
