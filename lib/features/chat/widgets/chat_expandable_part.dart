@@ -166,12 +166,17 @@ class ChatExpandablePart extends HookWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SelectableText(
-                          argumentsText,
-                          style: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: custom.typography.captionSize,
-                            color: custom.colors.textSecondary,
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: SingleChildScrollView(
+                            child: SelectableText(
+                              argumentsText,
+                              style: TextStyle(
+                                fontFamily: 'JetBrainsMono',
+                                fontSize: custom.typography.captionSize,
+                                color: custom.colors.textSecondary,
+                              ),
+                            ),
                           ),
                         ),
                         if (resultText != null && resultText.isNotEmpty) ...[
