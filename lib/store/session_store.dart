@@ -360,6 +360,31 @@ class SessionStore {
       return;
     }
 
+    if (event is EngineEvent_QueueState) {
+      // 用 Rust 队列状态刷新 UI 展示
+      MessageQueueStore.instance.syncFromRust(event.items, event.flags);
+      return;
+    }
+
+    if (event is EngineEvent_SteerInjected) {
+      // Steer 消息被 checkpoint 注入到 LLM 上下文 → 在聊天中显示
+      final steerMsgId =
+          '${sessionId}_steer_${DateTime.now().millisecondsSinceEpoch}';
+      s.messageOrder.add(steerMsgId);
+      s.partsByMsg[steerMsgId] = [
+        api.PartInfo(
+          id: '${steerMsgId}_part',
+          msgId: steerMsgId,
+          seq: 0,
+          partType: 'text',
+          content: event.text,
+        ),
+      ];
+      s.messageRoles[steerMsgId] = 'user';
+      _emit();
+      return;
+    }
+
     if (event is EngineEvent_Error) {
       StreamEventProcessor.appendPartContent(
         s,
@@ -390,9 +415,13 @@ class SessionStore {
     _emit();
   }
 
-  /// Done 后消费非 steer 消息：取出第一条并自动发送
+  /// Done 后从 Rust 队列消费非 steer 消息并自动发送
   void _consumeNonSteer(String sessionId) {
-    final text = MessageQueueStore.instance.consumeNonSteer();
+    unawaited(_doConsumeNonSteer(sessionId));
+  }
+
+  Future<void> _doConsumeNonSteer(String sessionId) async {
+    final text = await api.consumeNonSteer(sessionId: sessionId);
     if (text == null) return;
 
     // 复用 sendMessage 路径

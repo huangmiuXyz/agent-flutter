@@ -17,9 +17,8 @@ import 'package:agent/rust_bridge/events.dart';
 ///
 /// 接收 [EngineEvent_FrontendToolCall] 事件，返回工具执行结果字符串。
 /// 抛出的异常会被捕获并作为错误结果回传给 Rust。
-typedef FrontendToolHandler = Future<String> Function(
-  EngineEvent_FrontendToolCall event,
-);
+typedef FrontendToolHandler =
+    Future<String> Function(EngineEvent_FrontendToolCall event);
 
 /// 引擎事件流客户端 — 全局单例
 class EngineClient {
@@ -144,6 +143,8 @@ class EngineClient {
     if (event is EngineEvent_ReasoningChunk) return event.sessionId;
     if (event is EngineEvent_Error) return event.sessionId;
     if (event is EngineEvent_FrontendToolCall) return event.sessionId;
+    if (event is EngineEvent_QueueState) return event.sessionId;
+    if (event is EngineEvent_SteerInjected) return event.sessionId;
     return null;
   }
 
@@ -159,10 +160,7 @@ class EngineClient {
 
     try {
       final result = await handler(event);
-      await api.submitFrontendToolResult(
-        callId: event.callId,
-        result: result,
-      );
+      await api.submitFrontendToolResult(callId: event.callId, result: result);
     } catch (e, st) {
       await api.submitFrontendToolResult(
         callId: event.callId,

@@ -45,14 +45,16 @@ class MessageQueuePanel extends HookWidget {
                 onClear: store.clear,
               ),
               if (isExpanded)
-                ...items.map(
-                  (msg) => _QueueItem(
+                ...List.generate(items.length, (i) {
+                  final msg = items[i];
+                  return _QueueItem(
+                    index: i,
                     message: msg,
-                    onDelete: () => store.remove(msg.id),
-                    onEdit: (newText) => store.edit(msg.id, newText),
-                    onToggleSteer: () => store.toggleSteer(msg.id),
-                  ),
-                ),
+                    onDelete: () => store.remove(i),
+                    onEdit: (newText) => store.edit(i, newText),
+                    onToggleSteer: () => store.toggleSteer(i),
+                  );
+                }),
             ],
           ),
         );
@@ -131,12 +133,14 @@ class _QueueHeader extends StatelessWidget {
 // ─── 列表项 ───
 
 class _QueueItem extends HookWidget {
+  final int index;
   final QueuedMessage message;
   final VoidCallback onDelete;
   final ValueChanged<String> onEdit;
   final VoidCallback onToggleSteer;
 
   const _QueueItem({
+    required this.index,
     required this.message,
     required this.onDelete,
     required this.onEdit,
@@ -194,6 +198,7 @@ class _QueueItem extends HookWidget {
         SizedBox(width: custom.spacing.sm),
         // 操作组
         _ActionGroup(
+          index: index,
           message: message,
           onEdit: () => isEditing.value = true,
           onDelete: onDelete,
@@ -263,12 +268,14 @@ class _QueueItem extends HookWidget {
 // ─── 操作组 ───
 
 class _ActionGroup extends StatelessWidget {
+  final int index;
   final QueuedMessage message;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onToggleSteer;
 
   const _ActionGroup({
+    required this.index,
     required this.message,
     required this.onEdit,
     required this.onDelete,
@@ -303,7 +310,7 @@ class _ActionGroup extends StatelessWidget {
         _SteerBadge(active: message.steer, onTap: onToggleSteer),
         SizedBox(width: custom.spacing.sm),
         // Send Now 按钮
-        _SendNowButton(message: message),
+        _SendNowButton(index: index, message: message),
       ],
     );
   }
@@ -397,9 +404,10 @@ class _ActionIcon extends StatelessWidget {
 // ─── Send Now 按钮 ───
 
 class _SendNowButton extends StatelessWidget {
+  final int index;
   final QueuedMessage message;
 
-  const _SendNowButton({required this.message});
+  const _SendNowButton({required this.index, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -412,8 +420,8 @@ class _SendNowButton extends StatelessWidget {
         final sid = sessionStore.selectedId.value;
         if (sid == null) return;
 
-        // 1. 从队列移除
-        store.remove(message.id);
+        // 1. 从 Rust 队列移除
+        store.remove(index);
 
         // 2. 如果有活跃流，取消
         if (sessionStore.streamingSessionIds.value.contains(sid)) {
