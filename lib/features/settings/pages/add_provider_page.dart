@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
@@ -21,7 +22,10 @@ class AddProviderPage extends HookWidget {
   /// Called when the user wants to go back to the provider list.
   final VoidCallback onBack;
 
-  const AddProviderPage({super.key, required this.onBack});
+  /// Called after the provider is saved successfully, with the new provider info.
+  final ValueChanged<ProviderInfo>? onSaved;
+
+  const AddProviderPage({super.key, required this.onBack, this.onSaved});
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +75,12 @@ class AddProviderPage extends HookWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('提供商添加成功')));
-          onBack();
+          onSaved?.call(ProviderInfo(
+            name: providerId,
+            displayName: name,
+            baseUrl: url,
+            configured: true,
+          ));
         }
       } catch (e) {
         errorMsg.value = '保存失败: $e';

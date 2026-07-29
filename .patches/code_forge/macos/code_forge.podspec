@@ -20,6 +20,7 @@ A new Flutter FFI plugin project.
   # `../src/*` so that the C sources can be shared among all target platforms.
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
+  s.public_header_files = 'Classes/code_forge.h'
   s.dependency 'FlutterMacOS'
 
   s.platform = :osx, '10.15'
@@ -28,18 +29,13 @@ A new Flutter FFI plugin project.
 
   s.script_phase = {
     :name => 'Build Rust library',
-    # First argument is relative path to the `rust` folder, second is name of rust library
     :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../rust code_forge',
     :execution_position => :before_compile,
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
-    # Let XCode know that the static library referenced in -force_load below is
-    # created by this build step.
     :output_files => ["${PODS_CONFIGURATION_BUILD_DIR}/code_forge/libcode_forge.a"],
   }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    # Flutter.framework does not contain a i386 slice.
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'OTHER_LDFLAGS' => '-force_load ${PODS_CONFIGURATION_BUILD_DIR}/code_forge/libcode_forge.a',
   }
 end

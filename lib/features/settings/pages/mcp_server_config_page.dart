@@ -7,6 +7,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 
+import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
@@ -102,8 +103,11 @@ class McpServerConfigPage extends HookWidget {
             );
 
       try {
+        final oldName = server.name;
+        final newName = updated.name;
+
         store.updateMcpServers((list) {
-          final idx = list.indexWhere((s) => s.name == server.name);
+          final idx = list.indexWhere((s) => s.name == oldName);
           if (idx == -1) {
             list.add(updated);
           } else {
@@ -115,6 +119,18 @@ class McpServerConfigPage extends HookWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('配置保存成功')));
+          // 通知 Rust 后端重新连接该服务器
+          if (oldName != newName) {
+            // 原名已从配置中移除，断开旧连接
+            api.reloadMcpServer(
+              configPath: store.configPath,
+              serverName: oldName,
+            );
+          }
+          api.reloadMcpServer(
+            configPath: store.configPath,
+            serverName: newName,
+          );
           onBack();
         }
       } catch (e) {
@@ -144,6 +160,11 @@ class McpServerConfigPage extends HookWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('已删除')));
+          // 通知 Rust 后端断开该服务器
+          api.reloadMcpServer(
+            configPath: store.configPath,
+            serverName: server.name,
+          );
           onBack();
         }
       } catch (e) {

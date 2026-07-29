@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:agent/store/config_store.dart';
+import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -217,7 +218,7 @@ class MainLayout extends StatelessWidget {
   }
 }
 
-/// 启动时初始化 MCP，失败则显示 SnackBar
+/// 启动时初始化 MCP + 扫描技能
 class _McpInitSnackBar extends StatefulWidget {
   const _McpInitSnackBar();
 
@@ -233,6 +234,7 @@ class _McpInitSnackBarState extends State<_McpInitSnackBar> {
   }
 
   Future<void> _init() async {
+    // 1. 初始化 MCP 连接
     try {
       final configPath = ConfigStore.instance.configPath;
       final errors = await api.initMcp(configPath: configPath);
@@ -247,6 +249,13 @@ class _McpInitSnackBarState extends State<_McpInitSnackBar> {
           );
         });
       }
+    } catch (_) {}
+
+    // 2. 扫描全局技能，确保第一次发消息时 buildSkillCatalog() 能返回结果
+    //    即使未访问过设置→技能页面
+    try {
+      final discovered = await api.scanGlobalSkills();
+      SkillStore.instance.load(discovered);
     } catch (_) {}
   }
 

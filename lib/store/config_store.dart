@@ -36,6 +36,7 @@ class ConfigStore {
     'default_model': {'provider': '', 'model': ''},
     'mcp_servers': <Map<String, dynamic>>[],
     'skills': <String, dynamic>{},
+    'work_dir': '',
   };
 
   // ── 便捷更新 ──
@@ -67,6 +68,16 @@ class ConfigStore {
     if (dm is Map) return dm['model'] as String? ?? '';
     return '';
   });
+
+  /// 工作目录，空字符串表示未设置
+  late final workDir = computed<String>(() {
+    return data.value['work_dir'] as String? ?? '';
+  });
+
+  /// 更新工作目录
+  void updateWorkDir(String path) {
+    mutate((data) => data['work_dir'] = path);
+  }
 
   // ── 类型化更新（避免各页面重复 parse / 写回）──
 

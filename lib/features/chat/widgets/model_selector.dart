@@ -40,10 +40,17 @@ class ModelSelector extends HookWidget {
             final decoded = jsonDecode(jsonEncode(raw));
             if (decoded is List) {
               for (final e in decoded) {
-                final name = e is Map ? e['name'] as String? : e as String?;
+                final Map<String, dynamic> entry;
+                if (e is Map) {
+                  entry = Map<String, dynamic>.from(e);
+                } else {
+                  entry = {'name': e.toString()};
+                }
+                final name = entry['name'] as String?;
                 if (name != null) {
                   modelToProvider[name] = providerName;
-                  items.add(e);
+                  entry['group'] = providerName;
+                  items.add(entry);
                 }
               }
             }

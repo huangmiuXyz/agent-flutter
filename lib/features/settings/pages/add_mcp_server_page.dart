@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
+import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
@@ -84,6 +85,11 @@ class AddMcpServerPage extends HookWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('服务器添加成功')));
+          // 通知 Rust 后端重新连接该服务器
+          api.reloadMcpServer(
+            configPath: store.configPath,
+            serverName: name,
+          );
           onBack();
         }
       } catch (e) {
