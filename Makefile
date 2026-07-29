@@ -8,7 +8,7 @@ UNAME_S := $(shell uname -s)
 IS_WINDOWS := $(findstring NT,$(UNAME_S))
 
 # Flutter run 模式：make run → debug；make run r=1 → --release（预备发布）
-FLUTTER_MODE = $(if $(r),--release,)
+FLUTTER_MODE = $(if $(r),--release,--debug)
 
 # 全部重新生成（FRB codegen + 编译 Rust）+ 启动 app
 run:
@@ -24,11 +24,10 @@ else
 		cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
 endif
 ifeq ($(UNAME_S),Darwin)
-		flutter run $(FLUTTER_MODE) -d macos; \
+		flutter build macos $(FLUTTER_MODE)
 		CONFIGURATION=$(if $(r),Release,Debug) FLUTTER_APP=build/macos/Build/Products/$(if $(r),Release,Debug)/agent.app \
 			tools/deploy_code_forge.sh
-		# reopen to pick up the framework
-		open build/macos/Build/Products/$(if $(r),Release,Debug)/agent.app
+		flutter run $(FLUTTER_MODE) -d macos
 else ifneq ($(IS_WINDOWS),)
 		flutter run $(FLUTTER_MODE) -d windows
 else
@@ -43,7 +42,7 @@ ifeq ($(UNAME_S),Darwin)
 	$(eval APP_FRAMEWORKS := build/macos/Build/Products/$(if $(r),Release,Debug)/agent.app/Contents/Frameworks)
 	mkdir -p $(APP_FRAMEWORKS)/code_forge.framework/Versions/A/Resources
 	cp $(CODE_FORGE_DYLIB) $(APP_FRAMEWORKS)/code_forge.framework/Versions/A/code_forge
-	cd $(APP_FRAMEWORKS)/code_forge.framework && ln -sfh Versions/A/code_forge code_forge && ln -sfh Versions/A Versions/Current && ln -sfh Versions/A/Resources Resources
+	cd $(APP_FRAMEWORKS)/code_forge.framework && ln -sfh Versions/A/code_forge code_forge && ln -sfh A Versions/Current && ln -sfh Versions/A/Resources Resources
 	install_name_tool -id "@rpath/code_forge.framework/code_forge" $(APP_FRAMEWORKS)/code_forge.framework/Versions/A/code_forge
 	@plist=$(APP_FRAMEWORKS)/code_forge.framework/Versions/A/Resources/Info.plist; \
 	if [ ! -f $$plist ]; then \

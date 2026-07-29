@@ -49,7 +49,7 @@ PLIST
 # 4. 软链接（标准 macOS framework 结构）
 cd "$FWDIR"
 ln -sfh Versions/A/code_forge code_forge
-ln -sfh Versions/A Versions/Current
+ln -sfh A Versions/Current
 ln -sfh Versions/A/Resources Resources
 
 # 5. 改 install name
