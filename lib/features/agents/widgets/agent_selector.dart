@@ -4,6 +4,8 @@
 /// 选中的智能体决定聊天时使用的配置文件（模型、MCP、技能）。
 ///
 /// 与 [ModelSelector] 使用相同的 [PanelSelector] 组件，保持 UI 一致性。
+///
+/// 通过 [AgentStore.agents] 信号实时响应创建/删除操作。
 library;
 
 import 'package:flutter/material.dart';
@@ -29,9 +31,7 @@ class AgentSelector extends HookWidget {
 
     // 首次挂载时扫描（列表为空才触发）
     useEffect(() {
-      if (agents.isEmpty) {
-        store.refresh();
-      }
+      store.refresh();
       return null;
     }, const []);
 
@@ -41,14 +41,12 @@ class AgentSelector extends HookWidget {
         : kGlobalAgentId;
 
     if (agents.isEmpty) {
-      return AppIcon(
-        'chevronDown',
-        size: custom.typography.bodySize,
-        color: custom.colors.textSecondary,
-      );
+      return const SizedBox.shrink();
     }
 
+    // 用 agents.length + effectiveId 做 key，保证智能体列表变化时 PanelSelector 完全重建
     return PanelSelector<String>(
+      key: ValueKey('agent_${agents.length}_$effectiveId'),
       value: effectiveId,
       placeholder: '选择智能体',
       options: [
