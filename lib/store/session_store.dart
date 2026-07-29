@@ -17,6 +17,7 @@ import 'package:agent/rust_bridge/events.dart';
 
 import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
+import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/message_queue_store.dart';
@@ -181,7 +182,7 @@ class SessionStore {
   }) async {
     final service = LlmService();
     final dbPath = ConfigStore.instance.dbPath;
-    final configPath = ConfigStore.instance.configPath;
+    final configPath = AgentStore.instance.currentConfigPath.value;
     final s = _ensureState(sessionId);
 
     // ── 用户消息直接显示 ──
@@ -244,7 +245,7 @@ class SessionStore {
   }) async {
     final service = LlmService();
     final dbPath = ConfigStore.instance.dbPath;
-    final configPath = ConfigStore.instance.configPath;
+    final configPath = AgentStore.instance.currentConfigPath.value;
     final s = _ensureState(sessionId);
 
     // 1. 更新本地用户消息的文本内容
@@ -424,9 +425,10 @@ class SessionStore {
     final text = await api.consumeNonSteer(sessionId: sessionId);
     if (text == null) return;
 
-    // 复用 sendMessage 路径
-    final provider = ConfigStore.instance.currentProvider.value;
-    final model = ConfigStore.instance.currentModel.value;
+    // 复用 sendMessage 路径（跟随当前智能体的模型配置）
+    final resolved = AgentStore.instance.resolveModel();
+    final provider = resolved.provider;
+    final model = resolved.model;
     if (provider.isEmpty || model.isEmpty) return;
 
     sendMessage(

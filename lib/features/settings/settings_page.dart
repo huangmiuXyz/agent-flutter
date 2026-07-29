@@ -4,6 +4,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import 'package:agent/features/agents/models/agent_info.dart';
+import 'package:agent/features/agents/pages/agent_edit_page.dart';
+import 'package:agent/features/agents/pages/agent_list_page.dart';
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/add_mcp_server_page.dart';
@@ -24,13 +27,14 @@ import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Settings category tabs.
-enum SettingsTab { advanced, models, mcp, skills }
+enum SettingsTab { advanced, models, mcp, skills, agents }
 
 const _sidebarsItems = [
   _TabItem(SettingsTab.advanced, '高级', 'settings'),
   _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
   _TabItem(SettingsTab.mcp, 'MCP 服务器', 'server'),
   _TabItem(SettingsTab.skills, '技能', 'puzzle'),
+  _TabItem(SettingsTab.agents, '智能体', 'robot'),
 ];
 
 class _TabItem {
@@ -54,6 +58,8 @@ class SettingsPage extends HookWidget {
     final selectedMcpDetail = useState<McpServerInfo?>(null);
     final selectedSkill = useState<SkillInfo?>(null);
     final skills = useState<List<SkillInfo>>([]);
+    final selectedAgent = useState<AgentInfo?>(null);
+    final showAgentEditor = useState(false);
 
     // ── 切换到技能 tab 时自动扫描 ──
     useEffect(() {
@@ -130,6 +136,31 @@ class SettingsPage extends HookWidget {
             },
           );
         }
+      case SettingsTab.agents:
+        if (showAgentEditor.value) {
+          content = AgentEditPage(
+            agent: selectedAgent.value,
+            onBack: () {
+              showAgentEditor.value = false;
+              selectedAgent.value = null;
+            },
+            onSaved: () {
+              showAgentEditor.value = false;
+              selectedAgent.value = null;
+            },
+          );
+        } else {
+          content = AgentListPage(
+            onAgentTap: (a) {
+              selectedAgent.value = a;
+              showAgentEditor.value = true;
+            },
+            onCreateTap: () {
+              selectedAgent.value = null;
+              showAgentEditor.value = true;
+            },
+          );
+        }
     }
 
     return Scaffold(
@@ -172,6 +203,8 @@ class SettingsPage extends HookWidget {
                               selectedMcp.value = null;
                               showAddMcp.value = false;
                               selectedSkill.value = null;
+                              selectedAgent.value = null;
+                              showAgentEditor.value = false;
                             },
                           ),
                       ],

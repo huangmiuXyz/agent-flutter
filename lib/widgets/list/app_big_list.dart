@@ -175,8 +175,6 @@ class AppBigRow extends HookWidget {
                 ? Row(mainAxisSize: MainAxisSize.min, children: actions!)
                 : null,
           ),
-          // ---- Full-width bottom separator (matches Electron's ::after) ----
-          Container(height: 1, color: custom.colors.separator),
         ],
       ),
     );

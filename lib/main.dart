@@ -12,6 +12,8 @@ import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
 import 'services/engine/engine_client.dart';
 import 'services/engine/frontend_tools.dart';
+import 'store/session_store.dart';
+import 'store/xterm_store.dart';
 import 'services/sync/app_sync.dart';
 import 'services/llm/llm_service.dart';
 import 'theme/app_theme.dart';
@@ -97,6 +99,12 @@ void main() async {
 
       await windowManager.ensureInitialized();
 
+      // ── 主窗口关闭拦截：清理资源再退出 ──
+      await windowManager.setPreventClose(true);
+      windowManager.addListener(
+        WindowCloseIntercept(() => unawaited(_cleanupAndCloseMainWindow())),
+      );
+
       const windowOptions = WindowOptions(
         size: Size(1200, 900),
         minimumSize: Size(400, 300),
@@ -124,6 +132,35 @@ void main() async {
       );
     },
   );
+}
+
+/// 主窗口关闭时的资源清理。
+///
+/// 在用户关闭主窗口时依次执行：
+/// 1. 取消所有活跃的 LLM 流（abort Rust 后台 task）
+/// 2. 杀死所有 PTY 子进程（避免孤儿进程）
+/// 3. 断开引擎事件流
+/// 4. 短暂等待后台线程 flush
+Future<void> _cleanupAndCloseMainWindow() async {
+  try {
+    // 1. 取消所有活跃流
+    for (final sessionId in SessionStore.instance.streamingSessionIds.value) {
+      await SessionStore.instance.cancelStreaming(sessionId);
+    }
+
+    // 2. 杀死所有 PTY 子进程
+    XtermStore.instance.disposeAll();
+
+    // 3. 断开引擎事件流
+    await EngineClient.instance.disconnect();
+
+    // 4. 给后台线程一点时间 flush（日志、DB 等）
+    await Future.delayed(const Duration(milliseconds: 300));
+  } catch (_) {
+    // 清理失败不影响窗口关闭
+  }
+
+  await windowManager.destroy();
 }
 
 /// Intercepts the native close event and runs [onClose] instead.

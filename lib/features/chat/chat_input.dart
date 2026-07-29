@@ -4,9 +4,10 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:agent/features/chat/chat_fleather.dart';
+import 'package:agent/features/agents/store/agent_store.dart';
+import 'package:agent/features/agents/widgets/agent_selector.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
-import 'package:agent/store/config_store.dart';
+import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -48,8 +49,9 @@ class ChatInput extends HookWidget {
         return;
       }
 
-      final provider = ConfigStore.instance.currentProvider.value;
-      final model = ConfigStore.instance.currentModel.value;
+      final resolved = AgentStore.instance.resolveModel();
+      final provider = resolved.provider;
+      final model = resolved.model;
       if (provider.isEmpty || model.isEmpty) return;
 
       sending.value = true;
@@ -89,7 +91,7 @@ class ChatInput extends HookWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Spacer(),
+                  const AgentSelector(),
                   const ModelSelector(),
                   SizedBox(width: custom.spacing.xs),
                   SignalBuilder(
