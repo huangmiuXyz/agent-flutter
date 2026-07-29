@@ -174,9 +174,9 @@ Rust 侧唯一变化：`chat_stream` 接受的 `config_path` 不再固定为根�
     │
     └── 智能体编辑页 (AgentEditPage)
         ├── 基本信息（名称、描述、头像）
-        ├── default_model（从全局已有模型列表中选择）
-        ├── MCP 服务器（从全局已有 mcpServers 列表中勾选）
-        ├── 技能启禁（从已扫描到的全局技能中勾选）
+        ├── default_model（`AppSelect` 从全局已有模型列表中选择）
+        ├── MCP 服务器（`AppMultiSelect` 从全局已有 mcpServers 列表中勾选）
+        ├── 技能启禁（`AppMultiSelect` 从已扫描到的全局技能中勾选）
         ├── work_dir（可选）
         └── [保存] [从全局导入] [重置]
 ```
@@ -620,16 +620,16 @@ AgentEditPage
 │   └── TextField: 描述
 │
 ├── default_model 区
-│   ├── DropdownButton: provider（从全局 model 列表选择）
-│   └── DropdownButton: model（根据选中的 provider 过滤）
+│   ├── AppSelect: provider（从全局 model 列表选择）
+│   └── AppSelect: model（根据选中的 provider 过滤）
 │
 ├── MCP 服务器区
-│   ├── 从全局 mcpServers 列表中渲染 CheckboxListTile
-│   └── 勾选的写入智能体配置的 mcpServers
+│   ├── AppMultiSelect: 从全局 mcpServers 列表中勾选
+│   └── value: Set<String> 存储已选服务器名
 │
 ├── 技能区
-│   ├── 从已扫描的全局技能列表渲染 toggle
-│   └── 启用的写入智能体配置的 skills
+│   ├── AppMultiSelect: 从已扫描的全局技能列表中勾选
+│   └── value: Set<String> 存储已启用的技能 ID
 │
 ├── work_dir 区
 │   └── TextField: 工作目录

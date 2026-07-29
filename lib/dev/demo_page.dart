@@ -27,6 +27,7 @@ import 'package:agent/dev/fleather_demo.dart';
 import 'package:agent/features/chat/chat_page.dart';
 import 'package:agent/dev/reactive_demo.dart';
 import 'package:agent/dev/big_list_demo.dart';
+import 'package:agent/dev/multi_select_demo.dart';
 
 import 'package:agent/widgets/resizebox/resizebox.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
@@ -66,6 +67,7 @@ class DemoPage extends HookWidget {
                   const ChatDemo(),
                   const ReactiveDemo(),
                   const BigListDemo(),
+                  const MultiSelectDemo(),
                 ],
               ),
             ),
@@ -166,6 +168,12 @@ class DemoPage extends HookWidget {
                           label: 'BigList',
                           active: selectedIndex.value == 15,
                           onTap: () => selectedIndex.value = 15,
+                        ),
+                        AppListItem(
+                          icon: 'checkSquare2',
+                          label: 'MultiSelect',
+                          active: selectedIndex.value == 16,
+                          onTap: () => selectedIndex.value = 16,
                         ),
                         _SidebarInlineField(selectedIndex: selectedIndex),
                       ],
