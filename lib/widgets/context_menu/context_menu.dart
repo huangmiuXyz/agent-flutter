@@ -70,6 +70,7 @@ class ContextMenu {
   static double? _lastMaxHeight;
   static bool _lastAutoFocus = true;
   static LayerLink? _lastLink;
+  static bool _lastAlignRight = false;
   static VoidCallback? _lastOnDismiss;
 
   static void dismiss() {
@@ -91,6 +92,7 @@ class ContextMenu {
     double? maxHeight,
     bool autoFocus = true,
     LayerLink? link,
+    bool alignRight = false,
     VoidCallback? onDismiss,
   }) {
     // Store latest params so the overlay builder picks them up.
@@ -100,6 +102,7 @@ class ContextMenu {
     _lastMaxHeight = maxHeight;
     _lastAutoFocus = autoFocus;
     _lastLink = link;
+    _lastAlignRight = alignRight;
     _lastOnDismiss = onDismiss;
 
     if (_overlayEntry != null) {
@@ -121,6 +124,7 @@ class ContextMenu {
         maxHeight: _lastMaxHeight,
         link: _lastLink,
         autoFocus: _lastAutoFocus,
+        alignRight: _lastAlignRight,
         onDismiss: () {
           dismiss();
           _lastOnDismiss?.call();
@@ -166,6 +170,7 @@ class _MenuOverlay extends HookWidget {
   final double? maxHeight;
   final bool autoFocus;
   final LayerLink? link;
+  final bool alignRight;
   final VoidCallback onDismiss;
   final void Function(bool)? onHoverChanged;
 
@@ -177,6 +182,7 @@ class _MenuOverlay extends HookWidget {
     this.maxHeight,
     this.autoFocus = true,
     this.link,
+    this.alignRight = false,
     this.onHoverChanged,
   });
 
@@ -253,10 +259,12 @@ class _MenuOverlay extends HookWidget {
         if (link != null)
           CompositedTransformFollower(
             link: link!,
-            targetAnchor: showAbove ? Alignment.topLeft : Alignment.bottomLeft,
+            targetAnchor: showAbove
+                ? (alignRight ? Alignment.topRight : Alignment.topLeft)
+                : (alignRight ? Alignment.bottomRight : Alignment.bottomLeft),
             followerAnchor: showAbove
-                ? Alignment.bottomLeft
-                : Alignment.topLeft,
+                ? (alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
+                : (alignRight ? Alignment.topRight : Alignment.topLeft),
             offset: Offset(
               0,
               showAbove

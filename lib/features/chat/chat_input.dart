@@ -92,6 +92,7 @@ class ChatInput extends HookWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   AgentSelector(),
+                  SizedBox(width: custom.spacing.xs),
                   ModelSelector(),
                   SizedBox(width: custom.spacing.xs),
                   SignalBuilder(

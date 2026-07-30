@@ -120,6 +120,7 @@ class PanelSelector<T> extends HookWidget {
 
     // 上次打开菜单时的位置，用于原地刷新
     final lastPosition = useRef<Offset?>(null);
+    final lastAlignRight = useRef<bool>(false);
 
     /// Build the menu items list, grouping by the `group` key.
     List<MenuItem> buildMenuItems() {
@@ -194,6 +195,7 @@ class PanelSelector<T> extends HookWidget {
           position: lastPosition.value!,
           minWidth: menuMinWidth,
           link: layerLink,
+          alignRight: lastAlignRight.value,
           items: buildMenuItems(),
         );
       });
@@ -209,16 +211,20 @@ class PanelSelector<T> extends HookWidget {
       final position = renderBox.localToGlobal(Offset.zero);
       lastPosition.value = position;
 
-      // Place the menu above the button, left-aligned.
-      // The anchor point is the top-left of the button; the menu will appear
-      // above it so it never blocks the selection box.
-      final menuPosition = Offset(position.dx, position.dy);
+      // 判断按钮是否靠近屏幕右侧，靠近时菜单靠右对齐，避免右侧出界
+      final viewport = View.of(context);
+      final screenWidth =
+          viewport.physicalSize.width / viewport.devicePixelRatio;
+      final buttonRight = position.dx + renderBox.size.width;
+      final alignRight = buttonRight > screenWidth / 2;
+      lastAlignRight.value = alignRight;
 
       ContextMenu.show(
         context,
-        position: menuPosition,
+        position: position,
         minWidth: menuMinWidth,
         link: layerLink,
+        alignRight: alignRight,
         items: buildMenuItems(),
       );
     }
