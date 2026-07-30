@@ -18,7 +18,7 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 class CrossWindowSync {
   CrossWindowSync._();
 
-  static final _handlers = <String, List<void Function()>>{};
+  static final _handlers = <String, List<void Function(dynamic)>>{};
   static WindowController? _controller;
 
   /// 初始化监听（每个窗口启动时调用一次）。
@@ -29,7 +29,7 @@ class CrossWindowSync {
         final list = _handlers[call.method];
         if (list != null) {
           for (final fn in list) {
-            fn();
+            fn(call.arguments);
           }
         }
         return null;
@@ -40,12 +40,12 @@ class CrossWindowSync {
   }
 
   /// 注册某类通知的监听。
-  static void on(String type, void Function() handler) {
+  static void on(String type, void Function(dynamic args) handler) {
     _handlers.putIfAbsent(type, () => []).add(handler);
   }
 
   /// 取消注册。
-  static void off(String type, void Function() handler) {
+  static void off(String type, void Function(dynamic args) handler) {
     final list = _handlers[type];
     if (list != null) {
       list.remove(handler);
@@ -54,13 +54,13 @@ class CrossWindowSync {
   }
 
   /// 广播通知到其他窗口。
-  static Future<void> notify(String type) async {
+  static Future<void> notify(String type, [dynamic args]) async {
     try {
       final all = await WindowController.getAll();
       final selfId = _controller?.windowId;
       for (final w in all) {
         if (w.windowId != selfId) {
-          unawaited(w.invokeMethod(type).catchError((_) {}));
+          unawaited(w.invokeMethod(type, args).catchError((_) {}));
         }
       }
     } catch (_) {

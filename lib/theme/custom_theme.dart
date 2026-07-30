@@ -47,6 +47,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
 
   static CustomTheme resolve(
     Brightness brightness, {
+    String? fontFamily,
     Map<AppColorRole, int> colorOverrides = const {},
     FontWeight fontWeight = FontWeight.w400,
     double fontSizeScale = 1.0,
@@ -55,6 +56,7 @@ class CustomTheme extends ThemeExtension<CustomTheme> {
     return base.copyWith(
       colors: base.colors.apply(colorOverrides),
       typography: base.typography.copyWith(
+        fontFamily: fontFamily,
         bodyWeight: fontWeight,
         fontSizeScale: fontSizeScale,
       ),

@@ -11,6 +11,7 @@ import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/add_mcp_server_page.dart';
 import 'package:agent/features/settings/pages/add_provider_page.dart';
+import 'package:agent/features/settings/pages/display_settings_page.dart';
 import 'package:agent/features/settings/pages/mcp_detail_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
@@ -26,9 +27,10 @@ import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Settings category tabs.
-enum SettingsTab { models, mcp, skills, agents }
+enum SettingsTab { display, models, mcp, skills, agents }
 
 const _sidebarsItems = [
+  _TabItem(SettingsTab.display, '显示', 'palette'),
   _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
   _TabItem(SettingsTab.mcp, 'MCP 服务器', 'server'),
   _TabItem(SettingsTab.skills, '技能', 'puzzle'),
@@ -85,6 +87,8 @@ class SettingsPage extends HookWidget {
     // ── Right content ──
     Widget content;
     switch (activeTab.value) {
+      case SettingsTab.display:
+        content = const DisplaySettingsPage();
       case SettingsTab.models:
         if (showAddProvider.value) {
           content = AddProviderPage(

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import 'package:agent/theme/app_tokens.dart';
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/markdown/markdown_preview.dart';
 
 /// 文本 Part — 渲染纯文本或 Markdown 内容
@@ -34,10 +34,16 @@ class ChatTextPart extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
+    final custom = CustomTheme.of(context);
+
     return MarkdownPreview(
       text: text,
       selectable: true,
-      textStyle: TextStyle(fontFamily: defaultFontFamily),
+      textStyle: textStyleForFont(
+        custom.typography.effectiveFontFamily ?? kDefaultFontFamily,
+        fontSize: custom.typography.bodySize,
+        color: custom.colors.textPrimary,
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:signals/signals.dart';
 
+import 'package:agent/theme/app_tokens.dart';
 import 'package:agent/theme/app_theme.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/theme_settings.dart';
@@ -14,6 +15,7 @@ class ThemeStore {
   // ── state ──
 
   final themeMode = signal(ThemeMode.system);
+  final fontFamily = signal(kDefaultFontFamily);
   final fontWeightValue = signal(400);
   final fontSizeScale = signal(1.0);
   final lightOverrides = signal(<AppColorRole, int>{});
@@ -25,6 +27,7 @@ class ThemeStore {
   late final settings = computed(
     () => ThemeSettings(
       themeMode: themeMode.value,
+      fontFamily: fontFamily.value,
       fontWeightValue: fontWeightValue.value,
       fontSizeScale: fontSizeScale.value,
       lightOverrides: lightOverrides.value,
@@ -83,6 +86,7 @@ class ThemeStore {
 
   void resetAll() {
     themeMode.value = ThemeMode.system;
+    fontFamily.value = kDefaultFontFamily;
     fontWeightValue.value = 400;
     fontSizeScale.value = 1.0;
     lightOverrides.value = {};
@@ -97,6 +101,7 @@ class ThemeStore {
         : s.lightOverrides;
     return CustomTheme.resolve(
       brightness,
+      fontFamily: s.fontFamily,
       colorOverrides: overrides,
       fontWeight: s.fontWeight,
       fontSizeScale: s.fontSizeScale,

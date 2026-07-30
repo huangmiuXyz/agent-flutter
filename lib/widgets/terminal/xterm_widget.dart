@@ -57,13 +57,15 @@ class XtermTerminalWidget extends HookWidget {
       return null;
     }, [visible, id]);
 
-    final brightness = useExistingSignal(ThemeStore.instance.effectiveBrightness);
+    final brightness = useExistingSignal(
+      ThemeStore.instance.effectiveBrightness,
+    );
     final theme = buildTerminalTheme(custom, brightness.value);
     // 终端必须使用等宽字体
     final textStyle = useMemoized(
       () => TerminalStyle(
         fontSize: custom.typography.bodySize,
-        fontFamily: defaultFontFamily,
+        fontFamily: kDefaultFontFamily,
       ),
       [custom.typography.bodySize],
     );

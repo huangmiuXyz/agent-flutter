@@ -12,6 +12,8 @@ import 'package:signals/signals.dart';
 import 'package:agent/services/sync/cross_window_sync.dart';
 import 'package:agent/store/code_forge_store.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/setting_store.dart';
+import 'package:agent/store/theme_store.dart';
 
 /// 防循环标志
 bool _syncing = false;
@@ -37,6 +39,10 @@ Future<void> initAppSync() async {
   // 同上，先主动初始化再注册 observer，避免 re-entrant。
   _filePathSignal = CodeForgeStore.instance.filePath;
 
+  // 主动初始化 SettingStore，并同步到 ThemeStore
+  final settingStore = SettingStore.instance;
+  ThemeStore.instance.fontFamily.value = settingStore.fontFamily;
+
   // 全局监听本地 signal 变化
   SignalsObserver.instance = _SignalObserver();
 
@@ -45,19 +51,42 @@ Future<void> initAppSync() async {
 
   // 监听远端通知 → reload CodeForgeStore
   CrossWindowSync.on('fileOpened', _handleRemoteFileOpened);
+
+  // 监听远端通知 → sync font family (direct, no file reload needed)
+  CrossWindowSync.on('fontFamilyChanged', _handleRemoteFontFamilyChanged);
+
+  // 监听远端通知 → reload SettingStore 并同步到 ThemeStore
+  CrossWindowSync.on('settingChanged', _handleRemoteSettingChanged);
 }
 
-void _handleRemoteConfigChanged() {
+void _handleRemoteConfigChanged(dynamic args) {
   if (_syncing) return;
   _syncing = true;
   ConfigStore.instance.reload();
   _syncing = false;
 }
 
-void _handleRemoteFileOpened() {
+void _handleRemoteFileOpened(dynamic args) {
   if (_syncing) return;
   _syncing = true;
   CodeForgeStore.instance.reload();
+  _syncing = false;
+}
+
+void _handleRemoteFontFamilyChanged(dynamic args) {
+  if (_syncing) return;
+  _syncing = true;
+  if (args is String) {
+    ThemeStore.instance.fontFamily.value = args;
+  }
+  _syncing = false;
+}
+
+void _handleRemoteSettingChanged(dynamic args) {
+  if (_syncing) return;
+  _syncing = true;
+  SettingStore.instance.reload();
+  ThemeStore.instance.fontFamily.value = SettingStore.instance.fontFamily;
   _syncing = false;
 }
 
@@ -72,6 +101,15 @@ class _SignalObserver extends SignalsObserver {
     }
     if (identical(instance, _filePathSignal)) {
       unawaited(CrossWindowSync.notify('fileOpened'));
+    }
+    // Broadcast font family changes to other windows
+    if (identical(instance, ThemeStore.instance.fontFamily)) {
+      unawaited(CrossWindowSync.notify('fontFamilyChanged', value));
+    }
+
+    // SettingStore.data 变化 → 持久化 + 广播到其他窗口
+    if (identical(instance, SettingStore.instance.data)) {
+      unawaited(CrossWindowSync.notify('settingChanged'));
     }
   }
 

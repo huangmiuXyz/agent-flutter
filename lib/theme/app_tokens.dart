@@ -1,8 +1,105 @@
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-const String defaultFontFamily = 'JetBrainsMono';
+/// 本地捆绑字体名（JetBrainsMono 已打包在 assets 中，无需网络）。
+const String kDefaultFontFamily = 'JetBrainsMono';
+
+/// 构建 [TextStyle]：默认字体走本地捆绑，其他字体走 [GoogleFonts] 云端加载。
+TextStyle textStyleForFont(
+  String fontFamily, {
+  double? fontSize,
+  FontWeight? fontWeight,
+  Color? color,
+}) {
+  if (fontFamily == kDefaultFontFamily) {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    );
+  }
+  return GoogleFonts.getFont(
+    fontFamily,
+    fontSize: fontSize,
+    fontWeight: fontWeight,
+    color: color,
+  );
+}
+
+/// Available Google Font options for display settings.
+const List<Map<String, String>> kFontOptions = [
+  // ── 本地捆绑（无需网络） ──
+  {'label': 'JetBrains Mono', 'family': 'JetBrainsMono'},
+
+  // ── 中文/日文/韩文 ──
+  {'label': 'Noto Sans SC', 'family': 'Noto Sans SC'},
+  {'label': 'Noto Sans TC', 'family': 'Noto Sans TC'},
+  {'label': 'Noto Sans JP', 'family': 'Noto Sans JP'},
+  {'label': 'Noto Sans KR', 'family': 'Noto Sans KR'},
+  {'label': 'Noto Serif SC', 'family': 'Noto Serif SC'},
+  {'label': 'Source Han Sans SC', 'family': 'Source Han Sans SC'},
+  {'label': 'Source Han Serif SC', 'family': 'Source Han Serif SC'},
+  {'label': 'Ma Shan Zheng', 'family': 'Ma Shan Zheng'},
+  {'label': 'ZCOOL XiaoWei', 'family': 'ZCOOL XiaoWei'},
+  {'label': 'ZCOOL QingKe HuangYou', 'family': 'ZCOOL QingKe HuangYou'},
+  {'label': 'Liu Jian Mao Cao', 'family': 'Liu Jian Mao Cao'},
+  {'label': 'Zhi Mang Xing', 'family': 'Zhi Mang Xing'},
+  {'label': 'Long Cang', 'family': 'Long Cang'},
+
+  // ── 无衬线体 ──
+  {'label': 'Inter', 'family': 'Inter'},
+  {'label': 'Roboto', 'family': 'Roboto'},
+  {'label': 'Noto Sans', 'family': 'Noto Sans'},
+  {'label': 'Open Sans', 'family': 'Open Sans'},
+  {'label': 'Lato', 'family': 'Lato'},
+  {'label': 'Montserrat', 'family': 'Montserrat'},
+  {'label': 'Poppins', 'family': 'Poppins'},
+  {'label': 'Nunito', 'family': 'Nunito'},
+  {'label': 'Ubuntu', 'family': 'Ubuntu'},
+  {'label': 'Rubik', 'family': 'Rubik'},
+  {'label': 'Manrope', 'family': 'Manrope'},
+  {'label': 'Figtree', 'family': 'Figtree'},
+  {'label': 'Plus Jakarta Sans', 'family': 'Plus Jakarta Sans'},
+  {'label': 'DM Sans', 'family': 'DM Sans'},
+  {'label': 'Work Sans', 'family': 'Work Sans'},
+  {'label': 'Outfit', 'family': 'Outfit'},
+  {'label': 'Sora', 'family': 'Sora'},
+  {'label': 'Onest', 'family': 'Onest'},
+
+  // ── 衬线体 ──
+  {'label': 'Noto Serif', 'family': 'Noto Serif'},
+  {'label': 'Merriweather', 'family': 'Merriweather'},
+  {'label': 'Playfair Display', 'family': 'Playfair Display'},
+  {'label': 'Lora', 'family': 'Lora'},
+  {'label': 'PT Serif', 'family': 'PT Serif'},
+  {'label': 'Source Serif 4', 'family': 'Source Serif 4'},
+  {'label': 'Bitter', 'family': 'Bitter'},
+  {'label': 'Libre Baskerville', 'family': 'Libre Baskerville'},
+
+  // ── 等宽字体 ──
+  {'label': 'Fira Code', 'family': 'Fira Code'},
+  {'label': 'Cascadia Code', 'family': 'Cascadia Code'},
+  {'label': 'Source Code Pro', 'family': 'Source Code Pro'},
+  {'label': 'IBM Plex Mono', 'family': 'IBM Plex Mono'},
+  {'label': 'Space Mono', 'family': 'Space Mono'},
+  {'label': 'Victor Mono', 'family': 'Victor Mono'},
+  {'label': 'Inconsolata', 'family': 'Inconsolata'},
+  {'label': 'Fira Mono', 'family': 'Fira Mono'},
+  {'label': 'Courier Prime', 'family': 'Courier Prime'},
+
+  // ── 展示/装饰字体 ──
+  {'label': 'Pacifico', 'family': 'Pacifico'},
+  {'label': 'Dancing Script', 'family': 'Dancing Script'},
+  {'label': 'Caveat', 'family': 'Caveat'},
+  {'label': 'Kalam', 'family': 'Kalam'},
+  {'label': 'Rowdies', 'family': 'Rowdies'},
+  {'label': 'Bebas Neue', 'family': 'Bebas Neue'},
+  {'label': 'Anton', 'family': 'Anton'},
+  {'label': 'Righteous', 'family': 'Righteous'},
+];
 
 @immutable
 class AppSpacing {
@@ -163,7 +260,7 @@ class AppControls {
 @immutable
 class AppTypography {
   const AppTypography({
-    this.fontFamily = defaultFontFamily,
+    this.fontFamily = kDefaultFontFamily,
     this.captionSize = 12,
     this.bodySize = 14,
     this.subtitleSize = 16,
@@ -184,10 +281,14 @@ class AppTypography {
 
   String? get effectiveFontFamily => fontFamily;
 
-  AppTypography copyWith({FontWeight? bodyWeight, double? fontSizeScale}) {
+  AppTypography copyWith({
+    String? fontFamily,
+    FontWeight? bodyWeight,
+    double? fontSizeScale,
+  }) {
     final scale = fontSizeScale ?? 1.0;
     return AppTypography(
-      fontFamily: fontFamily,
+      fontFamily: fontFamily ?? this.fontFamily,
       captionSize: captionSize * scale,
       bodySize: bodySize * scale,
       subtitleSize: subtitleSize * scale,
@@ -200,11 +301,11 @@ class AppTypography {
 
   TextStyle styleForSize(double size, Color color, {FontWeight? weight}) {
     final effectiveWeight = weight ?? bodyWeight;
-    return TextStyle(
-      color: color,
-      fontFamily: fontFamily,
+    return textStyleForFont(
+      fontFamily ?? kDefaultFontFamily,
       fontSize: size,
       fontWeight: effectiveWeight,
+      color: color,
     );
   }
 

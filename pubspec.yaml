@@ -30,6 +30,8 @@ dependencies:
   desktop_multi_window: ^0.3.0
   watcher: ^1.2.1
   file_picker: ^11.0.2
+  google_fonts: ^8.2.0
+  path_provider: ^2.1.6
 
   code_forge:
     path: .patches/code_forge

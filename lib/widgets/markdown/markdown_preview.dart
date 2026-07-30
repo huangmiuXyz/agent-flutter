@@ -141,7 +141,7 @@ class MarkdownPreview extends StatelessWidget {
     // Default to the app's global font family when no explicit textStyle
     // is provided.
     final effectiveTextStyle =
-        textStyle ?? TextStyle(fontFamily: defaultFontFamily);
+        textStyle ?? textStyleForFont(kDefaultFontFamily);
 
     if (text != null) {
       return Streamdown.text(

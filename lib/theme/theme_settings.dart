@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app_tokens.dart';
 import 'custom_theme.dart';
 
 @immutable
@@ -7,6 +8,7 @@ class ThemeSettings {
   const ThemeSettings({
     this.themeMode = ThemeMode.system,
     this.presetId = 'default',
+    this.fontFamily = kDefaultFontFamily,
     this.fontWeightValue = 400,
     this.fontSizeScale = 1.0,
     this.lightOverrides = const {},
@@ -15,6 +17,7 @@ class ThemeSettings {
 
   final ThemeMode themeMode;
   final String presetId;
+  final String fontFamily;
   final int fontWeightValue;
   final double fontSizeScale;
   final Map<AppColorRole, int> lightOverrides;
@@ -41,6 +44,7 @@ class ThemeSettings {
   ThemeSettings copyWith({
     ThemeMode? themeMode,
     String? presetId,
+    String? fontFamily,
     int? fontWeightValue,
     double? fontSizeScale,
     Map<AppColorRole, int>? lightOverrides,
@@ -48,6 +52,7 @@ class ThemeSettings {
   }) => ThemeSettings(
     themeMode: themeMode ?? this.themeMode,
     presetId: presetId ?? this.presetId,
+    fontFamily: fontFamily ?? this.fontFamily,
     fontWeightValue: fontWeightValue ?? this.fontWeightValue,
     fontSizeScale: fontSizeScale ?? this.fontSizeScale,
     lightOverrides: lightOverrides ?? this.lightOverrides,
@@ -58,6 +63,7 @@ class ThemeSettings {
 extension ThemeSettingsResolution on ThemeSettings {
   CustomTheme get effectiveLight => CustomTheme.resolve(
     Brightness.light,
+    fontFamily: fontFamily,
     colorOverrides: lightOverrides,
     fontWeight: fontWeight,
     fontSizeScale: fontSizeScale,
@@ -65,6 +71,7 @@ extension ThemeSettingsResolution on ThemeSettings {
 
   CustomTheme get effectiveDark => CustomTheme.resolve(
     Brightness.dark,
+    fontFamily: fontFamily,
     colorOverrides: darkOverrides,
     fontWeight: fontWeight,
     fontSizeScale: fontSizeScale,

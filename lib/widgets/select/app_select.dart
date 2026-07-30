@@ -146,23 +146,24 @@ class AppSelect<T> extends HookWidget {
                       child: AppList(
                         size: AppListSize.small,
                         containerPadding: EdgeInsets.all(custom.spacing.xs),
-                        children: [
-                          for (final option in options)
-                            AppListItem(
-                              label: option.label,
-                              icon: option.icon,
-                              active: option.value == value,
-                              disabled: !option.enabled || !enabled,
-                              labelVariant: AppTextVariant.body,
-                              intrinsicHeight: true,
-                              onTap: option.enabled && enabled
-                                  ? () {
-                                      isOpen.value = false;
-                                      onChanged?.call(option.value);
-                                    }
-                                  : null,
-                            ),
-                        ],
+                        itemCount: options.length,
+                        itemBuilder: (context, index, isFocused) {
+                          final option = options[index];
+                          return AppListItem(
+                            label: option.label,
+                            icon: option.icon,
+                            active: option.value == value,
+                            disabled: !option.enabled || !enabled,
+                            labelVariant: AppTextVariant.body,
+                            intrinsicHeight: true,
+                            onTap: option.enabled && enabled
+                                ? () {
+                                    isOpen.value = false;
+                                    onChanged?.call(option.value);
+                                  }
+                                : null,
+                          );
+                        },
                       ),
                     ),
                   ),

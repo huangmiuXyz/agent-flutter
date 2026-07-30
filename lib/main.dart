@@ -71,7 +71,9 @@ void main() async {
 
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             await windowManager.ensureInitialized();
-            await windowManager.setTitle('编辑 — ${store.filePath.value.split('/').last}');
+            await windowManager.setTitle(
+              '编辑 — ${store.filePath.value.split('/').last}',
+            );
             await windowManager.center();
             await windowManager.focus();
             await windowManager.setPreventClose(true);
@@ -82,11 +84,13 @@ void main() async {
 
           await initAppSync();
           // 监听其他窗口发来的文件切换通知
-          CrossWindowSync.on('fileOpened', () {
+          CrossWindowSync.on('fileOpened', (_) {
             store.reload();
-            unawaited(windowManager.setTitle(
-              '编辑 — ${store.filePath.value.split('/').last}',
-            ));
+            unawaited(
+              windowManager.setTitle(
+                '编辑 — ${store.filePath.value.split('/').last}',
+              ),
+            );
           });
 
           runApp(

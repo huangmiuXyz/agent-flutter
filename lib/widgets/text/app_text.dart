@@ -46,13 +46,11 @@ class AppText extends StatelessWidget {
 
     return Text(
       data,
-      style: TextStyle(fontFamily: defaultFontFamily)
-          .merge(
-            typography.styleForSize(
-              fontSize,
-              color ?? theme.colors.textPrimary,
-              weight: defaultWeight,
-            ),
+      style: typography
+          .styleForSize(
+            fontSize,
+            color ?? theme.colors.textPrimary,
+            weight: defaultWeight,
           )
           .merge(style),
       textAlign: textAlign,
