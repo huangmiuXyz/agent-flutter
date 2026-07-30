@@ -10,6 +10,8 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -210,7 +212,22 @@ class SessionStore {
 
     // ── 触发后端任务（不 await Stream，事件通过 EngineClient 推送） ──
     try {
+      // 读取智能体的 system_prompt
+      String? agentPrompt;
+      try {
+        final raw = File(configPath).readAsStringSync();
+        final cfg = jsonDecode(raw) as Map<String, dynamic>;
+        agentPrompt = cfg['system_prompt'] as String?;
+      } catch (_) {
+        // 配置文件不可读/解析失败 → 忽略
+      }
+
       final catalog = SkillStore.instance.buildSkillCatalog();
+      final systemPrompt = [
+        if (agentPrompt != null && agentPrompt.isNotEmpty) agentPrompt,
+        if (catalog.isNotEmpty) catalog,
+      ].join('\n\n');
+
       await service.chatStream(
         configPath: configPath,
         provider: provider,
@@ -219,7 +236,7 @@ class SessionStore {
         userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
-        systemPrompt: catalog.isNotEmpty ? catalog : null,
+        systemPrompt: systemPrompt.isNotEmpty ? systemPrompt : null,
       );
     } catch (e) {
       // 启动失败：追加错误消息并清理流状态

@@ -70,6 +70,7 @@ class AgentEditPage extends HookWidget {
       text: isCreate ? '' : agent!.description,
     );
     final workDirController = useTextEditingController();
+    final promptController = useTextEditingController();
     final selectedProvider = useState<String?>(null);
     final selectedModel = useState<String?>(null);
     final selectedMcp = useState<Set<String>>({});
@@ -130,6 +131,7 @@ class AgentEditPage extends HookWidget {
           enabled.value =
               cfg['enable'] as bool? ?? false;
           workDirController.text = cfg['work_dir'] as String? ?? '';
+          promptController.text = cfg['system_prompt'] as String? ?? '';
           final dm = cfg['default_model'];
           if (dm is Map<String, dynamic>) {
             selectedProvider.value = dm['provider'] as String?;
@@ -195,7 +197,7 @@ class AgentEditPage extends HookWidget {
         }
 
         if (isGlobal) {
-          // 全局智能体：只更新 default_model 和 work_dir
+          // 全局智能体：只更新 default_model、work_dir 和 system_prompt
           if (selectedProvider.value != null && selectedModel.value != null) {
             cfg['default_model'] = {
               'provider': selectedProvider.value,
@@ -209,6 +211,12 @@ class AgentEditPage extends HookWidget {
             cfg['work_dir'] = workDir;
           } else {
             cfg.remove('work_dir');
+          }
+          final prompt = promptController.text.trim();
+          if (prompt.isNotEmpty) {
+            cfg['system_prompt'] = prompt;
+          } else {
+            cfg.remove('system_prompt');
           }
         } else {
           cfg['name'] = name;
@@ -231,6 +239,12 @@ class AgentEditPage extends HookWidget {
             cfg['work_dir'] = workDir;
           } else {
             cfg.remove('work_dir');
+          }
+          final prompt = promptController.text.trim();
+          if (prompt.isNotEmpty) {
+            cfg['system_prompt'] = prompt;
+          } else {
+            cfg.remove('system_prompt');
           }
 
           // MCP 服务器：从全局配置中拷贝勾选项的完整定义
@@ -395,6 +409,18 @@ class AgentEditPage extends HookWidget {
             controller: workDirController,
             label: 'work_dir（可选）',
             placeholder: '留空则跟随全局配置',
+          ),
+          SizedBox(height: custom.spacing.lg),
+
+          // ── 系统提示词 ──
+          AppText('系统提示词', variant: AppTextVariant.subtitle),
+          SizedBox(height: custom.spacing.sm),
+          AppField(
+            label: 'system_prompt（可选）',
+            placeholder: '为该智能体设定系统提示词，对话时自动注入',
+            controller: promptController,
+            maxLines: 6,
+            minLines: 3,
           ),
           SizedBox(height: custom.spacing.lg),
 
