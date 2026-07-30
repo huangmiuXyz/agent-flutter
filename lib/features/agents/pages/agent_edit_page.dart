@@ -221,7 +221,7 @@ class AgentEditPage extends HookWidget {
         }
 
         if (isGlobal) {
-          // 全局智能体：只更新 default_model、work_dir
+          // 全局智能体：只更新 default_model、work_dir、builtinTools
           if (selectedProvider.value != null && selectedModel.value != null) {
             cfg['default_model'] = {
               'provider': selectedProvider.value,
@@ -236,6 +236,11 @@ class AgentEditPage extends HookWidget {
           } else {
             cfg.remove('work_dir');
           }
+
+          // 内置工具：只写入启用的
+          cfg['builtinTools'] = {
+            for (final id in selectedTools.value) id: {'enabled': true},
+          };
         } else {
           cfg['name'] = name;
           cfg['description'] = descController.text.trim();
@@ -417,26 +422,26 @@ class AgentEditPage extends HookWidget {
               onChanged: (v) => selectedSkills.value = v,
             ),
             SizedBox(height: custom.spacing.lg),
+          ],
 
-            // ── 内置工具 ──
-            if (builtinToolOptions.value.isNotEmpty) ...[
-              AppText('内置工具', variant: AppTextVariant.subtitle),
-              SizedBox(height: custom.spacing.sm),
-              AppMultiSelect<String>(
-                label: '启用的工具',
-                placeholder: '勾选需要启用的内置工具',
-                value: selectedTools.value,
-                options: [
-                  for (final t in builtinToolOptions.value)
-                    AppMultiSelectOption(
-                      value: t.name,
-                      label: '${t.name} — ${t.description}',
-                    ),
-                ],
-                onChanged: (v) => selectedTools.value = v,
-              ),
-              SizedBox(height: custom.spacing.lg),
-            ],
+          // ── 内置工具（全局智能体也支持启禁内置工具）──
+          if (builtinToolOptions.value.isNotEmpty) ...[
+            AppText('内置工具', variant: AppTextVariant.subtitle),
+            SizedBox(height: custom.spacing.sm),
+            AppMultiSelect<String>(
+              label: '启用的工具',
+              placeholder: '勾选需要启用的内置工具',
+              value: selectedTools.value,
+              options: [
+                for (final t in builtinToolOptions.value)
+                  AppMultiSelectOption(
+                    value: t.name,
+                    label: '${t.name} — ${t.description}',
+                  ),
+              ],
+              onChanged: (v) => selectedTools.value = v,
+            ),
+            SizedBox(height: custom.spacing.lg),
           ],
 
           // ── 工作目录 ──
