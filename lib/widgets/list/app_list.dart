@@ -3,8 +3,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 
 // Re-export so callers can pass AppTextVariant without importing app_text.dart.
@@ -166,6 +166,10 @@ class AppList extends HookWidget {
   /// when the widget is inserted into the tree (e.g. for context menus).
   final bool autoFocus;
 
+  /// Placeholder text shown when the list has no items.
+  /// Defaults to `'无内容'`. Set to `null` to show nothing.
+  final String? emptyPlaceholder;
+
   const AppList({
     super.key,
     this.width,
@@ -181,6 +185,7 @@ class AppList extends HookWidget {
     this.size = AppListSize.normal,
     this.keyboardNavigable = false,
     this.autoFocus = false,
+    this.emptyPlaceholder = '无内容',
   }) : assert(
          (children != null ? 1 : 0) +
                  (itemBuilder != null ? 1 : 0) +
@@ -381,6 +386,18 @@ class AppList extends HookWidget {
             child: buildChild(i, child, isFocused: focusedIdx.value == i),
           );
         },
+      );
+    } else if (effectiveChildren.isEmpty && emptyPlaceholder != null) {
+      // Empty placeholder
+      listBody = Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: custom.spacing.md),
+          child: AppText(
+            emptyPlaceholder!,
+            variant: AppTextVariant.body,
+            color: custom.colors.textDisabled,
+          ),
+        ),
       );
     } else {
       // Static Column mode

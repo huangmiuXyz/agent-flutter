@@ -52,6 +52,7 @@ class AgentEditPage extends HookWidget {
   });
 
   bool get isCreate => agent == null;
+  bool get isGlobal => agent?.isGlobal ?? false;
 
   @override
   Widget build(BuildContext context) {
@@ -193,45 +194,63 @@ class AgentEditPage extends HookWidget {
           } catch (_) {}
         }
 
-        cfg['name'] = name;
-        cfg['description'] = descController.text.trim();
-        if (!enabled.value) {
-          cfg['enable'] = false;
+        if (isGlobal) {
+          // 全局智能体：只更新 default_model 和 work_dir
+          if (selectedProvider.value != null && selectedModel.value != null) {
+            cfg['default_model'] = {
+              'provider': selectedProvider.value,
+              'model': selectedModel.value,
+            };
+          } else {
+            cfg.remove('default_model');
+          }
+          final workDir = workDirController.text.trim();
+          if (workDir.isNotEmpty) {
+            cfg['work_dir'] = workDir;
+          } else {
+            cfg.remove('work_dir');
+          }
         } else {
-          cfg['enable'] = true;
-        }
-        if (selectedProvider.value != null && selectedModel.value != null) {
-          cfg['default_model'] = {
-            'provider': selectedProvider.value,
-            'model': selectedModel.value,
+          cfg['name'] = name;
+          cfg['description'] = descController.text.trim();
+          if (!enabled.value) {
+            cfg['enable'] = false;
+          } else {
+            cfg['enable'] = true;
+          }
+          if (selectedProvider.value != null && selectedModel.value != null) {
+            cfg['default_model'] = {
+              'provider': selectedProvider.value,
+              'model': selectedModel.value,
+            };
+          } else {
+            cfg.remove('default_model');
+          }
+          final workDir = workDirController.text.trim();
+          if (workDir.isNotEmpty) {
+            cfg['work_dir'] = workDir;
+          } else {
+            cfg.remove('work_dir');
+          }
+
+          // MCP 服务器：从全局配置中拷贝勾选项的完整定义
+          final globalMcp =
+              global['mcpServers'] as Map<String, dynamic>? ?? {};
+          cfg['mcpServers'] = {
+            for (final name in selectedMcp.value)
+              if (globalMcp.containsKey(name)) name: globalMcp[name],
           };
-        } else {
-          cfg.remove('default_model');
+
+          // 技能：只写入启用的
+          cfg['skills'] = {
+            for (final id in selectedSkills.value) id: {'enabled': true},
+          };
+
+          // 自包含：拷贝 provider 列表与模型凭证（聊天时按此配置寻址 LLM）
+          cfg['provider'] = global['provider'] ?? <String>[];
+          cfg['language_models'] =
+              global['language_models'] ?? <String, dynamic>{};
         }
-        final workDir = workDirController.text.trim();
-        if (workDir.isNotEmpty) {
-          cfg['work_dir'] = workDir;
-        } else {
-          cfg.remove('work_dir');
-        }
-
-        // MCP 服务器：从全局配置中拷贝勾选项的完整定义
-        final globalMcp =
-            global['mcpServers'] as Map<String, dynamic>? ?? {};
-        cfg['mcpServers'] = {
-          for (final name in selectedMcp.value)
-            if (globalMcp.containsKey(name)) name: globalMcp[name],
-        };
-
-        // 技能：只写入启用的
-        cfg['skills'] = {
-          for (final id in selectedSkills.value) id: {'enabled': true},
-        };
-
-        // 自包含：拷贝 provider 列表与模型凭证（聊天时按此配置寻址 LLM）
-        cfg['provider'] = global['provider'] ?? <String>[];
-        cfg['language_models'] =
-            global['language_models'] ?? <String, dynamic>{};
 
         final json = '${const JsonEncoder.withIndent('  ').convert(cfg)}\n';
 
@@ -249,6 +268,9 @@ class AgentEditPage extends HookWidget {
         }
 
         await AgentStore.instance.refresh();
+        if (isGlobal) {
+          configStore.reload();
+        }
         onSaved();
       } catch (e) {
         if (context.mounted) {
@@ -284,29 +306,31 @@ class AgentEditPage extends HookWidget {
           ),
           SizedBox(height: custom.spacing.lg),
 
-          // ── 基本信息 ──
-          AppText('基本信息', variant: AppTextVariant.subtitle),
-          SizedBox(height: custom.spacing.sm),
-          if (isCreate) ...[
+          if (!isGlobal) ...[
+            // ── 基本信息 ──
+            AppText('基本信息', variant: AppTextVariant.subtitle),
+            SizedBox(height: custom.spacing.sm),
+            if (isCreate) ...[
+              AppField(
+                label: '标识（文件夹名）',
+                placeholder: '如 code-reviewer，创建后不可修改',
+                controller: idController,
+              ),
+              SizedBox(height: custom.spacing.sm),
+            ],
             AppField(
-              label: '标识（文件夹名）',
-              placeholder: '如 code-reviewer，创建后不可修改',
-              controller: idController,
+              label: '名称',
+              placeholder: '显示名称（必填）',
+              controller: nameController,
             ),
             SizedBox(height: custom.spacing.sm),
+            AppField(
+              label: '描述',
+              placeholder: '这个智能体擅长什么？',
+              controller: descController,
+            ),
+            SizedBox(height: custom.spacing.lg),
           ],
-          AppField(
-            label: '名称',
-            placeholder: '显示名称（必填）',
-            controller: nameController,
-          ),
-          SizedBox(height: custom.spacing.sm),
-          AppField(
-            label: '描述',
-            placeholder: '这个智能体擅长什么？',
-            controller: descController,
-          ),
-          SizedBox(height: custom.spacing.lg),
 
           // ── 默认模型 ──
           AppText('默认模型', variant: AppTextVariant.subtitle),
@@ -332,35 +356,37 @@ class AgentEditPage extends HookWidget {
           ),
           SizedBox(height: custom.spacing.lg),
 
-          // ── MCP 服务器 ──
-          AppText('MCP 服务器', variant: AppTextVariant.subtitle),
-          SizedBox(height: custom.spacing.sm),
-          AppMultiSelect<String>(
-            label: '启用的服务器',
-            placeholder: '从全局 mcpServers 中勾选',
-            value: selectedMcp.value,
-            options: [
-              for (final s in mcpServers)
-                AppMultiSelectOption(value: s.name, label: s.name),
-            ],
-            onChanged: (v) => selectedMcp.value = v,
-          ),
-          SizedBox(height: custom.spacing.lg),
+          if (!isGlobal) ...[
+            // ── MCP 服务器 ──
+            AppText('MCP 服务器', variant: AppTextVariant.subtitle),
+            SizedBox(height: custom.spacing.sm),
+            AppMultiSelect<String>(
+              label: '启用的服务器',
+              placeholder: '从全局 mcpServers 中勾选',
+              value: selectedMcp.value,
+              options: [
+                for (final s in mcpServers)
+                  AppMultiSelectOption(value: s.name, label: s.name),
+              ],
+              onChanged: (v) => selectedMcp.value = v,
+            ),
+            SizedBox(height: custom.spacing.lg),
 
-          // ── 技能 ──
-          AppText('技能', variant: AppTextVariant.subtitle),
-          SizedBox(height: custom.spacing.sm),
-          AppMultiSelect<String>(
-            label: '启用的技能',
-            placeholder: '从全局已扫描技能中勾选',
-            value: selectedSkills.value,
-            options: [
-              for (final s in skills)
-                AppMultiSelectOption(value: s.id, label: s.name),
-            ],
-            onChanged: (v) => selectedSkills.value = v,
-          ),
-          SizedBox(height: custom.spacing.lg),
+            // ── 技能 ──
+            AppText('技能', variant: AppTextVariant.subtitle),
+            SizedBox(height: custom.spacing.sm),
+            AppMultiSelect<String>(
+              label: '启用的技能',
+              placeholder: '从全局已扫描技能中勾选',
+              value: selectedSkills.value,
+              options: [
+                for (final s in skills)
+                  AppMultiSelectOption(value: s.id, label: s.name),
+              ],
+              onChanged: (v) => selectedSkills.value = v,
+            ),
+            SizedBox(height: custom.spacing.lg),
+          ],
 
           // ── 工作目录 ──
           AppText('工作目录', variant: AppTextVariant.subtitle),
@@ -376,13 +402,13 @@ class AgentEditPage extends HookWidget {
           Row(
             children: [
               const Spacer(),
-              if (!isCreate)
+              if (!isCreate && !isGlobal)
                 AppSecondaryButton(
                   text: '删除',
                   size: ButtonSize.sm,
                   onPressed: () => _handleDelete(context),
                 ),
-              if (!isCreate) SizedBox(width: custom.spacing.xs),
+              if (!isCreate && !isGlobal) SizedBox(width: custom.spacing.xs),
               AppSecondaryButton(
                 text: '取消',
                 size: ButtonSize.sm,
