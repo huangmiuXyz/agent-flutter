@@ -22,6 +22,7 @@ class LeftPanel extends HookWidget {
     final custom = CustomTheme.of(context);
     final selectMode = useSignal(false);
     final selectedIds = useSignal(<String>{});
+    final isHeaderHovered = useState(false);
 
     // 退出选择模式时清理选中状态
     useEffect(() {
@@ -36,17 +37,22 @@ class LeftPanel extends HookWidget {
       child: Column(
         children: [
           // ── Header toolbar ──
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: custom.spacing.sm,
-              vertical: custom.spacing.xs,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: custom.colors.separator),
+          MouseRegion(
+            onEnter: (_) => isHeaderHovered.value = true,
+            onExit: (_) => isHeaderHovered.value = false,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: custom.spacing.sm,
+                vertical: custom.spacing.xs,
               ),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: custom.colors.separator),
+                ),
+              ),
+              child: _buildHeader(context, custom, selectMode, selectedIds,
+                  isHeaderHovered.value),
             ),
-            child: _buildHeader(context, custom, selectMode, selectedIds),
           ),
           // ── Session list ──
           Expanded(
@@ -68,6 +74,7 @@ class LeftPanel extends HookWidget {
     CustomTheme custom,
     Signal<bool> selectMode,
     Signal<Set<String>> selectedIds,
+    bool headerHovered,
   ) {
     if (selectMode.value) {
       return Row(
@@ -114,13 +121,18 @@ class LeftPanel extends HookWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        AppIconButton(
-          icon: 'checkSquare2',
-          size: ButtonSize.sm,
-          tooltip: '批量选择',
-          onPressed: () {
-            selectMode.value = true;
-          },
+        // 批量选择按钮：仅悬停 header 时显示
+        AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          opacity: headerHovered ? 1.0 : 0.0,
+          child: AppIconButton(
+            icon: 'checkSquare2',
+            size: ButtonSize.sm,
+            tooltip: '批量选择',
+            onPressed: () {
+              selectMode.value = true;
+            },
+          ),
         ),
         AppIconButton(
           icon: 'plus',
