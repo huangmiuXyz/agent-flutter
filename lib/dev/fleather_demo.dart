@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:agent/widgets/context_menu/context_menu.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/theme/fleather_utils.dart';
 
 /// Demo page for Fleather rich text editor with @mention support.
 class FleatherDemo extends StatefulWidget {
@@ -247,7 +248,9 @@ class _FleatherDemoState extends State<FleatherDemo> {
         // Editor body
         Expanded(
           child: FleatherTheme(
-            data: FleatherThemeData.fallback(context).copyWith(
+            data: buildFleatherTheme(
+              context,
+              fontFamily: CustomTheme.of(context).typography.fontFamily,
               strutStyle: const StrutStyle(
                 forceStrutHeight: true,
                 fontSize: 14,

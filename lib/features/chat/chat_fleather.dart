@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/theme/fleather_utils.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Scroll physics that completely eliminates any bounce/overscroll effect.
@@ -86,7 +87,9 @@ class _ChatFleatherState extends State<ChatFleather> {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
       child: FleatherTheme(
-        data: FleatherThemeData.fallback(context).copyWith(
+        data: buildFleatherTheme(
+          context,
+          fontFamily: custom.typography.fontFamily,
           strutStyle: StrutStyle(
             forceStrutHeight: true,
             fontSize: custom.typography.bodySize,
@@ -113,9 +116,7 @@ class _ChatFleatherState extends State<ChatFleather> {
                     },
                     child: Actions(
                       actions: {
-                        _SubmitIntent: _SubmitAction(
-                          onSubmit: widget.onSubmit,
-                        ),
+                        _SubmitIntent: _SubmitAction(onSubmit: widget.onSubmit),
                       },
                       child: FleatherEditor(
                         controller: _controller,
