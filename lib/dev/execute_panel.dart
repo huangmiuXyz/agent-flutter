@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:nanoid/nanoid.dart';
 
 import 'package:agent/store/xterm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/shell_utils.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -31,6 +33,11 @@ class ExecutePanel extends HookWidget {
       output.value = '';
 
       try {
+        // 确保至少有一个终端 tab
+        if (XtermStore.instance.tabs.value.isEmpty) {
+          XtermStore.instance.addTab(nanoid(8), shell: resolveShell());
+        }
+
         final ids = XtermStore.instance.activeIds.value;
         if (ids.isEmpty) {
           output.value = '[error: no active terminal]';
@@ -38,7 +45,10 @@ class ExecutePanel extends HookWidget {
         }
 
         final id = ids.first;
-        final result = await XtermStore.instance.forId(id).execute(cmd);
+        final session = XtermStore.instance.forId(id);
+        // 首次执行时确保 PTY 已启动
+        session.ensurePtyStarted(shell: resolveShell());
+        final result = await session.execute(cmd);
         if (context.mounted) output.value = result;
       } catch (e) {
         if (context.mounted) output.value = '[error: $e]';
