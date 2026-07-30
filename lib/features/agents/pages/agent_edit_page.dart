@@ -76,6 +76,8 @@ class AgentEditPage extends HookWidget {
     final selectedModel = useState<String?>(null);
     final selectedMcp = useState<Set<String>>({});
     final selectedSkills = useState<Set<String>>({});
+    final selectedTools = useState<Set<String>>({});
+    final builtinToolOptions = useState<List<bridge.BuiltinToolOption>>([]);
     final enabled = useState(true);
     final saving = useState(false);
     final loaded = useState(false);
@@ -120,6 +122,18 @@ class AgentEditPage extends HookWidget {
       return null;
     }, const []);
 
+    // ── 内置工具选项 ──
+    useEffect(() {
+      bridge.listBuiltinToolOptions().then((options) {
+        builtinToolOptions.value = options;
+        // 默认全选：若尚未加载配置，全量勾选
+        if (!loaded.value) {
+          selectedTools.value = options.map((t) => t.name).toSet();
+        }
+      });
+      return null;
+    }, const []);
+
     // ── 编辑模式：读取现有配置填充表单 ──
     useEffect(() {
       if (isCreate || loaded.value) return null;
@@ -144,6 +158,16 @@ class AgentEditPage extends HookWidget {
           final sk = cfg['skills'];
           if (sk is Map<String, dynamic>) {
             selectedSkills.value = sk.entries
+                .where((e) {
+                  final v = e.value;
+                  return v is Map && v['enabled'] == true;
+                })
+                .map((e) => e.key)
+                .toSet();
+          }
+          final bt = cfg['builtinTools'];
+          if (bt is Map<String, dynamic>) {
+            selectedTools.value = bt.entries
                 .where((e) {
                   final v = e.value;
                   return v is Map && v['enabled'] == true;
@@ -246,6 +270,11 @@ class AgentEditPage extends HookWidget {
           // 技能：只写入启用的
           cfg['skills'] = {
             for (final id in selectedSkills.value) id: {'enabled': true},
+          };
+
+          // 内置工具：只写入启用的
+          cfg['builtinTools'] = {
+            for (final id in selectedTools.value) id: {'enabled': true},
           };
 
           // 自包含：拷贝 provider 列表与模型凭证（聊天时按此配置寻址 LLM）
@@ -388,6 +417,26 @@ class AgentEditPage extends HookWidget {
               onChanged: (v) => selectedSkills.value = v,
             ),
             SizedBox(height: custom.spacing.lg),
+
+            // ── 内置工具 ──
+            if (builtinToolOptions.value.isNotEmpty) ...[
+              AppText('内置工具', variant: AppTextVariant.subtitle),
+              SizedBox(height: custom.spacing.sm),
+              AppMultiSelect<String>(
+                label: '启用的工具',
+                placeholder: '勾选需要启用的内置工具',
+                value: selectedTools.value,
+                options: [
+                  for (final t in builtinToolOptions.value)
+                    AppMultiSelectOption(
+                      value: t.name,
+                      label: '${t.name} — ${t.description}',
+                    ),
+                ],
+                onChanged: (v) => selectedTools.value = v,
+              ),
+              SizedBox(height: custom.spacing.lg),
+            ],
           ],
 
           // ── 工作目录 ──
