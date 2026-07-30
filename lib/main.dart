@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
@@ -14,6 +16,7 @@ import 'services/engine/engine_client.dart';
 import 'services/engine/frontend_tools.dart';
 import 'store/code_forge_store.dart';
 import 'store/session_store.dart';
+import 'store/theme_store.dart';
 import 'store/xterm_store.dart';
 import 'services/sync/app_sync.dart';
 import 'services/sync/cross_window_sync.dart';
@@ -191,16 +194,20 @@ class WindowCloseIntercept with WindowListener {
 }
 
 /// A minimal app shell for the settings child window.
-class _SettingsWindow extends StatelessWidget {
+class _SettingsWindow extends HookWidget {
   const _SettingsWindow();
 
   @override
   Widget build(BuildContext context) {
+    final settings = useExistingSignal(ThemeStore.instance.settings);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Agent Settings',
-      theme: appLightTheme,
-      darkTheme: appDarkTheme,
+      themeMode: settings.value.themeMode,
+      theme: resolveTheme(settings.value, Brightness.light),
+      darkTheme: resolveTheme(settings.value, Brightness.dark),
+      themeAnimationDuration: Duration.zero,
       home: const SettingsPage(),
     );
   }

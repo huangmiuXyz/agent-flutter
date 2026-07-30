@@ -186,14 +186,7 @@ class DisplaySettingsPage extends HookWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '显示设置',
-            style: custom.typography.styleForSize(
-              custom.typography.titleSize,
-              custom.colors.textPrimary,
-              weight: FontWeight.w600,
-            ),
-          ),
+          const AppText('显示设置', variant: AppTextVariant.title),
           SizedBox(height: custom.spacing.lg),
           Expanded(
             child: AppBigList(
