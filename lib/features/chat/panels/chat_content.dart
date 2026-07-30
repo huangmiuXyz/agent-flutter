@@ -453,8 +453,12 @@ class _MessageList extends StatelessWidget {
                             const SizedBox(height: _listBottomSpacing),
                           ];
 
+                          final minLatestHeight = latestUserIndex > 0
+                              ? constraints.maxHeight
+                              : constraints.maxHeight - custom.spacing.sm;
+
                           return _LatestTurnLayout(
-                            minHeight: constraints.maxHeight,
+                            minHeight: minLatestHeight,
                             user: buildMessage(
                               latestUserIndex,
                               showStreamingIndicator: false,
