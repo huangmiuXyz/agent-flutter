@@ -15,6 +15,66 @@ import 'package:agent/widgets/text/app_text.dart';
 const _kBundledLabel = 'JetBrains Mono';
 const _kBundledFamily = 'JetBrainsMono';
 
+/// Google Fonts 中支持 CJK 的字体名称集合（从 google_fonts 包数据中提取）。
+/// 包括中文（简/繁/港）、日文、韩文。
+const _cjkFonts = <String>{
+  // ── Noto / Source Han 系列 ──
+  'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR',
+  'Noto Serif SC', 'Noto Serif TC', 'Noto Serif JP', 'Noto Serif KR',
+  'Noto Sans HK', 'Noto Serif HK',
+  'Noto Sans Mono CJK SC',
+  'Source Han Sans SC',
+  'Source Han Sans TC',
+  'Source Han Sans JP',
+  'Source Han Sans KR',
+  'Source Han Serif SC',
+  'Source Han Serif TC',
+  'Source Han Serif JP',
+  'Source Han Serif KR',
+  'Cactus Classical Serif', 'Chocolate Classical Sans',
+  'Noto Sans Hanifi Rohingya',
+
+  // ── LXGW（霞鹜文楷）系列 ──
+  'LXGW Marker Gothic', 'LXGW WenKai Mono TC', 'LXGW WenKai TC',
+
+  // ── Chiron（昭源）系列 ──
+  'Chiron Hei HK',
+
+  // ── 中文手写/风格字体 ──
+  'Ma Shan Zheng', 'ZCOOL XiaoWei', 'ZCOOL QingKe HuangYou',
+  'ZCOOL KuaiLe', 'Liu Jian Mao Cao', 'Zhi Mang Xing', 'Long Cang',
+
+  // ── 日文字体 ──
+  'Sawarabi Gothic', 'Sawarabi Mincho',
+  'Hina Mincho', 'Klee One',
+  'M PLUS 1', 'M PLUS 1 Code', 'M PLUS 1p', 'M PLUS 2', 'M PLUS Rounded 1c',
+  'BIZ UDGothic', 'BIZ UDMincho', 'BIZ UDPGothic', 'BIZ UDPMincho',
+  'Kosugi', 'Kosugi Maru',
+  'Shippori Mincho', 'Shippori Mincho B1',
+  'Shippori Antique', 'Shippori Antique B1',
+  'Yusei Magic', 'Kiwi Maru', 'New Tegomin',
+  'Reggae One', 'Train One', 'DotGothic16',
+  'Stick', 'RocknRoll One', 'Rampart One', 'Chokokutai',
+  'Kaisei Decol', 'Kaisei HarunoUmi', 'Kaisei Opti', 'Kaisei Tokumin',
+  'Zen Old Mincho', 'Zen Antique', 'Zen Antique Soft',
+  'Zen Kaku Gothic New', 'Zen Kaku Gothic Antique',
+  'Zen Kurenaido', 'Zen Maru Gothic', 'Zen Dots',
+  'Yuji Boku', 'Yuji Hentaigana Akari', 'Yuji Hentaigana Akebono',
+  'Yuji Mai', 'Yuji Syuku',
+  'Dela Gothic One', 'Gothic A1',
+  'IBM Plex Sans JP',
+  'Cute Font',
+
+  // ── 韩文字体 ──
+  'Nanum Gothic', 'Nanum Gothic Coding', 'Nanum Myeongjo',
+  'Nanum Pen Script', 'Nanum Brush Script',
+  'Black Han Sans', 'Do Hyeon', 'Dongle',
+  'Gamja Flower', 'Gowun Batang', 'Gowun Dodum',
+  'Hahmlet', 'Hi Melody', 'IBM Plex Sans KR',
+  'Jua', 'Poor Story', 'Single Day', 'Song Myung',
+  'Sunflower',
+};
+
 class DisplaySettingsPage extends HookWidget {
   const DisplaySettingsPage({super.key});
 
@@ -26,6 +86,7 @@ class DisplaySettingsPage extends HookWidget {
     final searchTerm = useState('');
     final cachedFonts = useState<List<CachedFontInfo>>([]);
     final showAll = useState(false);
+    final cjkOnly = useState(false);
     const int pageSize = 50;
 
     void rescanCache() {
@@ -66,15 +127,23 @@ class DisplaySettingsPage extends HookWidget {
       return entries;
     }, []);
 
-    // 按搜索词过滤
+    // 按搜索词 + 中文筛选过滤
     final filteredFonts = useMemoized(() {
-      if (searchTerm.value.isEmpty) return allFonts;
-      final q = searchTerm.value.toLowerCase();
-      return allFonts.where((opt) {
-        return opt['label']!.toLowerCase().contains(q) ||
-            opt['family']!.toLowerCase().contains(q);
-      }).toList();
-    }, [searchTerm.value, allFonts]);
+      var list = allFonts;
+      // 中文筛选
+      if (cjkOnly.value) {
+        list = list.where((opt) => _cjkFonts.contains(opt['label'])).toList();
+      }
+      // 搜索词
+      if (searchTerm.value.isNotEmpty) {
+        final q = searchTerm.value.toLowerCase();
+        list = list.where((opt) {
+          return opt['label']!.toLowerCase().contains(q) ||
+              opt['family']!.toLowerCase().contains(q);
+        }).toList();
+      }
+      return list;
+    }, [searchTerm.value, allFonts, cjkOnly.value]);
 
     // 分组（未下载区段默认只显示前 pageSize 个）
     final sections = useMemoized(
@@ -188,11 +257,28 @@ class DisplaySettingsPage extends HookWidget {
         children: [
           const AppText('显示设置', variant: AppTextVariant.title),
           SizedBox(height: custom.spacing.lg),
+          // 筛选按钮
+          Row(
+            children: [
+              _filterChip(context, '全部', !cjkOnly.value, () {
+                cjkOnly.value = false;
+                showAll.value = false;
+              }),
+              SizedBox(width: custom.spacing.sm),
+              _filterChip(context, '中文', cjkOnly.value, () {
+                cjkOnly.value = true;
+                showAll.value = false;
+              }),
+            ],
+          ),
+          SizedBox(height: custom.spacing.sm),
           Expanded(
             child: AppBigList(
               showSearch: true,
               searchTerm: searchTerm.value,
-              searchPlaceholder: '搜索 Google Fonts（共 1500+ 种）…',
+              searchPlaceholder: cjkOnly.value
+                  ? '搜索中文字体…'
+                  : '搜索 Google Fonts（共 1500+ 种）…',
               onSearchChanged: (v) {
                 searchTerm.value = v;
                 showAll.value = false;
@@ -202,6 +288,38 @@ class DisplaySettingsPage extends HookWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _filterChip(
+    BuildContext context,
+    String label,
+    bool active,
+    VoidCallback onTap,
+  ) {
+    final custom = CustomTheme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: custom.spacing.sm + 4,
+          vertical: custom.spacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: active ? custom.colors.accent : Colors.transparent,
+          borderRadius: custom.radii.full,
+          border: Border.all(
+            color: active ? custom.colors.accent : custom.colors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: custom.typography.styleForSize(
+            custom.typography.captionSize,
+            active ? custom.colors.onAccent : custom.colors.textPrimary,
+          ),
+        ),
       ),
     );
   }
