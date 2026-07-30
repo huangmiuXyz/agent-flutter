@@ -30,7 +30,21 @@ String _formatSessionTime(int timestampMs) {
 
 /// 左侧面板 — 会话列表
 class SessionList extends HookWidget {
-  const SessionList({super.key});
+  const SessionList({
+    super.key,
+    this.selectMode = false,
+    this.selectedIds = const {},
+    this.onSelectionChange,
+  });
+
+  /// 是否处于批量选择模式
+  final bool selectMode;
+
+  /// 当前已选中的会话 ID 集合
+  final Set<String> selectedIds;
+
+  /// 选中项变化时回调
+  final ValueChanged<Set<String>>? onSelectionChange;
 
   @override
   Widget build(BuildContext context) {
@@ -78,8 +92,14 @@ class SessionList extends HookWidget {
             itemGap: 0,
             children: sorted.map((session) {
               final isSelected = session.id == selectedId;
+              final isChecked = selectedIds.contains(session.id);
+
               return AppListItem(
                 key: ValueKey(session.id),
+                // 选择模式下显示复选框图标
+                icon: selectMode
+                    ? (isChecked ? 'checkSquare2' : 'square')
+                    : null,
                 label: session.name,
                 labelWidget: InlineField(
                   controller: TextEditingController(text: session.name),
@@ -103,59 +123,78 @@ class SessionList extends HookWidget {
                   },
                 ),
                 trailing: _formatSessionTime(session.updatedAt),
-                active: isSelected,
+                active: selectMode ? isChecked : isSelected,
                 intrinsicHeight: true,
                 itemRadius: BorderRadius.zero,
-                onTap: () {
-                  // 立即更新选中态，让 UI 先切换，不等待数据加载
-                  SessionStore.instance.selectedId.value = session.id;
-                  SessionStore.instance.switchTo(session.id);
-                },
-                hoverActions: [
-                  Transform.translate(
-                    offset: const Offset(0, -1),
-                    child: AppIconButton(
-                      icon: 'trash2',
-                      size: ButtonSize.sm,
-                      hoverStyle: false,
-                      tooltip: '删除会话',
-                      onPressed: () async {
-                        final confirmed = await AppDialog.show(
-                          context: context,
-                          title: '删除会话',
-                          child: AppText('确定要删除「${session.name}」吗？此操作不可恢复。'),
-                          onOk: () {},
-                        );
-                        if (confirmed == true) {
-                          final service = LlmService();
-                          final dbPath = ConfigStore.instance.dbPath;
-                          await service.deleteSession(
-                            dbPath: dbPath,
-                            sessionId: session.id,
-                          );
-                          if (selectedId == session.id) {
-                            SessionStore.instance.selectedId.value = null;
-                          }
-                          // 如果被删的是当前显示的会话，清理显示状态和内存中的消息数据
-                          if (SessionStore.instance.displayedSessionId.value ==
-                              session.id) {
-                            SessionStore.instance.displayedSessionId.value =
-                                null;
-                          }
-                          SessionStore.instance.sessions.value = Map.from(
-                            SessionStore.instance.sessions.value,
-                          )..remove(session.id);
-                          SessionStore.instance.removeSession(session.id);
-                        }
+                onTap: selectMode
+                    ? () => _toggleSelection(session.id)
+                    : () {
+                        // 立即更新选中态，让 UI 先切换，不等待数据加载
+                        SessionStore.instance.selectedId.value = session.id;
+                        SessionStore.instance.switchTo(session.id);
                       },
-                    ),
-                  ),
-                ],
+                // 选择模式下隐藏悬停操作按钮，避免干扰
+                hoverActions: selectMode
+                    ? null
+                    : [
+                        Transform.translate(
+                          offset: const Offset(0, -1),
+                          child: AppIconButton(
+                            icon: 'trash2',
+                            size: ButtonSize.sm,
+                            hoverStyle: false,
+                            tooltip: '删除会话',
+                            onPressed: () async {
+                              final confirmed = await AppDialog.show(
+                                context: context,
+                                title: '删除会话',
+                                child: AppText(
+                                  '确定要删除「${session.name}」吗？此操作不可恢复。',
+                                ),
+                                onOk: () {},
+                              );
+                              if (confirmed == true) {
+                                final service = LlmService();
+                                final dbPath = ConfigStore.instance.dbPath;
+                                await service.deleteSession(
+                                  dbPath: dbPath,
+                                  sessionId: session.id,
+                                );
+                                if (selectedId == session.id) {
+                                  SessionStore.instance.selectedId.value =
+                                      null;
+                                }
+                                // 如果被删的是当前显示的会话，清理显示状态和内存中的消息数据
+                                if (SessionStore
+                                        .instance.displayedSessionId.value ==
+                                    session.id) {
+                                  SessionStore.instance.displayedSessionId
+                                      .value = null;
+                                }
+                                SessionStore.instance.sessions.value = Map.from(
+                                  SessionStore.instance.sessions.value,
+                                )..remove(session.id);
+                                SessionStore.instance.removeSession(session.id);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
               );
             }).toList(),
           ),
         );
       },
     );
+  }
+
+  void _toggleSelection(String id) {
+    final ids = Set<String>.from(selectedIds);
+    if (ids.contains(id)) {
+      ids.remove(id);
+    } else {
+      ids.add(id);
+    }
+    onSelectionChange?.call(ids);
   }
 }
