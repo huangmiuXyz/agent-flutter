@@ -32,12 +32,12 @@ const _cjkFonts = <String>{
   'Source Han Serif JP',
   'Source Han Serif KR',
   'Cactus Classical Serif', 'Chocolate Classical Sans',
-  'Noto Sans Hanifi Rohingya',
 
   // ── LXGW（霞鹜文楷）系列 ──
   'LXGW Marker Gothic', 'LXGW WenKai Mono TC', 'LXGW WenKai TC',
 
-  // ── Chiron（昭源）系列 ──
+  // ── WDXL / Chiron（昭源）系列 ──
+  'WDXL Lubrifont SC', 'WDXL Lubrifont TC',
   'Chiron Hei HK',
 
   // ── 中文手写/风格字体 ──
@@ -64,6 +64,8 @@ const _cjkFonts = <String>{
   'Dela Gothic One', 'Gothic A1',
   'IBM Plex Sans JP',
   'Cute Font',
+  'WDXL Lubrifont JP N',
+  'Noto Serif Hentaigana',
 
   // ── 韩文字体 ──
   'Nanum Gothic', 'Nanum Gothic Coding', 'Nanum Myeongjo',
