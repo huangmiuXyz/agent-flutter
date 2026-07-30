@@ -10,6 +10,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -21,13 +22,14 @@ import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api.dart' as bridge;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
+import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
-import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/field/app_file_path_field.dart';
 import 'package:agent/widgets/select/app_multi_select.dart';
 import 'package:agent/widgets/select/app_select.dart';
@@ -70,7 +72,6 @@ class AgentEditPage extends HookWidget {
       text: isCreate ? '' : agent!.description,
     );
     final workDirController = useTextEditingController();
-    final promptController = useTextEditingController();
     final selectedProvider = useState<String?>(null);
     final selectedModel = useState<String?>(null);
     final selectedMcp = useState<Set<String>>({});
@@ -131,7 +132,6 @@ class AgentEditPage extends HookWidget {
           enabled.value =
               cfg['enable'] as bool? ?? false;
           workDirController.text = cfg['work_dir'] as String? ?? '';
-          promptController.text = cfg['system_prompt'] as String? ?? '';
           final dm = cfg['default_model'];
           if (dm is Map<String, dynamic>) {
             selectedProvider.value = dm['provider'] as String?;
@@ -197,7 +197,7 @@ class AgentEditPage extends HookWidget {
         }
 
         if (isGlobal) {
-          // 全局智能体：只更新 default_model、work_dir 和 system_prompt
+          // 全局智能体：只更新 default_model、work_dir
           if (selectedProvider.value != null && selectedModel.value != null) {
             cfg['default_model'] = {
               'provider': selectedProvider.value,
@@ -211,12 +211,6 @@ class AgentEditPage extends HookWidget {
             cfg['work_dir'] = workDir;
           } else {
             cfg.remove('work_dir');
-          }
-          final prompt = promptController.text.trim();
-          if (prompt.isNotEmpty) {
-            cfg['system_prompt'] = prompt;
-          } else {
-            cfg.remove('system_prompt');
           }
         } else {
           cfg['name'] = name;
@@ -239,12 +233,6 @@ class AgentEditPage extends HookWidget {
             cfg['work_dir'] = workDir;
           } else {
             cfg.remove('work_dir');
-          }
-          final prompt = promptController.text.trim();
-          if (prompt.isNotEmpty) {
-            cfg['system_prompt'] = prompt;
-          } else {
-            cfg.remove('system_prompt');
           }
 
           // MCP 服务器：从全局配置中拷贝勾选项的完整定义
@@ -413,16 +401,21 @@ class AgentEditPage extends HookWidget {
           SizedBox(height: custom.spacing.lg),
 
           // ── 系统提示词 ──
-          AppText('系统提示词', variant: AppTextVariant.subtitle),
-          SizedBox(height: custom.spacing.sm),
-          AppField(
-            label: 'system_prompt（可选）',
-            placeholder: '为该智能体设定系统提示词，对话时自动注入',
-            controller: promptController,
-            maxLines: 6,
-            minLines: 3,
-          ),
-          SizedBox(height: custom.spacing.lg),
+          if (agent != null) ...[
+            AppText('系统提示词', variant: AppTextVariant.subtitle),
+            SizedBox(height: custom.spacing.sm),
+            AppSecondaryButton(
+              text: '编辑提示词文件',
+              icon: 'fileCode',
+              size: ButtonSize.sm,
+              onPressed: () {
+                final f = File('${agent!.directoryPath}/system_prompt.md');
+                if (!f.existsSync()) f.createSync();
+                openFile(f.path);
+              },
+            ),
+            SizedBox(height: custom.spacing.lg),
+          ],
 
           // ── 底部操作栏 ──
           Row(

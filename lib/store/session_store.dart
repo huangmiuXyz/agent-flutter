@@ -10,8 +10,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
@@ -20,7 +18,6 @@ import 'package:agent/rust_bridge/events.dart';
 import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
-import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/services/session/session_state.dart';
@@ -212,21 +209,20 @@ class SessionStore {
 
     // ── 触发后端任务（不 await Stream，事件通过 EngineClient 推送） ──
     try {
-      // 读取智能体的 system_prompt
-      String? agentPrompt;
-      try {
-        final raw = File(configPath).readAsStringSync();
-        final cfg = jsonDecode(raw) as Map<String, dynamic>;
-        agentPrompt = cfg['system_prompt'] as String?;
-      } catch (_) {
-        // 配置文件不可读/解析失败 → 忽略
-      }
-
-      final catalog = SkillStore.instance.buildSkillCatalog();
-      final systemPrompt = [
-        if (agentPrompt != null && agentPrompt.isNotEmpty) agentPrompt,
-        if (catalog.isNotEmpty) catalog,
-      ].join('\n\n');
+      // 系统提示词改为由后端从 system_prompt.md 读取，前端暂不注入
+      // 保留以下代码供后续启用
+      //
+      // String? agentPrompt;
+      // try {
+      //   final raw = File(configPath).readAsStringSync();
+      //   final cfg = jsonDecode(raw) as Map<String, dynamic>;
+      //   agentPrompt = cfg['system_prompt'] as String?;
+      // } catch (_) {}
+      // final catalog = SkillStore.instance.buildSkillCatalog();
+      // final systemPrompt = [
+      //   if (agentPrompt != null && agentPrompt.isNotEmpty) agentPrompt,
+      //   if (catalog.isNotEmpty) catalog,
+      // ].join('\n\n');
 
       await service.chatStream(
         configPath: configPath,
@@ -236,7 +232,6 @@ class SessionStore {
         userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
-        systemPrompt: systemPrompt.isNotEmpty ? systemPrompt : null,
       );
     } catch (e) {
       // 启动失败：追加错误消息并清理流状态
