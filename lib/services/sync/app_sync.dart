@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:signals/signals.dart';
 
 import 'package:agent/services/sync/cross_window_sync.dart';
+import 'package:agent/store/code_forge_store.dart';
 import 'package:agent/store/config_store.dart';
 
 /// 防循环标志
@@ -18,6 +19,9 @@ bool _syncing = false;
 /// 缓存 ConfigStore.data 引用，避免在 observer 回调中
 /// 访问 ConfigStore.instance 导致 re-entrant 初始化死循环。
 Signal<Map<String, dynamic>>? _dataSignal;
+
+/// 同上，CodeForgeStore.filePath。
+Signal<String>? _filePathSignal;
 
 /// 初始化跨窗口同步（每个窗口启动时调用一次）。
 Future<void> initAppSync() async {
@@ -30,17 +34,30 @@ Future<void> initAppSync() async {
   // 会触发 static final 字段的 re-entrant 初始化 → StackOverflow。
   _dataSignal = ConfigStore.instance.data;
 
+  // 同上，先主动初始化再注册 observer，避免 re-entrant。
+  _filePathSignal = CodeForgeStore.instance.filePath;
+
   // 全局监听本地 signal 变化
   SignalsObserver.instance = _SignalObserver();
 
   // 监听远端通知 → reload ConfigStore
   CrossWindowSync.on('configChanged', _handleRemoteConfigChanged);
+
+  // 监听远端通知 → reload CodeForgeStore
+  CrossWindowSync.on('fileOpened', _handleRemoteFileOpened);
 }
 
 void _handleRemoteConfigChanged() {
   if (_syncing) return;
   _syncing = true;
   ConfigStore.instance.reload();
+  _syncing = false;
+}
+
+void _handleRemoteFileOpened() {
+  if (_syncing) return;
+  _syncing = true;
+  CodeForgeStore.instance.reload();
   _syncing = false;
 }
 
@@ -52,6 +69,9 @@ class _SignalObserver extends SignalsObserver {
     // 只关注根 ConfigStore.data，computed 会自动跟着变
     if (identical(instance, _dataSignal)) {
       unawaited(CrossWindowSync.notify('configChanged'));
+    }
+    if (identical(instance, _filePathSignal)) {
+      unawaited(CrossWindowSync.notify('fileOpened'));
     }
   }
 

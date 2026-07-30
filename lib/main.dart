@@ -12,9 +12,11 @@ import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
 import 'services/engine/engine_client.dart';
 import 'services/engine/frontend_tools.dart';
+import 'store/code_forge_store.dart';
 import 'store/session_store.dart';
 import 'store/xterm_store.dart';
 import 'services/sync/app_sync.dart';
+import 'services/sync/cross_window_sync.dart';
 import 'services/llm/llm_service.dart';
 import 'theme/app_theme.dart';
 
@@ -64,10 +66,12 @@ void main() async {
 
         // ── 编辑器子窗口 ──
         if (controller.arguments.startsWith('editor:')) {
-          final filePath = controller.arguments.substring(7);
+          // CodeForgeStore 已通过文件持久化拿到最新路径
+          final store = CodeForgeStore.instance;
+
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             await windowManager.ensureInitialized();
-            await windowManager.setTitle('编辑 — ${filePath.split('/').last}');
+            await windowManager.setTitle('编辑 — ${store.filePath.value.split('/').last}');
             await windowManager.center();
             await windowManager.focus();
             await windowManager.setPreventClose(true);
@@ -75,14 +79,23 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
+
           await initAppSync();
+          // 监听其他窗口发来的文件切换通知
+          CrossWindowSync.on('fileOpened', () {
+            store.reload();
+            unawaited(windowManager.setTitle(
+              '编辑 — ${store.filePath.value.split('/').last}',
+            ));
+          });
+
           runApp(
             MaterialApp(
               debugShowCheckedModeBanner: false,
-              title: '编辑 — ${filePath.split('/').last}',
+              title: '编辑 — ${store.filePath.value.split('/').last}',
               theme: appLightTheme,
               darkTheme: appDarkTheme,
-              home: EditorWindow(filePath: filePath),
+              home: EditorWindow(filePath: store.filePath.value),
             ),
           );
           return;

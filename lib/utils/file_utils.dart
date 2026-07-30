@@ -4,9 +4,9 @@ library;
 import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/material.dart';
 
-/// 编辑器窗口控制器（单例，复用已创建的窗口）。
-WindowController? _editorWindow;
+import 'package:agent/store/code_forge_store.dart';
 
 /// 在编辑器子窗口中打开文件。
 ///
@@ -14,39 +14,38 @@ WindowController? _editorWindow;
 /// 而非系统默认应用。
 void openFile(String path) {
   final file = File(path);
-  if (!file.existsSync()) return;
+  if (!file.existsSync()) {
+    debugPrint('openFile: 文件不存在 -> $path');
+    return;
+  }
 
-  // 尝试在编辑器窗口中打开
-  _openInEditor(path).catchError((_) {
-    // 回退到系统默认应用
-    _openWithSystemDefault(path);
-  });
+  // 更新 store → 写文件 → 广播到其他窗口
+  CodeForgeStore.instance.open(path);
+
+  // 确保编辑器窗口已存在或可见
+  _ensureEditorWindow(path);
 }
 
-Future<void> _openInEditor(String path) async {
+Future<void> _ensureEditorWindow(String path) async {
   try {
-    var w = _editorWindow;
-    if (w == null) {
-      w = await WindowController.create(
+    final all = await WindowController.getAll();
+    final editor = all.where((w) => w.arguments.startsWith('editor:')).toList();
+    if (editor.isEmpty) {
+      // 尚无编辑器窗口 → 创建并显示
+      final w = await WindowController.create(
         WindowConfiguration(
           arguments: 'editor:$path',
           hiddenAtLaunch: true,
         ),
       );
-      _editorWindow = w;
+      await w.show();
+    } else {
+      // 已存在编辑器窗口 → 只更新当前文件（CodeForgeStore.open 已写路径），
+      // 并将已隐藏的窗口重新提到前台
+      final w = editor.first;
+      await w.show();
     }
-    await w.show();
   } catch (e) {
-    // 编辑器打开失败，走系统默认
-    rethrow;
+    debugPrint('_ensureEditorWindow 出错: $e');
   }
-}
-
-void _openWithSystemDefault(String path) {
-  final cmd = Platform.isMacOS
-      ? 'open'
-      : Platform.isWindows
-          ? 'start'
-          : 'xdg-open';
-  Process.run(cmd, [path], runInShell: true);
 }

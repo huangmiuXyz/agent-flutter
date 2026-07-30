@@ -1,10 +1,12 @@
 /// 编辑器子窗口 — 使用 code_forge 编辑任意文本文件。
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:signals/signals.dart';
 import 'package:code_forge/code_forge.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
     show ExternalLibrary;
@@ -12,8 +14,11 @@ import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
+import 'package:window_manager/window_manager.dart';
+
 import 'language_map.dart';
 import '../../services/sync/file_watcher.dart';
+import '../../store/code_forge_store.dart';
 
 /// 在子窗口中打开一个文件进行编辑。
 class EditorWindow extends StatefulWidget {
@@ -38,14 +43,30 @@ class _EditorWindowState extends State<EditorWindow> {
   /// 文件变更监听，外部修改时自动刷新编辑器内容
   WatcherDisposable? _fileWatcher;
 
+  /// effect 订阅，需在 dispose 清理
+  void Function()? _storeDispose;
+
   /// 自身保存标志，避免 watcher 将自身写入当作外部修改
   bool _saving = false;
+
+  /// 当前编辑的文件路径（跟随 store 更新）
+  late String _currentPath;
 
   @override
   void initState() {
     super.initState();
+    _currentPath = widget.filePath;
     _undoController = UndoRedoController();
     _initAndOpen();
+
+    // 监听 CodeForgeStore 文件路径切换
+    _storeDispose = effect(() {
+      final path = CodeForgeStore.instance.filePath.value;
+      if (path != _currentPath && mounted) {
+        _currentPath = path;
+        _reloadFile(path);
+      }
+    });
   }
 
   Future<void> _initAndOpen() async {
@@ -84,6 +105,21 @@ class _EditorWindowState extends State<EditorWindow> {
     );
 
     if (mounted) setState(() => _ready = true);
+  }
+
+  /// 切换当前编辑的文件
+  Future<void> _reloadFile(String newPath) async {
+    _fileWatcher?.dispose();
+    _fileWatcher = watchFileChanges(
+      newPath,
+      _onFileExternallyChanged,
+      ignoreOwnWrites: () => _saving,
+    );
+    _controller?.text = _readFile(newPath);
+    unawaited(windowManager.setTitle(
+      '编辑 — ${newPath.split('/').last}',
+    ));
+    if (mounted) setState(() {});
   }
 
   /// 文件被外部修改时，重新加载编辑器内容
@@ -140,13 +176,14 @@ class _EditorWindowState extends State<EditorWindow> {
     await RustLib.init(externalLibrary: lib);
   }
 
-  String _readFile() {
-    final file = File(widget.filePath);
+  String _readFile([String? path]) {
+    final file = File(path ?? _currentPath);
     return file.existsSync() ? file.readAsStringSync() : '';
   }
 
   @override
   void dispose() {
+    _storeDispose?.call();
     _fileWatcher?.dispose();
     _controller?.diagnosticsNotifier.removeListener(_onDiagnosticsChanged);
     _controller?.dispose();
