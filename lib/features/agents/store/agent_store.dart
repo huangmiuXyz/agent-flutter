@@ -106,4 +106,23 @@ class AgentStore {
     }
     return fallback;
   }
+
+  /// 解析聊天应使用的工作目录。
+  ///
+  /// 当前智能体的 config.json 中有 `work_dir` 时优先使用；
+  /// 否则回退到全局配置（ConfigStore）。
+  String resolveWorkDir() {
+    final fallback = ConfigStore.instance.workDir.value;
+    final agent = currentAgent.value;
+    if (agent == null || agent.isGlobal) return fallback;
+    try {
+      final raw = File(agent.configPath).readAsStringSync();
+      final cfg = jsonDecode(raw) as Map<String, dynamic>;
+      final wd = cfg['work_dir'] as String? ?? '';
+      if (wd.isNotEmpty) return wd;
+    } catch (_) {
+      // 配置文件不可读/解析失败 → 回退全局
+    }
+    return fallback;
+  }
 }

@@ -14,8 +14,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
-import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/icon/app_icon.dart';
+
 import 'package:agent/widgets/select/panel_selector.dart';
 
 /// 智能体选择器（使用 [PanelSelector] 统一风格）。
@@ -24,16 +23,21 @@ class AgentSelector extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
     final store = AgentStore.instance;
     final agents = useExistingSignal(store.agents).value;
     final currentId = useExistingSignal(store.currentAgentId).value;
 
-    // 首次挂载时扫描（列表为空才触发）
+    // 首次挂载时加载一次
     useEffect(() {
       store.refresh();
       return null;
     }, const []);
+
+    // 每次打开下拉面板时重新扫描，确保跨窗口创建/删除后即时生效
+    // 设置窗口是子窗口（独立 isolate），不会自动通知主窗口
+    final refresh = useCallback(() {
+      store.refresh();
+    }, []);
 
     // 当前选中项可能因删除而失效 → load() 已回退到全局，这里兜底
     final effectiveId = agents.any((a) => a.id == currentId)
@@ -44,22 +48,29 @@ class AgentSelector extends HookWidget {
       return const SizedBox.shrink();
     }
 
-    // 用 agents.length + effectiveId 做 key，保证智能体列表变化时 PanelSelector 完全重建
-    return PanelSelector<String>(
-      key: ValueKey('agent_${agents.length}_$effectiveId'),
-      value: effectiveId,
-      placeholder: '选择智能体',
-      options: [
-        for (final agent in agents)
-          PanelSelectorOption<String>(
-            value: agent.id,
-            label: agent.name,
-            icon: agent.isGlobal ? 'check' : null,
-          ),
-      ],
-      onChanged: (id) {
-        if (id != null) store.select(id);
-      },
+    // 用 Listener 在指针按下时提前刷新（早于 PanelSelector 的 GestureDetector）
+    // 刷新完成后 agents 信号更新 → PanelSelector 的 useEffect([options]) 会原地刷新菜单内容
+    return Listener(
+      onPointerDown: (_) => refresh(),
+      child: PanelSelector<String>(
+        value: effectiveId,
+        placeholder: '选择智能体',
+        options: [
+          for (final agent in agents)
+            PanelSelectorOption<String>(
+              value: agent.id,
+              label: agent.name,
+              icon: agent.id == effectiveId ? 'check' : null,
+            ),
+        ],
+        onChanged: (id) {
+          if (id != null) {
+            store.select(id);
+            // 选中后再刷新一次，保持列表最新
+            refresh();
+          }
+        },
+      ),
     );
   }
 }

@@ -6,7 +6,7 @@
 /// - MCP 服务器（从全局已有 mcpServers 列表中勾选）
 /// - 技能启禁（从已扫描到的全局技能中勾选）
 /// - work_dir（可选）
-/// - 底部操作栏：[从全局导入] [保存]
+/// - 底部操作栏：[从全局导入] [删除] [取消] [保存]
 library;
 
 import 'dart:convert';
@@ -26,7 +26,9 @@ import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
+import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/field/app_field.dart';
+import 'package:agent/widgets/field/app_file_path_field.dart';
 import 'package:agent/widgets/select/app_multi_select.dart';
 import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -71,6 +73,7 @@ class AgentEditPage extends HookWidget {
     final selectedModel = useState<String?>(null);
     final selectedMcp = useState<Set<String>>({});
     final selectedSkills = useState<Set<String>>({});
+    final enabled = useState(true);
     final saving = useState(false);
     final loaded = useState(false);
 
@@ -123,6 +126,8 @@ class AgentEditPage extends HookWidget {
           final cfg = jsonDecode(raw) as Map<String, dynamic>;
           nameController.text = cfg['name'] as String? ?? agent!.name;
           descController.text = cfg['description'] as String? ?? '';
+          enabled.value =
+              cfg['enable'] as bool? ?? false;
           workDirController.text = cfg['work_dir'] as String? ?? '';
           final dm = cfg['default_model'];
           if (dm is Map<String, dynamic>) {
@@ -150,24 +155,7 @@ class AgentEditPage extends HookWidget {
       return null;
     }, const []);
 
-    // ── 从全局导入：填充 default_model / mcpServers / skills ──
-    void importFromGlobal() {
-      final global = configStore.data.value;
-      final dm = global['default_model'];
-      if (dm is Map<String, dynamic>) {
-        selectedProvider.value = dm['provider'] as String?;
-        selectedModel.value = dm['model'] as String?;
-      }
-      selectedMcp.value = mcpServers.map((s) => s.name).toSet();
-      final states = configStore.loadSkillStates(global);
-      selectedSkills.value = states.entries
-          .where((e) => e.value)
-          .map((e) => e.key)
-          .toSet();
-      if ((global['work_dir'] as String? ?? '').isNotEmpty) {
-        workDirController.text = global['work_dir'] as String;
-      }
-    }
+
 
     // ── 保存 ──
     Future<void> save() async {
@@ -185,7 +173,7 @@ class AgentEditPage extends HookWidget {
             id.contains(RegExp(r'[\\/:*?"<>|]'))) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('标识无效：不能为空、不能为 __global__、不能包含路径字符')));
+          ).showSnackBar(const SnackBar(content: Text('标识无效：不能为空、不能为 全局、不能包含路径字符')));
           return;
         }
       }
@@ -207,6 +195,11 @@ class AgentEditPage extends HookWidget {
 
         cfg['name'] = name;
         cfg['description'] = descController.text.trim();
+        if (!enabled.value) {
+          cfg['enable'] = false;
+        } else {
+          cfg['enable'] = true;
+        }
         if (selectedProvider.value != null && selectedModel.value != null) {
           cfg['default_model'] = {
             'provider': selectedProvider.value,
@@ -372,23 +365,24 @@ class AgentEditPage extends HookWidget {
           // ── 工作目录 ──
           AppText('工作目录', variant: AppTextVariant.subtitle),
           SizedBox(height: custom.spacing.sm),
-          AppField(
+          AppFilePathField(
+            controller: workDirController,
             label: 'work_dir（可选）',
             placeholder: '留空则跟随全局配置',
-            controller: workDirController,
           ),
           SizedBox(height: custom.spacing.lg),
 
           // ── 底部操作栏 ──
           Row(
             children: [
-              AppSecondaryButton(
-                text: '从全局导入',
-                icon: 'clipboardPaste',
-                size: ButtonSize.sm,
-                onPressed: importFromGlobal,
-              ),
               const Spacer(),
+              if (!isCreate)
+                AppSecondaryButton(
+                  text: '删除',
+                  size: ButtonSize.sm,
+                  onPressed: () => _handleDelete(context),
+                ),
+              if (!isCreate) SizedBox(width: custom.spacing.xs),
               AppSecondaryButton(
                 text: '取消',
                 size: ButtonSize.sm,
@@ -407,5 +401,32 @@ class AgentEditPage extends HookWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _handleDelete(BuildContext context) async {
+    final confirmed = await AppDialog.show(
+      context: context,
+      title: '确认删除',
+      okText: '删除',
+      child: AppText('确定要删除智能体「${agent!.name}」吗？\n\n此操作不可撤销。'),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await bridge.deleteAgent(agentDir: agent!.directoryPath);
+      await AgentStore.instance.refresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已删除')));
+        onSaved();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+      }
+    }
   }
 }

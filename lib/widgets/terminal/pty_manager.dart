@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:xterm2/xterm.dart';
 
+import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/utils/shell_utils.dart';
 import 'package:agent/widgets/terminal/shell_scripts.dart';
@@ -71,8 +72,8 @@ class PtyManager {
     final env = Map<String, String>.from(Platform.environment);
     final resolvedArgs = _setupShellIntegration(resolvedShell, env);
 
-    // 读取工作目录（即时生效，每次建 PTY 时重新读取）
-    final workDir = ConfigStore.instance.workDir.value;
+    // 读取工作目录（优先使用当前智能体的配置，回退到全局）
+    final workDir = AgentStore.instance.resolveWorkDir();
 
     Pty pty;
     try {

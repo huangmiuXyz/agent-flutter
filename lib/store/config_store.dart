@@ -34,7 +34,7 @@ class ConfigStore {
   static Map<String, dynamic> _defaultConfig() => {
     'provider': <String>[],
     'default_model': {'provider': '', 'model': ''},
-    'mcp_servers': <Map<String, dynamic>>[],
+    'mcpServers': <Map<String, dynamic>>[],
     'skills': <String, dynamic>{},
     'work_dir': '',
   };

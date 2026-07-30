@@ -4,10 +4,10 @@
 library;
 
 /// 全局智能体的固定 ID（根 config.json）
-const kGlobalAgentId = '__global__';
+const kGlobalAgentId = '全局';
 
 class AgentInfo {
-  /// 唯一标识（文件夹名），`__global__` 表示全局智能体
+  /// 唯一标识（文件夹名），`全局` 表示全局智能体
   final String id;
 
   /// 显示名称

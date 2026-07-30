@@ -224,7 +224,7 @@ agent-flutter-cli/src/
 /// 智能体摘要（列表用，不含配置正文）
 #[derive(Debug, Clone, Serialize)]
 pub struct AgentSummary {
-    /// 智能体唯一标识（文件夹名），全局智能体为 "__global__"
+    /// 智能体唯一标识（文件夹名），全局智能体为 "全局"
     pub id: String,
     /// 显示名称
     pub name: String,
@@ -253,7 +253,7 @@ pub fn list_agents(config_path: &Path) -> Vec<AgentSummary> {
 
     // 1. 虚拟的"全局智能体"（始终存在）
     if config_path.exists() {
-        if let Some(summary) = read_agent_summary(config_path, "__global__", true) {
+        if let Some(summary) = read_agent_summary(config_path, "全局", true) {
             results.push(summary);
         }
     }
@@ -522,7 +522,7 @@ lib/features/agents/                    # ← 新增
 // models/agent_info.dart
 
 class AgentInfo {
-  final String id;            // 唯一标识，"__global__" 表示全局智能体
+  final String id;            // 唯一标识，"全局" 表示全局智能体
   final String name;          // 显示名称
   final String description;   // 描述
   final String configPath;    // 配置文件的绝对路径
@@ -551,7 +551,7 @@ class AgentStore {
   final agents = signal(<AgentInfo>[]);
 
   /// 当前选中的智能体 ID
-  final currentAgentId = signal<String>('__global__');
+  final currentAgentId = signal<String>('全局');
 
   /// 当前选中的智能体（计算信号）
   late final currentAgent = computed(() {

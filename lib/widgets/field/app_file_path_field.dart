@@ -1,0 +1,120 @@
+/// 文件/目录路径选择字段 — 文本输入框 + 选择按钮。
+///
+/// 用法：
+/// ```dart
+/// AppFilePathField(
+///   controller: myController,
+///   label: '工作目录',
+///   placeholder: '选择或输入路径',
+///   pickerType: PickerType.directory,
+/// )
+/// ```
+library;
+
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+
+import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/field/app_field.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
+import 'package:agent/widgets/text/app_text.dart';
+
+/// 文件选择类型。
+enum PickerType {
+  /// 选择文件
+  file,
+
+  /// 选择目录
+  directory,
+}
+
+/// 带"选择…"按钮的路径输入字段。
+///
+/// 标签（若有）在输入框上方，输入框与按钮在同一行且垂直居中对齐。
+class AppFilePathField extends StatelessWidget {
+  /// 文本控制器。
+  final TextEditingController controller;
+
+  /// 字段标签（显示在输入框上方）。
+  final String? label;
+
+  /// 占位文本。
+  final String? placeholder;
+
+  /// 选择器类型（文件或目录），默认为目录。
+  final PickerType pickerType;
+
+  /// 是否禁用。
+  final bool enabled;
+
+  const AppFilePathField({
+    super.key,
+    required this.controller,
+    this.label,
+    this.placeholder,
+    this.pickerType = PickerType.directory,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null) ...[
+          Padding(
+            padding: EdgeInsets.only(bottom: custom.spacing.xs),
+            child: AppText(
+              label!,
+              variant: AppTextVariant.caption,
+              color: custom.colors.textSecondary,
+            ),
+          ),
+        ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: AppField(
+                controller: controller,
+                placeholder: placeholder,
+                icon: 'folderOpen',
+                enabled: enabled,
+              ),
+            ),
+            const SizedBox(width: 8),
+            AppSecondaryButton(
+              text: '选择…',
+              disabled: !enabled,
+              onPressed: enabled ? () => _pick(context) : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pick(BuildContext context) async {
+    try {
+      final String? result;
+      if (pickerType == PickerType.directory) {
+        result = await FilePicker.getDirectoryPath();
+      } else {
+        final fileResult = await FilePicker.pickFiles();
+        result = fileResult?.files.first.path;
+      }
+      if (result != null && context.mounted) {
+        controller.text = result.replaceAll('\\', '/');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('选择失败: $e')),
+        );
+      }
+    }
+  }
+}
