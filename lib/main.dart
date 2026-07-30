@@ -57,7 +57,7 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
-          initAppSync();
+          await initAppSync();
           runApp(const _SettingsWindow());
           return;
         }
@@ -75,7 +75,7 @@ void main() async {
               WindowCloseIntercept(() => windowManager.hide()),
             );
           });
-          initAppSync();
+          await initAppSync();
           runApp(
             MaterialApp(
               debugShowCheckedModeBanner: false,
@@ -118,7 +118,7 @@ void main() async {
         await windowManager.focus();
       });
 
-      initAppSync();
+      await initAppSync();
       runApp(const AgentApp());
     },
     (error, stack) {

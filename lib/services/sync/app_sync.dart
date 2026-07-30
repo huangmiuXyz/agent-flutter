@@ -5,6 +5,8 @@
 /// 其他窗口收到后 reload ConfigStore，所有 computed 自动更新。
 library;
 
+import 'dart:async';
+
 import 'package:signals/signals.dart';
 
 import 'package:agent/services/sync/cross_window_sync.dart';
@@ -18,9 +20,9 @@ bool _syncing = false;
 Signal<Map<String, dynamic>>? _dataSignal;
 
 /// 初始化跨窗口同步（每个窗口启动时调用一次）。
-void initAppSync() {
+Future<void> initAppSync() async {
   // 通用广播层
-  CrossWindowSync.init();
+  await CrossWindowSync.init();
 
   // 先主动初始化 ConfigStore，再设置 observer。
   // 否则 ConfigStore._() 中 _load() 设置 data.value 时，
@@ -49,7 +51,7 @@ class _SignalObserver extends SignalsObserver {
 
     // 只关注根 ConfigStore.data，computed 会自动跟着变
     if (identical(instance, _dataSignal)) {
-      CrossWindowSync.notify('configChanged');
+      unawaited(CrossWindowSync.notify('configChanged'));
     }
   }
 
