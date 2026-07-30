@@ -15,13 +15,13 @@ import 'package:agent/widgets/text/app_text.dart';
 const _kBundledLabel = 'JetBrains Mono';
 const _kBundledFamily = 'JetBrainsMono';
 
-/// Google Fonts 中支持 CJK 的字体名称集合（从 google_fonts 包数据中提取）。
-/// 包括中文（简/繁/港）、日文、韩文。
+/// Google Fonts 中支持 CJK 的字体名称集合。
 const _cjkFonts = <String>{
-  // ── Noto / Source Han 系列 ──
+  // ── Noto / Source Han（语言标记 SC/TC/JP/KR/HK）──
   'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR',
+  'Noto Sans HK',
   'Noto Serif SC', 'Noto Serif TC', 'Noto Serif JP', 'Noto Serif KR',
-  'Noto Sans HK', 'Noto Serif HK',
+  'Noto Serif HK',
   'Noto Sans Mono CJK SC',
   'Source Han Sans SC',
   'Source Han Sans TC',
@@ -33,18 +33,18 @@ const _cjkFonts = <String>{
   'Source Han Serif KR',
   'Cactus Classical Serif', 'Chocolate Classical Sans',
 
-  // ── LXGW（霞鹜文楷）系列 ──
+  // ── LXGW（霞鹜文楷）──
   'LXGW Marker Gothic', 'LXGW WenKai Mono TC', 'LXGW WenKai TC',
 
-  // ── WDXL / Chiron（昭源）系列 ──
-  'WDXL Lubrifont SC', 'WDXL Lubrifont TC',
+  // ── WDXL Lubrifont / Chiron ──
+  'WDXL Lubrifont SC', 'WDXL Lubrifont TC', 'WDXL Lubrifont JP N',
   'Chiron Hei HK',
 
-  // ── 中文手写/风格字体 ──
+  // ── 中文风格 ──
   'Ma Shan Zheng', 'ZCOOL XiaoWei', 'ZCOOL QingKe HuangYou',
   'ZCOOL KuaiLe', 'Liu Jian Mao Cao', 'Zhi Mang Xing', 'Long Cang',
 
-  // ── 日文字体 ──
+  // ── 日文 ──
   'Sawarabi Gothic', 'Sawarabi Mincho',
   'Hina Mincho', 'Klee One',
   'M PLUS 1', 'M PLUS 1 Code', 'M PLUS 1p', 'M PLUS 2', 'M PLUS Rounded 1c',
@@ -64,10 +64,9 @@ const _cjkFonts = <String>{
   'Dela Gothic One', 'Gothic A1',
   'IBM Plex Sans JP',
   'Cute Font',
-  'WDXL Lubrifont JP N',
   'Noto Serif Hentaigana',
 
-  // ── 韩文字体 ──
+  // ── 韩文 ──
   'Nanum Gothic', 'Nanum Gothic Coding', 'Nanum Myeongjo',
   'Nanum Pen Script', 'Nanum Brush Script',
   'Black Han Sans', 'Do Hyeon', 'Dongle',
@@ -97,13 +96,11 @@ class DisplaySettingsPage extends HookWidget {
       });
     }
 
-    // Scan font cache on mount
     useEffect(() {
       rescanCache();
       return null;
     }, []);
 
-    // 选中字体
     void onSelectFont(String family) {
       store.fontFamily.value = family;
       SettingStore.instance.setFontFamily(family);
@@ -111,13 +108,11 @@ class DisplaySettingsPage extends HookWidget {
       rescanCache();
     }
 
-    // 删除缓存
     Future<void> onDeleteFont(String family) async {
       await FontCacheService.instance.deleteFont(family);
       rescanCache();
     }
 
-    // 从 GoogleFonts.asMap() 获取所有字体
     final allFonts = useMemoized(() {
       final map = GoogleFonts.asMap();
       final entries = <Map<String, String>>[];
@@ -129,14 +124,11 @@ class DisplaySettingsPage extends HookWidget {
       return entries;
     }, []);
 
-    // 按搜索词 + 中文筛选过滤
     final filteredFonts = useMemoized(() {
       var list = allFonts;
-      // 中文筛选
       if (cjkOnly.value) {
         list = list.where((opt) => _cjkFonts.contains(opt['label'])).toList();
       }
-      // 搜索词
       if (searchTerm.value.isNotEmpty) {
         final q = searchTerm.value.toLowerCase();
         list = list.where((opt) {
@@ -147,14 +139,12 @@ class DisplaySettingsPage extends HookWidget {
       return list;
     }, [searchTerm.value, allFonts, cjkOnly.value]);
 
-    // 分组（未下载区段默认只显示前 pageSize 个）
     final sections = useMemoized(
       () {
         final bundled = <Map<String, String>>[];
         final cached = <Map<String, String>>[];
         final notCached = <Map<String, String>>[];
 
-        // 始终把 JetBrainsMono 放最前面
         final bundledOpt = {'label': _kBundledLabel, 'family': _kBundledFamily};
         if (searchTerm.value.isEmpty ||
             _kBundledLabel.toLowerCase().contains(
@@ -173,7 +163,6 @@ class DisplaySettingsPage extends HookWidget {
           }
         }
 
-        // 未搜索时截断未下载列表
         final notCachedDisplayed = searchTerm.value.isNotEmpty || showAll.value
             ? notCached
             : notCached.take(pageSize).toList();
@@ -212,19 +201,17 @@ class DisplaySettingsPage extends HookWidget {
           );
         }
         if (notCachedDisplayed.isNotEmpty) {
+          final total = notCached.length;
+          final shown = notCachedDisplayed.length;
           result.add(
             AppBigSection(
               label: '未下载',
-              itemCount:
-                  notCachedDisplayed.length +
-                  (notCachedDisplayed.length < notCached.length ? 1 : 0),
+              itemCount: shown + (shown < total ? 1 : 0),
               itemBuilder: (ctx, i, {required isFirst, required isLast}) {
-                // 最后一项：显示"显示全部"按钮
-                if (i == notCachedDisplayed.length &&
-                    notCachedDisplayed.length < notCached.length) {
+                if (i == shown && shown < total) {
                   return _buildShowAllButton(
                     context,
-                    notCached.length,
+                    total,
                     () => showAll.value = true,
                   );
                 }
@@ -259,7 +246,6 @@ class DisplaySettingsPage extends HookWidget {
         children: [
           const AppText('显示设置', variant: AppTextVariant.title),
           SizedBox(height: custom.spacing.lg),
-          // 筛选按钮
           Row(
             children: [
               _filterChip(context, '全部', !cjkOnly.value, () {
