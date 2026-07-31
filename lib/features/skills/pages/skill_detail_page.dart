@@ -64,7 +64,7 @@ class SkillDetailPage extends HookWidget {
           // ── 元信息 ──
           _MetaRow(label: '名称', value: skill.name),
           _MetaRow(label: '描述', value: skill.description),
-          _MetaRow(label: '来源', value: '${skill.source.name}'),
+          _MetaRow(label: '来源', value: skill.source.name),
           _MetaRow(
             label: '范围',
             value: skill.scope == 'global' ? '全局' : '项目',

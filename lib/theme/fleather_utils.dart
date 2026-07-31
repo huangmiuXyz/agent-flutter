@@ -21,7 +21,7 @@ FleatherThemeData buildFleatherTheme(
   if (fontFamily == null) return base;
 
   // Helper to apply fontFamily to a TextBlockTheme
-  TextBlockTheme _apply(TextBlockTheme t) => TextBlockTheme(
+  TextBlockTheme apply(TextBlockTheme t) => TextBlockTheme(
     style: t.style.copyWith(fontFamily: fontFamily),
     spacing: t.spacing,
     lineSpacing: t.lineSpacing,
@@ -42,16 +42,16 @@ FleatherThemeData buildFleatherTheme(
       radius: base.inlineCode.radius,
     ),
     link: base.link,
-    paragraph: _apply(base.paragraph),
-    heading1: _apply(base.heading1),
-    heading2: _apply(base.heading2),
-    heading3: _apply(base.heading3),
-    heading4: _apply(base.heading4),
-    heading5: _apply(base.heading5),
-    heading6: _apply(base.heading6),
-    lists: _apply(base.lists),
-    quote: _apply(base.quote),
-    code: _apply(base.code),
+    paragraph: apply(base.paragraph),
+    heading1: apply(base.heading1),
+    heading2: apply(base.heading2),
+    heading3: apply(base.heading3),
+    heading4: apply(base.heading4),
+    heading5: apply(base.heading5),
+    heading6: apply(base.heading6),
+    lists: apply(base.lists),
+    quote: apply(base.quote),
+    code: apply(base.code),
     horizontalRule: base.horizontalRule,
     strutStyle: base.strutStyle,
   );

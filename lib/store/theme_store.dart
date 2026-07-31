@@ -3,7 +3,6 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:signals/signals.dart';
 
-import 'package:agent/theme/app_tokens.dart';
 import 'package:agent/theme/app_theme.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/theme_settings.dart';

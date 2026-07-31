@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'app_tokens.dart';
 import 'custom_theme.dart';
 
 @immutable

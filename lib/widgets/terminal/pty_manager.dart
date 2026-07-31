@@ -7,7 +7,6 @@ import 'package:flutter_pty_new/flutter_pty_new.dart';
 import 'package:xterm2/xterm.dart';
 
 import 'package:agent/features/agents/store/agent_store.dart';
-import 'package:agent/store/config_store.dart';
 import 'package:agent/utils/shell_utils.dart';
 import 'package:agent/widgets/terminal/shell_scripts.dart';
 
