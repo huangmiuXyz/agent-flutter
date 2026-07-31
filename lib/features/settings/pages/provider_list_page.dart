@@ -44,11 +44,17 @@ class ProviderListPage extends HookWidget {
       Future<void> load() async {
         loading.value = true;
         try {
-          providers.value = await LlmService().listProviders(
+          final result = await LlmService().listProviders(
             configPath: configPath,
           );
+          // 页面可能已卸载（例如切换 tab），避免写入已销毁的 ValueNotifier
+          if (context.mounted) {
+            providers.value = result;
+          }
         } finally {
-          loading.value = false;
+          if (context.mounted) {
+            loading.value = false;
+          }
         }
       }
 
