@@ -6,6 +6,10 @@ import 'package:agent/widgets/text/app_text.dart';
 /// A horizontal form row that places [label] on the left and [child] (the
 /// form control) on the right, each taking **50%** of the row width.
 ///
+/// The label style matches [AppField] (caption + secondary color) so the
+/// horizontal row pattern and the vertical field pattern share the same
+/// label look.
+///
 /// Usage:
 /// ```dart
 /// FormRow(
@@ -41,8 +45,8 @@ class FormRow extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: AppText(
                 label,
-                variant: AppTextVariant.body,
-                color: custom.colors.textPrimary,
+                variant: AppTextVariant.caption,
+                color: custom.colors.textSecondary,
               ),
             ),
           ),

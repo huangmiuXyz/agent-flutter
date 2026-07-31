@@ -21,16 +21,15 @@ import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api.dart' as bridge;
 import 'package:agent/store/config_store.dart';
-import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
-import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
-import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
+import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/field/app_file_path_field.dart';
+import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_multi_select.dart';
 import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -58,7 +57,6 @@ class AgentEditPage extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
     final configStore = ConfigStore.instance;
 
     // ── 表单状态 ──
@@ -328,177 +326,156 @@ class AgentEditPage extends HookWidget {
         AppSelectOption<String>(value: m, label: m),
     ];
 
-    return ContentFrame(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AppBreadcrumb(
-            items: [
-              AppBreadcrumbItem('设置', onTap: () {}),
-              AppBreadcrumbItem('智能体', onTap: onBack),
-              AppBreadcrumbItem(isCreate ? '创建' : agent!.name),
-            ],
+    return AppFormPage(
+      breadcrumbItems: [
+        AppBreadcrumbItem('设置', onTap: () {}),
+        AppBreadcrumbItem('智能体', onTap: onBack),
+        AppBreadcrumbItem(isCreate ? '创建' : agent!.name),
+      ],
+      title: isCreate ? '创建智能体' : agent!.name,
+      actions: FormActions(
+        primary: [
+          AppPrimaryButton(
+            text: saving.value ? '保存中...' : '保存',
+            disabled: saving.value,
+            onPressed: save,
           ),
-          SizedBox(height: custom.spacing.lg),
-
-          if (!isGlobal) ...[
-            // ── 基本信息 ──
-            AppText('基本信息', variant: AppTextVariant.subtitle),
-            SizedBox(height: custom.spacing.sm),
-            if (isCreate) ...[
-              AppField(
-                label: '标识（文件夹名）',
-                placeholder: '如 code-reviewer，创建后不可修改',
-                controller: idController,
-              ),
-              SizedBox(height: custom.spacing.sm),
-            ],
-            AppField(
-              label: '名称',
-              placeholder: '显示名称（必填）',
-              controller: nameController,
-            ),
-            SizedBox(height: custom.spacing.sm),
-            AppField(
-              label: '描述',
-              placeholder: '这个智能体擅长什么？',
-              controller: descController,
-            ),
-            SizedBox(height: custom.spacing.lg),
-          ],
-
-          // ── 默认模型 ──
-          AppText('默认模型', variant: AppTextVariant.subtitle),
-          SizedBox(height: custom.spacing.sm),
-          AppSelect<String>(
-            label: '提供商',
-            placeholder: '从全局已有模型中选择',
-            value: selectedProvider.value,
-            options: providerOptions,
-            onChanged: (v) {
-              selectedProvider.value = v;
-              selectedModel.value = null;
-            },
-          ),
-          SizedBox(height: custom.spacing.sm),
-          AppSelect<String>(
-            label: '模型',
-            placeholder: selectedProvider.value == null ? '先选择提供商' : '选择模型',
-            value: selectedModel.value,
-            options: modelOptions,
-            disabled: selectedProvider.value == null,
-            onChanged: (v) => selectedModel.value = v,
-          ),
-          SizedBox(height: custom.spacing.lg),
-
-          if (!isGlobal) ...[
-            // ── MCP 服务器 ──
-            AppText('MCP 服务器', variant: AppTextVariant.subtitle),
-            SizedBox(height: custom.spacing.sm),
-            AppMultiSelect<String>(
-              label: '启用的服务器',
-              placeholder: '从全局 mcpServers 中勾选',
-              value: selectedMcp.value,
-              options: [
-                for (final s in mcpServers)
-                  AppMultiSelectOption(value: s.name, label: s.name),
-              ],
-              onChanged: (v) => selectedMcp.value = v,
-            ),
-            SizedBox(height: custom.spacing.lg),
-
-            // ── 技能 ──
-            AppText('技能', variant: AppTextVariant.subtitle),
-            SizedBox(height: custom.spacing.sm),
-            AppMultiSelect<String>(
-              label: '启用的技能',
-              placeholder: '从全局已扫描技能中勾选',
-              value: selectedSkills.value,
-              options: [
-                for (final s in skills)
-                  AppMultiSelectOption(value: s.id, label: s.name),
-              ],
-              onChanged: (v) => selectedSkills.value = v,
-            ),
-            SizedBox(height: custom.spacing.lg),
-          ],
-
-          // ── 内置工具（全局智能体也支持启禁内置工具）──
-          if (builtinToolOptions.value.isNotEmpty) ...[
-            AppText('内置工具', variant: AppTextVariant.subtitle),
-            SizedBox(height: custom.spacing.sm),
-            AppMultiSelect<String>(
-              label: '启用的工具',
-              placeholder: '勾选需要启用的内置工具',
-              value: selectedTools.value,
-              options: [
-                for (final t in builtinToolOptions.value)
-                  AppMultiSelectOption(
-                    value: t.name,
-                    label: '${t.name} — ${t.description}',
-                  ),
-              ],
-              onChanged: (v) => selectedTools.value = v,
-            ),
-            SizedBox(height: custom.spacing.lg),
-          ],
-
-          // ── 工作目录 ──
-          AppText('工作目录', variant: AppTextVariant.subtitle),
-          SizedBox(height: custom.spacing.sm),
-          AppFilePathField(
-            controller: workDirController,
-            label: 'work_dir（可选）',
-            placeholder: '留空则跟随全局配置',
-          ),
-          SizedBox(height: custom.spacing.lg),
-
-          // ── 系统提示词 ──
-          if (agent != null) ...[
-            AppText('系统提示词', variant: AppTextVariant.subtitle),
-            SizedBox(height: custom.spacing.sm),
+        ],
+        secondary: [
+          if (!isCreate && !isGlobal)
             AppSecondaryButton(
-              text: '编辑提示词文件',
-              icon: 'fileCode',
-              size: ButtonSize.sm,
-              onPressed: () {
-                final f = File('${agent!.directoryPath}/system_prompt.md');
-                if (!f.existsSync()) f.createSync();
-                openFile(f.path);
-              },
+              text: '删除',
+              onPressed: () => _handleDelete(context),
             ),
-            SizedBox(height: custom.spacing.lg),
-          ],
-
-          // ── 底部操作栏 ──
-          Row(
-            children: [
-              const Spacer(),
-              if (!isCreate && !isGlobal)
-                AppSecondaryButton(
-                  text: '删除',
-                  size: ButtonSize.sm,
-                  onPressed: () => _handleDelete(context),
-                ),
-              if (!isCreate && !isGlobal) SizedBox(width: custom.spacing.xs),
-              AppSecondaryButton(
-                text: '取消',
-                size: ButtonSize.sm,
-                onPressed: onBack,
-              ),
-              SizedBox(width: custom.spacing.xs),
-              AppPrimaryButton(
-                text: saving.value ? '保存中...' : '保存',
-                size: ButtonSize.sm,
-                disabled: saving.value,
-                onPressed: save,
-              ),
-            ],
-          ),
-          SizedBox(height: custom.spacing.lg),
+          AppSecondaryButton(text: '取消', onPressed: onBack),
         ],
       ),
+      children: [
+        if (!isGlobal)
+          FormSection(
+            title: '基本信息',
+            children: [
+              if (isCreate)
+                AppField(
+                  label: '标识（文件夹名）',
+                  placeholder: '如 code-reviewer，创建后不可修改',
+                  controller: idController,
+                ),
+              AppField(
+                label: '名称',
+                placeholder: '显示名称（必填）',
+                controller: nameController,
+              ),
+              AppField(
+                label: '描述',
+                placeholder: '这个智能体擅长什么？',
+                controller: descController,
+              ),
+            ],
+          ),
+        FormSection(
+          title: '默认模型',
+          children: [
+            AppSelect<String>(
+              label: '提供商',
+              placeholder: '从全局已有模型中选择',
+              value: selectedProvider.value,
+              options: providerOptions,
+              onChanged: (v) {
+                selectedProvider.value = v;
+                selectedModel.value = null;
+              },
+            ),
+            AppSelect<String>(
+              label: '模型',
+              placeholder: selectedProvider.value == null
+                  ? '先选择提供商'
+                  : '选择模型',
+              value: selectedModel.value,
+              options: modelOptions,
+              disabled: selectedProvider.value == null,
+              onChanged: (v) => selectedModel.value = v,
+            ),
+          ],
+        ),
+        if (!isGlobal)
+          FormSection(
+            title: 'MCP 服务器',
+            children: [
+              AppMultiSelect<String>(
+                label: '启用的服务器',
+                placeholder: '从全局 mcpServers 中勾选',
+                value: selectedMcp.value,
+                options: [
+                  for (final s in mcpServers)
+                    AppMultiSelectOption(value: s.name, label: s.name),
+                ],
+                onChanged: (v) => selectedMcp.value = v,
+              ),
+            ],
+          ),
+        if (!isGlobal)
+          FormSection(
+            title: '技能',
+            children: [
+              AppMultiSelect<String>(
+                label: '启用的技能',
+                placeholder: '从全局已扫描技能中勾选',
+                value: selectedSkills.value,
+                options: [
+                  for (final s in skills)
+                    AppMultiSelectOption(value: s.id, label: s.name),
+                ],
+                onChanged: (v) => selectedSkills.value = v,
+              ),
+            ],
+          ),
+        if (builtinToolOptions.value.isNotEmpty)
+          FormSection(
+            title: '内置工具',
+            children: [
+              AppMultiSelect<String>(
+                label: '启用的工具',
+                placeholder: '勾选需要启用的内置工具',
+                value: selectedTools.value,
+                options: [
+                  for (final t in builtinToolOptions.value)
+                    AppMultiSelectOption(
+                      value: t.name,
+                      label: '${t.name} — ${t.description}',
+                    ),
+                ],
+                onChanged: (v) => selectedTools.value = v,
+              ),
+            ],
+          ),
+        FormSection(
+          title: '工作目录',
+          children: [
+            AppFilePathField(
+              controller: workDirController,
+              label: 'work_dir（可选）',
+              placeholder: '留空则跟随全局配置',
+            ),
+          ],
+        ),
+        if (agent != null)
+          FormSection(
+            title: '系统提示词',
+            children: [
+              AppSecondaryButton(
+                text: '编辑提示词文件',
+                icon: 'fileCode',
+                size: ButtonSize.sm,
+                onPressed: () {
+                  final f = File('${agent!.directoryPath}/system_prompt.md');
+                  if (!f.existsSync()) f.createSync();
+                  openFile(f.path);
+                },
+              ),
+            ],
+          ),
+      ],
     );
   }
 

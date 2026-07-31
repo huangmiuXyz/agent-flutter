@@ -12,13 +12,12 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
 import 'package:agent/store/config_store.dart';
-import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
-import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
+import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen config form for a single provider.
@@ -96,8 +95,6 @@ class _ConfigForm extends HookWidget {
       return null;
     }, [configVersion, provider.name]);
 
-    final custom = CustomTheme.of(context);
-
     // ── Save handler ──
     Future<void> handleSave() async {
       try {
@@ -135,69 +132,41 @@ class _ConfigForm extends HookWidget {
       }
     }
 
-    return ContentFrame(
-      child: SizedBox(
-        width: 560,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ---- Breadcrumb ----
-            AppBreadcrumb(
-              items: [
-                AppBreadcrumbItem('设置', onTap: () {}),
-                AppBreadcrumbItem('提供商', onTap: onBack),
-                AppBreadcrumbItem(provider.label),
-              ],
+    return AppFormPage(
+      breadcrumbItems: [
+        AppBreadcrumbItem('设置', onTap: () {}),
+        AppBreadcrumbItem('提供商', onTap: onBack),
+        AppBreadcrumbItem(provider.label),
+      ],
+      title: provider.label,
+      subtitle: provider.baseUrl,
+      actions: FormActions(
+        primary: [
+          AppPrimaryButton(text: '保存', onPressed: handleSave),
+        ],
+        secondary: [
+          if (provider.configured)
+            AppSecondaryButton(text: '管理模型', onPressed: onManageModels),
+          if (provider.configured)
+            AppSecondaryButton(
+              text: '删除配置',
+              onPressed: () => _handleDelete(context),
             ),
-            SizedBox(height: custom.spacing.lg),
-
-            // ---- Title ----
-            AppText(provider.label, variant: AppTextVariant.h2),
-            if (provider.baseUrl != null) ...[
-              SizedBox(height: custom.spacing.xs),
-              AppText(
-                provider.baseUrl!,
-                variant: AppTextVariant.caption,
-                color: custom.colors.textSecondary,
-              ),
-            ],
-            SizedBox(height: custom.spacing.lg + 4),
-
-            // ---- API Key ----
-            AppField(
-              label: 'API Key',
-              placeholder: '输入 ${provider.label} 的 API Key',
-              obscureText: false,
-              controller: apiKeyCtrl,
-            ),
-            SizedBox(height: custom.spacing.md),
-
-            // ---- Endpoint ----
-            AppField(
-              label: 'API Endpoint（可选）',
-              placeholder: provider.baseUrl ?? 'https://api.example.com/v1',
-              controller: endpointCtrl,
-            ),
-            SizedBox(height: custom.spacing.lg + 4),
-
-            // ---- Actions ----
-            Row(
-              children: [
-                AppPrimaryButton(text: '保存', onPressed: handleSave),
-                const Spacer(),
-                if (provider.configured)
-                  AppSecondaryButton(text: '管理模型', onPressed: onManageModels),
-                if (provider.configured) SizedBox(width: custom.spacing.sm),
-                if (provider.configured)
-                  AppSecondaryButton(
-                    text: '删除配置',
-                    onPressed: () => _handleDelete(context),
-                  ),
-              ],
-            ),
-          ],
-        ),
+        ],
       ),
+      children: [
+        AppField(
+          label: 'API Key',
+          placeholder: '输入 ${provider.label} 的 API Key',
+          obscureText: false,
+          controller: apiKeyCtrl,
+        ),
+        AppField(
+          label: 'API Endpoint（可选）',
+          placeholder: provider.baseUrl ?? 'https://api.example.com/v1',
+          controller: endpointCtrl,
+        ),
+      ],
     );
   }
 
