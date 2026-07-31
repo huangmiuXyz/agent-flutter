@@ -12,6 +12,7 @@ import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/add_mcp_server_page.dart';
 import 'package:agent/features/settings/pages/add_provider_page.dart';
 import 'package:agent/features/settings/pages/display_settings_page.dart';
+import 'package:agent/features/settings/pages/font_settings_page.dart';
 import 'package:agent/features/settings/pages/mcp_detail_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
@@ -60,6 +61,7 @@ class SettingsPage extends HookWidget {
     final skills = useState<List<SkillInfo>>([]);
     final selectedAgent = useState<AgentInfo?>(null);
     final showAgentEditor = useState(false);
+    final showFontSettings = useState(false);
 
     // ── 切换到技能 tab 时自动扫描 ──
     useEffect(() {
@@ -82,13 +84,22 @@ class SettingsPage extends HookWidget {
       selectedSkill.value = null;
       selectedAgent.value = null;
       showAgentEditor.value = false;
+      showFontSettings.value = false;
     }
 
     // ── Right content ──
     Widget content;
     switch (activeTab.value) {
       case SettingsTab.display:
-        content = const DisplaySettingsPage();
+        if (showFontSettings.value) {
+          content = FontSettingsPage(
+            onBack: () => showFontSettings.value = false,
+          );
+        } else {
+          content = DisplaySettingsPage(
+            onFontSettingsTap: () => showFontSettings.value = true,
+          );
+        }
       case SettingsTab.models:
         if (showAddProvider.value) {
           content = AddProviderPage(

@@ -108,7 +108,10 @@ class FontSettingsPage extends HookWidget {
 
     void rescanCache() {
       FontCacheService.instance.scanCache().then((list) {
-        cachedFonts.value = list;
+        // 页面可能已卸载（例如切换 tab），避免写入已销毁的 ValueNotifier
+        if (context.mounted) {
+          cachedFonts.value = list;
+        }
       });
     }
 
@@ -253,11 +256,17 @@ class FontSettingsPage extends HookWidget {
       ],
     );
 
-    final totalCount = allFonts.length + 1;
+    // 过滤后总字体数（含捆绑字体），用于 header 计数
+    final bundledShown =
+        searchTerm.value.isEmpty ||
+        _kBundledLabel.toLowerCase().contains(searchTerm.value.toLowerCase());
+    final totalCount = filteredFonts.length + (bundledShown ? 1 : 0);
 
+    // 结构参考 [ModelListPage]：面包屑导航 + AppBigList 内容
     return ContentFrame(
       scrollable: false,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ---- Breadcrumb ----
@@ -269,13 +278,22 @@ class FontSettingsPage extends HookWidget {
             ],
           ),
           SizedBox(height: custom.spacing.lg),
-          const AppText('字体设置', variant: AppTextVariant.title),
-          SizedBox(height: custom.spacing.lg),
-          // 与下方 AppBigList 内部对齐（AppBigList 自带 sm 水平内边距）
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
-            child: Row(
-              children: [
+
+          // ---- Content ----
+          Expanded(
+            child: AppBigList(
+              count: totalCount,
+              countLabel: '个字体',
+              showSearch: true,
+              searchTerm: searchTerm.value,
+              searchPlaceholder: cjkOnly.value
+                  ? '搜索中文字体…'
+                  : '搜索 Google Fonts（共 1500+ 种）…',
+              onSearchChanged: (v) {
+                searchTerm.value = v;
+                showAll.value = false;
+              },
+              actions: [
                 _filterChip(context, '全部', !cjkOnly.value, () {
                   cjkOnly.value = false;
                   showAll.value = false;
@@ -286,21 +304,11 @@ class FontSettingsPage extends HookWidget {
                   showAll.value = false;
                 }),
               ],
-            ),
-          ),
-          SizedBox(height: custom.spacing.sm),
-          Expanded(
-            child: AppBigList(
-              showSearch: true,
-              searchTerm: searchTerm.value,
-              searchPlaceholder: cjkOnly.value
-                  ? '搜索中文字体…'
-                  : '搜索 Google Fonts（共 1500+ 种）…',
-              onSearchChanged: (v) {
-                searchTerm.value = v;
-                showAll.value = false;
-              },
-              count: totalCount,
+              emptyState: AppBigEmpty(
+                icon: 'type',
+                title: '未找到匹配的字体',
+                hint: '试试切换“中文”筛选或清空搜索关键词。',
+              ),
               sections: sections,
             ),
           ),
