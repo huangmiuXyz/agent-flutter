@@ -36,6 +36,7 @@ class PtyManager {
   List<String> _args = [];
   int _exitCount = 0;
   DateTime? _lastExitTime;
+  Completer<void>? _readyCompleter;
 
   static const _crashWindow = Duration(seconds: 5);
   static const _maxConsecutiveCrashes = 3;
@@ -48,6 +49,27 @@ class PtyManager {
 
   /// Whether shell integration markers indicate the user is at a prompt.
   bool get isShellInputActive => _shellInputActive;
+
+  /// Future that completes once the shell has reached its first prompt.
+  ///
+  /// Bash/zsh/PowerShell emit an OSC `633;D` marker before the very first
+  /// prompt. If a command is sent before that marker arrives, the runner
+  /// mistakes it for the command's own end marker and returns empty output.
+  /// Await this before sending commands to close that race.
+  ///
+  /// Falls back to a short delay for shells without integration markers so
+  /// execution never blocks indefinitely.
+  Future<void> get whenReady {
+    if (_shellInputActive) return Future.value();
+    final existing = _readyCompleter;
+    if (existing != null) return existing.future;
+    final completer = Completer<void>();
+    _readyCompleter = completer;
+    Timer(const Duration(seconds: 3), () {
+      if (!completer.isCompleted) completer.complete();
+    });
+    return completer.future;
+  }
 
   /// Absolute path to the cursor request temp file, or `null` when
   /// shell integration has not been set up.
@@ -64,6 +86,8 @@ class PtyManager {
     _started = true;
     _shellInputActive = false;
     _shellMarkerTail = '';
+    // 新一轮 shell 启动后需重新等待其就绪标记。
+    _readyCompleter = null;
     _shell = shell;
     _args = args;
 
@@ -298,6 +322,12 @@ class PtyManager {
     final commandEnd = combined.lastIndexOf(_commandEndMarker);
     if (commandStart >= 0 || commandEnd >= 0) {
       _shellInputActive = commandEnd > commandStart;
+    }
+
+    // Shell 到达提示符（633;D 标记已出现）即视为就绪。
+    if (_shellInputActive) {
+      final ready = _readyCompleter;
+      if (ready != null && !ready.isCompleted) ready.complete();
     }
 
     _shellMarkerTail = '';

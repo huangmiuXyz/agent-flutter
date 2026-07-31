@@ -55,7 +55,10 @@ class XtermSessionManager {
   Future<String> execute(
     String command, {
     Duration timeout = const Duration(seconds: 30),
-  }) {
+  }) async {
+    // 等待 shell 就绪（首个提示符的 633;D 标记）再发送命令，
+    // 避免命令与 shell 启动标记竞争，导致首次执行返回空结果。
+    await _ptyManager?.whenReady;
     return _commandRunner.execute(
       command,
       sendInput: sendInput,
