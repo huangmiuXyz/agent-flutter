@@ -18,7 +18,7 @@ const double kFormPageWidth = 560;
 
 /// 设置页表单脚手架。
 class AppFormPage extends StatelessWidget {
-  /// 插槽：面包屑导航。
+  /// 插槽：面包屑导航。为空列表时整个面包屑区域不渲染。
   final List<AppBreadcrumbItem> breadcrumbItems;
 
   /// 插槽：页面标题（h2 变体）。
@@ -41,8 +41,8 @@ class AppFormPage extends StatelessWidget {
 
   const AppFormPage({
     super.key,
-    required this.breadcrumbItems,
     required this.title,
+    this.breadcrumbItems = const [],
     this.subtitle,
     this.titleTrailing,
     this.children = const [],
@@ -62,8 +62,10 @@ class AppFormPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppBreadcrumb(items: breadcrumbItems),
-            SizedBox(height: custom.spacing.lg),
+            if (breadcrumbItems.isNotEmpty) ...[
+              AppBreadcrumb(items: breadcrumbItems),
+              SizedBox(height: custom.spacing.lg),
+            ],
             _buildHeader(custom),
             SizedBox(height: custom.spacing.lg + 4),
             ..._buildBody(custom),
