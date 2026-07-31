@@ -30,8 +30,7 @@ class AppFormPage extends StatelessWidget {
   /// 插槽：标题行右侧的扩展区域（如搜索框、筛选）。
   final Widget? titleTrailing;
 
-  /// 插槽：表单主体。字段之间的间距由脚手架自动插入：
-  /// 普通字段之间为 `spacing.md`，[FormSection] 之间为 `spacing.lg`。
+  /// 插槽：表单主体。字段之间的间距由脚手架自动插入（`spacing.md`）。
   final List<Widget> children;
 
   /// 插槽：底部操作栏，见 [FormActions]。
@@ -108,50 +107,11 @@ class AppFormPage extends StatelessWidget {
     final result = <Widget>[];
     for (var i = 0; i < children.length; i++) {
       if (i > 0) {
-        // 分节之间留更大间距，普通字段之间用标准字段间距。
-        result.add(
-          SizedBox(
-            height: children[i] is FormSection
-                ? custom.spacing.lg
-                : custom.spacing.md,
-          ),
-        );
+        result.add(SizedBox(height: custom.spacing.md));
       }
       result.add(children[i]);
     }
     return result;
-  }
-}
-
-/// 表单分节：`subtitle` 标题 + 一组字段。
-///
-/// 作为 [AppFormPage.children] 的一项使用，分节内部字段间距
-/// 由组件自动插入（`spacing.md`），分节之间由脚手架使用 `spacing.lg`。
-class FormSection extends StatelessWidget {
-  /// 分节标题（subtitle 变体）。
-  final String title;
-
-  /// 分节内的字段。
-  final List<Widget> children;
-
-  const FormSection({super.key, required this.title, this.children = const []});
-
-  @override
-  Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        AppText(title, variant: AppTextVariant.subtitle),
-        SizedBox(height: custom.spacing.sm),
-        for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) SizedBox(height: custom.spacing.md),
-          children[i],
-        ],
-      ],
-    );
   }
 }
 

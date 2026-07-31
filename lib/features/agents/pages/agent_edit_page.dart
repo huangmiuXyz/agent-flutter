@@ -351,129 +351,95 @@ class AgentEditPage extends HookWidget {
         ],
       ),
       children: [
-        if (!isGlobal)
-          FormSection(
-            title: '基本信息',
-            children: [
-              if (isCreate)
-                AppField(
-                  label: '标识（文件夹名）',
-                  placeholder: '如 code-reviewer，创建后不可修改',
-                  controller: idController,
-                ),
-              AppField(
-                label: '名称',
-                placeholder: '显示名称（必填）',
-                controller: nameController,
-              ),
-              AppField(
-                label: '描述',
-                placeholder: '这个智能体擅长什么？',
-                controller: descController,
-              ),
-            ],
+        if (!isGlobal) ...[
+          if (isCreate)
+            AppField(
+              label: '标识（文件夹名）',
+              placeholder: '如 code-reviewer，创建后不可修改',
+              controller: idController,
+            ),
+          AppField(
+            label: '名称',
+            placeholder: '显示名称（必填）',
+            controller: nameController,
           ),
-        FormSection(
-          title: '默认模型',
-          children: [
-            AppSelect<String>(
-              label: '提供商',
-              placeholder: '从全局已有模型中选择',
-              value: selectedProvider.value,
-              options: providerOptions,
-              onChanged: (v) {
-                selectedProvider.value = v;
-                selectedModel.value = null;
-              },
-            ),
-            AppSelect<String>(
-              label: '模型',
-              placeholder: selectedProvider.value == null
-                  ? '先选择提供商'
-                  : '选择模型',
-              value: selectedModel.value,
-              options: modelOptions,
-              disabled: selectedProvider.value == null,
-              onChanged: (v) => selectedModel.value = v,
-            ),
-          ],
+          AppField(
+            label: '描述',
+            placeholder: '这个智能体擅长什么？',
+            controller: descController,
+          ),
+        ],
+        AppSelect<String>(
+          label: '提供商',
+          placeholder: '从全局已有模型中选择',
+          value: selectedProvider.value,
+          options: providerOptions,
+          onChanged: (v) {
+            selectedProvider.value = v;
+            selectedModel.value = null;
+          },
+        ),
+        AppSelect<String>(
+          label: '模型',
+          placeholder: selectedProvider.value == null
+              ? '先选择提供商'
+              : '选择模型',
+          value: selectedModel.value,
+          options: modelOptions,
+          disabled: selectedProvider.value == null,
+          onChanged: (v) => selectedModel.value = v,
         ),
         if (!isGlobal)
-          FormSection(
-            title: 'MCP 服务器',
-            children: [
-              AppMultiSelect<String>(
-                label: '启用的服务器',
-                placeholder: '从全局 mcpServers 中勾选',
-                value: selectedMcp.value,
-                options: [
-                  for (final s in mcpServers)
-                    AppMultiSelectOption(value: s.name, label: s.name),
-                ],
-                onChanged: (v) => selectedMcp.value = v,
-              ),
+          AppMultiSelect<String>(
+            label: '启用的服务器',
+            placeholder: '从全局 mcpServers 中勾选',
+            value: selectedMcp.value,
+            options: [
+              for (final s in mcpServers)
+                AppMultiSelectOption(value: s.name, label: s.name),
             ],
+            onChanged: (v) => selectedMcp.value = v,
           ),
         if (!isGlobal)
-          FormSection(
-            title: '技能',
-            children: [
-              AppMultiSelect<String>(
-                label: '启用的技能',
-                placeholder: '从全局已扫描技能中勾选',
-                value: selectedSkills.value,
-                options: [
-                  for (final s in skills)
-                    AppMultiSelectOption(value: s.id, label: s.name),
-                ],
-                onChanged: (v) => selectedSkills.value = v,
-              ),
+          AppMultiSelect<String>(
+            label: '启用的技能',
+            placeholder: '从全局已扫描技能中勾选',
+            value: selectedSkills.value,
+            options: [
+              for (final s in skills)
+                AppMultiSelectOption(value: s.id, label: s.name),
             ],
+            onChanged: (v) => selectedSkills.value = v,
           ),
         if (builtinToolOptions.value.isNotEmpty)
-          FormSection(
-            title: '内置工具',
-            children: [
-              AppMultiSelect<String>(
-                label: '启用的工具',
-                placeholder: '勾选需要启用的内置工具',
-                value: selectedTools.value,
-                options: [
-                  for (final t in builtinToolOptions.value)
-                    AppMultiSelectOption(
-                      value: t.name,
-                      label: '${t.name} — ${t.description}',
-                    ),
-                ],
-                onChanged: (v) => selectedTools.value = v,
-              ),
+          AppMultiSelect<String>(
+            label: '启用的工具',
+            placeholder: '勾选需要启用的内置工具',
+            value: selectedTools.value,
+            options: [
+              for (final t in builtinToolOptions.value)
+                AppMultiSelectOption(
+                  value: t.name,
+                  label: '${t.name} — ${t.description}',
+                ),
             ],
+            onChanged: (v) => selectedTools.value = v,
           ),
-        FormSection(
-          title: '工作目录',
-          children: [
-            AppFilePathField(
-              controller: workDirController,
-              label: 'work_dir（可选）',
-              placeholder: '留空则跟随全局配置',
-            ),
-          ],
+        AppFilePathField(
+          controller: workDirController,
+          label: 'work_dir（可选）',
+          placeholder: '留空则跟随全局配置',
         ),
         if (agent != null)
-          FormSection(
-            title: '系统提示词',
-            children: [
-              AppSecondaryButton(
-                text: '编辑提示词文件',
-                icon: 'fileCode',
-                size: ButtonSize.sm,
-                onPressed: () {
-                  final f = File('${agent!.directoryPath}/system_prompt.md');
-                  if (!f.existsSync()) f.createSync();
-                  openFile(f.path);
-                },
-              ),
-            ],
+          AppSecondaryButton(
+            text: '编辑提示词文件',
+            icon: 'fileCode',
+            size: ButtonSize.sm,
+            onPressed: () {
+              final f = File('${agent!.directoryPath}/system_prompt.md');
+              if (!f.existsSync()) f.createSync();
+              openFile(f.path);
+            },
           ),
       ],
     );
