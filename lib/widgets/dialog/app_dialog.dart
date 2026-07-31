@@ -4,6 +4,7 @@ import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// A theme-aware modal dialog with header, scrollable body, and footer.
@@ -30,6 +31,8 @@ class AppDialog extends StatelessWidget {
   final bool showFooter;
   final bool showCancel;
   final double? width;
+  final EdgeInsetsGeometry? bodyPadding;
+  final bool compactHeader;
 
   const AppDialog({
     super.key,
@@ -42,6 +45,8 @@ class AppDialog extends StatelessWidget {
     this.showFooter = true,
     this.showCancel = true,
     this.width,
+    this.bodyPadding,
+    this.compactHeader = false,
   });
 
   /// Shows the dialog in a modal overlay.
@@ -58,6 +63,8 @@ class AppDialog extends StatelessWidget {
     bool showFooter = true,
     bool showCancel = true,
     double? width,
+    EdgeInsetsGeometry? bodyPadding,
+    bool compactHeader = false,
     bool barrierDismissible = true,
   }) {
     final custom = CustomTheme.of(context);
@@ -76,6 +83,8 @@ class AppDialog extends StatelessWidget {
         showFooter: showFooter,
         showCancel: showCancel,
         width: width,
+        bodyPadding: bodyPadding,
+        compactHeader: compactHeader,
         child: child,
       ),
     );
@@ -92,13 +101,17 @@ class AppDialog extends StatelessWidget {
       showFooter: showFooter,
       showCancel: showCancel,
       width: width,
+      bodyPadding: bodyPadding,
+      compactHeader: compactHeader,
       child: child,
     );
   }
 }
 
 /// Internal widget that renders the dialog box with header, body, and footer.
-class _AppDialogRoot extends StatelessWidget {
+///
+/// The header can be dragged to move the dialog around the screen.
+class _AppDialogRoot extends StatefulWidget {
   final String? title;
   final Widget child;
   final String? okText;
@@ -108,6 +121,8 @@ class _AppDialogRoot extends StatelessWidget {
   final bool showFooter;
   final bool showCancel;
   final double? width;
+  final EdgeInsetsGeometry? bodyPadding;
+  final bool compactHeader;
 
   const _AppDialogRoot({
     this.title,
@@ -119,124 +134,170 @@ class _AppDialogRoot extends StatelessWidget {
     this.showFooter = true,
     this.showCancel = true,
     this.width,
+    this.bodyPadding,
+    this.compactHeader = false,
   });
 
   static const double _maxHeightFactor = 0.9; // 90% of viewport height
 
   @override
+  State<_AppDialogRoot> createState() => _AppDialogRootState();
+}
+
+class _AppDialogRootState extends State<_AppDialogRoot> {
+  /// 头部拖拽累计位移
+  Offset _dragOffset = Offset.zero;
+
+  @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    final w = widget;
 
-    final effectiveWidth = width ?? custom.controls.dialogWidth;
+    final effectiveWidth = w.width ?? custom.controls.dialogWidth;
 
     return Center(
-      child: Material(
-        type: MaterialType.transparency,
-        child: Container(
-          width: effectiveWidth,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * _maxHeightFactor,
-          ),
-          decoration: BoxDecoration(
-            color: custom.colors.cardBackground,
-            borderRadius: custom.radii.md,
-            border: Border.all(color: custom.colors.cardBorder),
-            boxShadow: custom.shadows.large,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // ---- Header ----
-              if (title != null)
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: custom.spacing.sm,
-                    vertical: custom.spacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: custom.colors.border),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AppText(
-                          title!,
-                          variant: AppTextVariant.body,
-                          style: TextStyle(fontWeight: FontWeight.w600),
+      child: Transform.translate(
+        offset: _dragOffset,
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
+            width: effectiveWidth,
+            constraints: BoxConstraints(
+              maxHeight:
+                  MediaQuery.of(context).size.height *
+                  _AppDialogRoot._maxHeightFactor,
+            ),
+            decoration: BoxDecoration(
+              color: custom.colors.cardBackground,
+              borderRadius: custom.radii.md,
+              border: Border.all(color: custom.colors.cardBorder),
+              boxShadow: custom.shadows.large,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ---- Header (draggable) ----
+                if (w.title != null)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanUpdate: (details) {
+                      setState(() => _dragOffset += details.delta);
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.move,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: custom.spacing.sm,
+                          vertical: w.compactHeader ? 4 : custom.spacing.sm,
                         ),
-                      ),
-                      AppIconButton(
-                        icon: 'x',
-                        size: ButtonSize.sm,
-                        onPressed: () {
-                          onCancel?.call();
-                          Navigator.of(context).pop(false);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-              // ---- Body ----
-              Flexible(
-                child: Padding(
-                  padding: EdgeInsets.all(custom.spacing.lg),
-                  child: child,
-                ),
-              ),
-
-              // ---- Footer ----
-              if (showFooter)
-                Container(
-                  padding: EdgeInsets.fromLTRB(
-                    custom.spacing.lg,
-                    custom.spacing.sm,
-                    custom.spacing.sm,
-                    custom.spacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: custom.colors.border),
-                    ),
-                    color: custom.colors.background,
-                    borderRadius: BorderRadius.vertical(
-                      bottom: custom.radii.md.topLeft,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (showCancel)
-                        Padding(
-                          padding: EdgeInsets.only(right: custom.spacing.sm),
-                          child: AppSecondaryButton(
-                            text: cancelText ?? '取消',
-                            onPressed: () {
-                              try {
-                                onCancel?.call();
-                              } finally {
-                                Navigator.of(context).pop(false);
-                              }
-                            },
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: custom.colors.border),
                           ),
                         ),
-                      AppPrimaryButton(
-                        text: okText ?? '确认',
-                        onPressed: () {
-                          try {
-                            onOk?.call();
-                          } finally {
-                            Navigator.of(context).pop(true);
-                          }
-                        },
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: AppText(
+                                w.title!,
+                                variant: w.compactHeader
+                                    ? AppTextVariant.caption
+                                    : AppTextVariant.body,
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            if (w.compactHeader)
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  tooltip: '关闭',
+                                  icon: AppIcon(
+                                    'x',
+                                    size: 14,
+                                    color: custom.colors.textPrimary,
+                                  ),
+                                  onPressed: () {
+                                    widget.onCancel?.call();
+                                    Navigator.of(context).pop(false);
+                                  },
+                                ),
+                              )
+                            else
+                              AppIconButton(
+                                icon: 'x',
+                                size: ButtonSize.sm,
+                                onPressed: () {
+                                  widget.onCancel?.call();
+                                  Navigator.of(context).pop(false);
+                                },
+                              ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
+                  ),
+
+                // ---- Body ----
+                Flexible(
+                  child: Padding(
+                    padding: w.bodyPadding ?? EdgeInsets.all(custom.spacing.lg),
+                    child: w.child,
                   ),
                 ),
-            ],
+
+                // ---- Footer ----
+                if (w.showFooter)
+                  Container(
+                    padding: EdgeInsets.fromLTRB(
+                      custom.spacing.lg,
+                      custom.spacing.sm,
+                      custom.spacing.sm,
+                      custom.spacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: custom.colors.border),
+                      ),
+                      color: custom.colors.background,
+                      borderRadius: BorderRadius.vertical(
+                        bottom: custom.radii.md.topLeft,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (w.showCancel)
+                          Padding(
+                            padding: EdgeInsets.only(right: custom.spacing.sm),
+                            child: AppSecondaryButton(
+                              text: w.cancelText ?? '取消',
+                              onPressed: () {
+                                try {
+                                  w.onCancel?.call();
+                                } finally {
+                                  Navigator.of(context).pop(false);
+                                }
+                              },
+                            ),
+                          ),
+                        AppPrimaryButton(
+                          text: w.okText ?? '确认',
+                          onPressed: () {
+                            try {
+                              w.onOk?.call();
+                            } finally {
+                              Navigator.of(context).pop(true);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

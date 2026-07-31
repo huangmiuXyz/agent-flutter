@@ -1,9 +1,9 @@
 {
   "file_scan_exclusions": ["*.freezed.dart", "*.g.dart"],
   "context_servers": {
-    "flutter-mcp-toolkit": {
-      "command": "E:\\code\\private\\agent-flutter\\.mcp_server\\flutter-mcp-toolkit-server.exe",
-      "args": ["--resources", "--images", "--dynamics"]
+    "marionette": {
+      "command": "C:\\Users\\cc\\AppData\\Local\\Pub\\Cache\\bin\\marionette_mcp.bat",
+      "args": []
     }
   }
 }

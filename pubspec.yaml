@@ -37,6 +37,7 @@ dependencies:
     path: .patches/code_forge
   re_highlight: ^0.0.3
   freezed_annotation: ^3.0.0
+  marionette_flutter: ^0.6.0
 
 dev_dependencies:
   flutter_test:

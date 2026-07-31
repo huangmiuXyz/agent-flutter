@@ -1,36 +1,36 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
+import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 
-
-/// The hidden settings child-window controller, created on first use.
-WindowController? settingsWindow;
-
-/// Show or lazily create the settings child window.
-Future<void> showSettingsWindow() async {
-  try {
-    var w = settingsWindow;
-    if (w == null) {
-      w = await WindowController.create(
-        const WindowConfiguration(arguments: 'settings', hiddenAtLaunch: true),
-      );
-      settingsWindow = w;
-    }
-    await w.show();
-  } catch (e) {
-    debugPrint('Failed to show settings window: $e');
-  }
+/// 以模态弹窗形式显示设置页（主窗口内，与主窗口同 isolate）。
+///
+/// 尺寸跟随主窗口：宽 80%、高 90%。
+Future<void> showSettingsDialog(BuildContext context) async {
+  final size = MediaQuery.sizeOf(context);
+  final width = size.width * 0.8;
+  final height = size.height * 0.9;
+  await AppDialog.show(
+    context: context,
+    title: '设置',
+    showFooter: false,
+    width: width,
+    // 设置页自身带内边距，弹窗 body 不再额外留白
+    bodyPadding: EdgeInsets.zero,
+    compactHeader: true,
+    child: SizedBox(height: height, child: const SettingsPage()),
+  );
 }
 
 /// A title-bar button styled consistently with [WindowCaptionButton].
@@ -123,9 +123,7 @@ class MainLayout extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: bgColor,
-              border: Border(
-                bottom: BorderSide(color: custom.colors.selected),
-              ),
+              border: Border(bottom: BorderSide(color: custom.colors.selected)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -133,31 +131,24 @@ class MainLayout extends StatelessWidget {
                 // Draggable area (leave space for traffic lights).
                 Expanded(
                   child: DragToMoveArea(
-                    child: SizedBox(
-                      height: kWindowCaptionHeight,
-                    ),
+                    child: SizedBox(height: kWindowCaptionHeight),
                   ),
                 ),
                 // Small settings gear icon on the far right.
                 Padding(
                   padding: EdgeInsets.only(right: custom.spacing.md),
                   child: AppIconButton(
-                  icon: 'settings',
-                  size: ButtonSize.sm,
-                  hoverStyle: false,
-                  onPressed: showSettingsWindow,
-                ),
+                    icon: 'settings',
+                    size: ButtonSize.sm,
+                    hoverStyle: false,
+                    onPressed: () => showSettingsDialog(context),
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        body: Stack(
-          children: [
-            child,
-            const _McpInitSnackBar(),
-          ],
-        ),
+        body: Stack(children: [child, const _McpInitSnackBar()]),
         bottomNavigationBar: footer,
       );
     }
@@ -193,7 +184,7 @@ class MainLayout extends StatelessWidget {
                 child: _CaptionIconButton(
                   brightness: brightness,
                   icon: const Icon(LucideIcons.settings, size: 12),
-                  onPressed: showSettingsWindow,
+                  onPressed: () => showSettingsDialog(context),
                 ),
               ),
               IntrinsicWidth(
@@ -207,12 +198,7 @@ class MainLayout extends StatelessWidget {
           ),
         ),
       ),
-      body: Stack(
-          children: [
-            child,
-            const _McpInitSnackBar(),
-          ],
-        ),
+      body: Stack(children: [child, const _McpInitSnackBar()]),
       bottomNavigationBar: footer,
     );
   }

@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 
@@ -10,13 +10,11 @@ import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
 import 'features/editor/editor_window.dart';
-import 'features/settings/settings_page.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
 import 'services/engine/engine_client.dart';
 import 'services/engine/frontend_tools.dart';
 import 'store/code_forge_store.dart';
 import 'store/session_store.dart';
-import 'store/theme_store.dart';
 import 'store/xterm_store.dart';
 import 'services/sync/app_sync.dart';
 import 'services/sync/cross_window_sync.dart';
@@ -24,6 +22,7 @@ import 'services/llm/llm_service.dart';
 import 'theme/app_theme.dart';
 
 import 'package:code_forge/code_forge.dart' as code_forge;
+import 'package:marionette_flutter/marionette_flutter.dart';
 
 void main() async {
   // Silence Fleather's harmless assertion in childAtPosition when
@@ -41,31 +40,22 @@ void main() async {
 
   await runZonedGuarded(
     () async {
-      WidgetsFlutterBinding.ensureInitialized();
+      // Debug 模式初始化 MarionetteBinding，向 AI agent 暴露 MCP 交互扩展；
+      // 单 binding 规则：flutter test 环境下跳过，避免与测试 binding 冲突。
+      final isFlutterTest = Platform.environment.containsKey('FLUTTER_TEST');
+      if (kDebugMode && !isFlutterTest) {
+        MarionetteBinding.ensureInitialized();
+      } else {
+        WidgetsFlutterBinding.ensureInitialized();
+      }
 
       await frb.RustLib.init();
       await code_forge.RustLib.init();
       await LlmService().init();
 
-      // Check if this is a child window (e.g. settings child window).
+      // Check if this is a child window (editor child windows).
       try {
         final controller = await WindowController.fromCurrentEngine();
-        if (controller.arguments == 'settings') {
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            await windowManager.ensureInitialized();
-            await windowManager.center();
-            await windowManager.focus();
-            // Prevent close — hide instead of destroy so the gear
-            // button can bring the window back to front later.
-            await windowManager.setPreventClose(true);
-            windowManager.addListener(
-              WindowCloseIntercept(() => windowManager.hide()),
-            );
-          });
-          await initAppSync();
-          runApp(const _SettingsWindow());
-          return;
-        }
 
         // ── 编辑器子窗口 ──
         if (controller.arguments.startsWith('editor:')) {
@@ -191,24 +181,4 @@ class WindowCloseIntercept with WindowListener {
 
   @override
   void onWindowClose() => onClose();
-}
-
-/// A minimal app shell for the settings child window.
-class _SettingsWindow extends HookWidget {
-  const _SettingsWindow();
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = useExistingSignal(ThemeStore.instance.settings);
-
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Agent Settings',
-      themeMode: settings.value.themeMode,
-      theme: resolveTheme(settings.value, Brightness.light),
-      darkTheme: resolveTheme(settings.value, Brightness.dark),
-      themeAnimationDuration: Duration.zero,
-      home: const SettingsPage(),
-    );
-  }
 }

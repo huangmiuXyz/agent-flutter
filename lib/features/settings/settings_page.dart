@@ -25,7 +25,6 @@ import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api.dart' as bridge;
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/list/app_list.dart';
-import 'package:agent/widgets/text/app_text.dart';
 
 /// Settings category tabs.
 enum SettingsTab { display, models, mcp, skills, agents }
@@ -196,18 +195,12 @@ class SettingsPage extends HookWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      custom.spacing.sm,
-                      custom.spacing.md,
-                      custom.spacing.sm,
-                      custom.spacing.sm,
-                    ),
-                    child: AppText('设置', variant: AppTextVariant.subtitle),
-                  ),
                   SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: custom.spacing.xs,
+                    padding: EdgeInsets.fromLTRB(
+                      custom.spacing.xs,
+                      custom.spacing.md,
+                      custom.spacing.xs,
+                      0,
                     ),
                     child: AppList(
                       size: AppListSize.small,

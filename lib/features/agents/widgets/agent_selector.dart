@@ -33,8 +33,7 @@ class AgentSelector extends HookWidget {
       return null;
     }, const []);
 
-    // 每次打开下拉面板时重新扫描，确保跨窗口创建/删除后即时生效
-    // 设置窗口是子窗口（独立 isolate），不会自动通知主窗口
+    // 每次打开下拉面板时重新扫描，确保设置弹窗中创建/删除后即时生效
     final refresh = useCallback(() {
       store.refresh();
     }, []);
