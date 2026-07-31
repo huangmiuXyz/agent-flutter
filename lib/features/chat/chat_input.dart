@@ -24,7 +24,7 @@ class ChatInput extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final physicalHeight = 130.0 / MediaQuery.of(context).devicePixelRatio;
+    final physicalHeight = 120.0 / MediaQuery.of(context).devicePixelRatio;
     final width = readingWidth;
     final controller = useMemoized(() => FleatherController());
     final sending = useState(false);

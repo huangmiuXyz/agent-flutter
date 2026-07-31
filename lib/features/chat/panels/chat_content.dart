@@ -431,7 +431,7 @@ class _MessageList extends StatelessWidget {
                               )
                             : null,
                         padding: EdgeInsets.only(
-                          top: custom.spacing.sm,
+                          top: 0,
                           bottom: hasLatestTurn ? 0 : _listBottomSpacing,
                         ),
                         itemCount: itemCount,

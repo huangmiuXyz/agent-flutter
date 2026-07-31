@@ -89,7 +89,7 @@ class _UserMessage extends HookWidget {
 
     final messagePadding = EdgeInsets.symmetric(
       horizontal: custom.spacing.md,
-      vertical: custom.spacing.xs,
+      vertical: custom.spacing.sm,
     );
 
     return Padding(
