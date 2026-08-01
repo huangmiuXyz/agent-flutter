@@ -1,7 +1,7 @@
 /// 命令面板 — VSCode 风格的命令搜索与执行入口。
 ///
-/// 以 [AppDialog] 弹窗呈现：顶部搜索框（autofocus），下方命令列表
-/// 按 category 分组。键盘操作：
+/// 全部基于现有组件拼装：AppDialog（顶部对齐弹窗）+ AppField（搜索框）
+/// + AppList/AppListGroup/AppListItem（分组列表）。键盘操作：
 /// - ↑/↓ 移动选中（AppList 全局键盘导航，搜索框聚焦时同样生效）
 /// - Enter 执行选中命令（不可用的命令灰显、不响应）
 /// - Esc 关闭面板
@@ -17,24 +17,27 @@ import 'package:agent/features/commands/models/command_info.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
-import 'package:agent/widgets/icon/app_icon.dart';
+import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/list/app_list.dart';
 
-/// 打开命令面板（模态弹窗）。
+/// 打开命令面板（顶部对齐的模态弹窗，无标题栏）。
 Future<void> showCommandPalette(BuildContext context) {
   return AppDialog.show(
     context: context,
-    title: '命令面板',
+    title: null,
     showFooter: false,
     showCancel: false,
-    width: 520,
-    compactHeader: true,
+    width: 560,
+    alignment: Alignment.topCenter,
     bodyPadding: EdgeInsets.zero,
-    child: const CommandPalette(),
+    child: const Padding(
+      padding: EdgeInsets.only(top: 72),
+      child: CommandPalette(),
+    ),
   );
 }
 
-/// 命令面板主体：搜索 + 分组列表 + 键盘执行。
+/// 命令面板主体：搜索框 + 分组列表 + 键盘执行。
 class CommandPalette extends HookWidget {
   const CommandPalette({super.key});
 
@@ -70,63 +73,46 @@ class CommandPalette extends HookWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // ── 搜索框 ──
-        Focus(
-          onKeyEvent: (node, event) {
-            // Esc 关闭面板（AppList 的键盘导航不消费 Esc）
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.escape) {
-              Navigator.of(context).pop();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: custom.spacing.md,
-              vertical: custom.spacing.xs,
-            ),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: custom.colors.border),
-              ),
-            ),
-            child: TextField(
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            custom.spacing.md,
+            custom.spacing.sm,
+            custom.spacing.md,
+            custom.spacing.xs,
+          ),
+          child: Focus(
+            onKeyEvent: (node, event) {
+              // Esc 关闭面板（AppList 的键盘导航不消费 Esc）
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.escape) {
+                Navigator.of(context).pop();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: AppField(
               controller: searchController,
-              autofocus: true,
+              placeholder: '输入命令名称…',
+              icon: 'search',
+              size: FieldSize.md,
               onChanged: (v) => query.value = v,
-              style: TextStyle(
-                fontSize: custom.typography.bodySize,
-                fontFamily: custom.typography.fontFamily,
-                color: custom.colors.textPrimary,
-              ),
-              decoration: InputDecoration(
-                hintText: '输入命令名称…',
-                hintStyle: TextStyle(
-                  fontSize: custom.typography.bodySize,
-                  color: custom.colors.textSecondary,
-                ),
-                prefixIcon: AppIcon(
-                  'search',
-                  size: custom.typography.bodySize,
-                  color: custom.colors.textSecondary,
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
-                isDense: true,
-                border: InputBorder.none,
-              ),
             ),
           ),
         ),
 
         // ── 命令列表 ──
-        Flexible(
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: 240,
+            maxHeight: MediaQuery.of(context).size.height * 0.55,
+          ),
           child: SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: custom.spacing.xs),
             child: AppList(
               size: AppListSize.small,
               keyboardNavigable: true,
+              // 打开即选中第一项，Enter 可直接执行
+              initialFocusedIndex: 0,
               emptyPlaceholder: '无匹配命令',
               children: [
                 for (final entry in groups.entries)

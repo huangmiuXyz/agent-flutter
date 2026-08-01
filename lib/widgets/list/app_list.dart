@@ -102,7 +102,8 @@ bool _handleNavKey({
   }
 
   if ((key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.select) &&
-      focusedIdx >= 0) {
+      focusedIdx >= 0 &&
+      focusedIdx < navEntries.length) {
     navEntries[focusedIdx].onTap?.call();
     return true;
   }
@@ -166,6 +167,10 @@ class AppList extends HookWidget {
   /// when the widget is inserted into the tree (e.g. for context menus).
   final bool autoFocus;
 
+  /// 键盘导航的初始选中索引（如命令面板打开即选中第一项）。
+  /// 默认 -1 表示初始不选中任何项。
+  final int initialFocusedIndex;
+
   /// Placeholder text shown when the list has no items.
   /// Defaults to `'无内容'`. Set to `null` to show nothing.
   final String? emptyPlaceholder;
@@ -185,6 +190,7 @@ class AppList extends HookWidget {
     this.size = AppListSize.normal,
     this.keyboardNavigable = false,
     this.autoFocus = false,
+    this.initialFocusedIndex = -1,
     this.emptyPlaceholder = '无内容',
   }) : assert(
          (children != null ? 1 : 0) +
@@ -269,8 +275,8 @@ class AppList extends HookWidget {
     final scrollController = useMemoized(() => ScrollController());
 
     final focusNode = useFocusNode();
-    // 初始不聚焦任何项（-1），用户按下 ↑/↓ 后才开始导航
-    final focusedIdx = useState<int>(-1);
+    // 初始选中索引（如命令面板打开即选中第一项）
+    final focusedIdx = useState<int>(initialFocusedIndex);
     final focusKeyRef = useRef<GlobalKey?>(null);
     final focusKeysRef = useRef(<int, GlobalKey>{});
 
@@ -321,6 +327,17 @@ class AppList extends HookWidget {
     }
 
     // ── Passive keyboard listener ──────────────────────────────────────
+    // 列表内容变化（如搜索过滤）后，选中索引可能越界 → 钳制到有效范围
+    useEffect(() {
+      final len = navEntries.length;
+      if (len == 0) {
+        if (focusedIdx.value != -1) focusedIdx.value = -1;
+      } else if (focusedIdx.value >= len) {
+        focusedIdx.value = len - 1;
+      }
+      return null;
+    }, [navEntries.length]);
+
     useEffect(() {
       if (!keyboardNavigable || autoFocus) return null;
 

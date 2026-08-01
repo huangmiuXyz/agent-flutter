@@ -33,6 +33,7 @@ class AppDialog extends StatelessWidget {
   final double? width;
   final EdgeInsetsGeometry? bodyPadding;
   final bool compactHeader;
+  final AlignmentGeometry alignment;
 
   const AppDialog({
     super.key,
@@ -47,6 +48,7 @@ class AppDialog extends StatelessWidget {
     this.width,
     this.bodyPadding,
     this.compactHeader = false,
+    this.alignment = Alignment.center,
   });
 
   /// Shows the dialog in a modal overlay.
@@ -66,6 +68,7 @@ class AppDialog extends StatelessWidget {
     EdgeInsetsGeometry? bodyPadding,
     bool compactHeader = false,
     bool barrierDismissible = true,
+    AlignmentGeometry alignment = Alignment.center,
   }) {
     final custom = CustomTheme.of(context);
     return showGeneralDialog(
@@ -85,6 +88,7 @@ class AppDialog extends StatelessWidget {
         width: width,
         bodyPadding: bodyPadding,
         compactHeader: compactHeader,
+        alignment: alignment,
         child: child,
       ),
     );
@@ -103,6 +107,7 @@ class AppDialog extends StatelessWidget {
       width: width,
       bodyPadding: bodyPadding,
       compactHeader: compactHeader,
+      alignment: alignment,
       child: child,
     );
   }
@@ -123,6 +128,7 @@ class _AppDialogRoot extends StatefulWidget {
   final double? width;
   final EdgeInsetsGeometry? bodyPadding;
   final bool compactHeader;
+  final AlignmentGeometry alignment;
 
   const _AppDialogRoot({
     this.title,
@@ -136,6 +142,7 @@ class _AppDialogRoot extends StatefulWidget {
     this.width,
     this.bodyPadding,
     this.compactHeader = false,
+    this.alignment = Alignment.center,
   });
 
   static const double _maxHeightFactor = 0.9; // 90% of viewport height
@@ -155,7 +162,8 @@ class _AppDialogRootState extends State<_AppDialogRoot> {
 
     final effectiveWidth = w.width ?? custom.controls.dialogWidth;
 
-    return Center(
+    return Align(
+      alignment: w.alignment,
       child: Transform.translate(
         offset: _dragOffset,
         child: Material(
