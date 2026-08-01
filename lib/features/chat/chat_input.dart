@@ -103,6 +103,7 @@ class ChatInput extends HookWidget {
                           icon: 'square',
                           size: ButtonSize.sm,
                           backgroundColor: custom.colors.danger,
+                          iconColor: custom.colors.onDanger,
                           tooltip: '停止生成',
                           onPressed: () =>
                               SessionStore.instance.cancelStreaming(sid),

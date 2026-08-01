@@ -14,6 +14,7 @@ class AppIconButton extends StatelessWidget {
   final bool hoverStyle;
   final ButtonSize size;
   final Color? backgroundColor;
+  final Color? iconColor;
 
   const AppIconButton({
     super.key,
@@ -25,6 +26,7 @@ class AppIconButton extends StatelessWidget {
     this.hoverStyle = true,
     this.size = ButtonSize.md,
     this.backgroundColor,
+    this.iconColor,
   });
 
   @override
@@ -32,9 +34,8 @@ class AppIconButton extends StatelessWidget {
     final custom = CustomTheme.of(context);
     final sizing = resolveButtonSizing(custom, size);
     final isDisabled = disabled || onPressed == null;
-    final foregroundColor = isDisabled
-        ? custom.colors.textDisabled
-        : custom.colors.textPrimary;
+    final foregroundColor = iconColor ??
+        (isDisabled ? custom.colors.textDisabled : custom.colors.textPrimary);
 
     Widget iconWidget = AppIcon(
       icon,

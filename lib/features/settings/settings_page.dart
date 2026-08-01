@@ -258,6 +258,8 @@ class SettingsPage extends HookWidget {
                             icon: item.icon,
                             label: item.name,
                             active: activeTab.value == item.tab,
+                            // 激活/悬停背景圆角与下拉选择面板（radii.sm）保持一致
+                            itemRadius: custom.radii.sm,
                             onTap: () {
                               activeTab.value = item.tab;
                               resetSubStates();

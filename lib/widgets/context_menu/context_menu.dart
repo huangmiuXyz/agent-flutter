@@ -399,6 +399,11 @@ class _MenuPanel extends HookWidget {
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
         active: item.selected,
+        // 菜单背景较浅，默认 selected 色几乎不可见；
+        // 用强调色低透明度叠加，浅色/深色模式下都能看清激活项
+        activeColor: custom.colors.accent.withValues(alpha: 0.12),
+        // 激活/悬停背景圆角与面板（AppCard 默认 radii.sm）保持一致
+        itemRadius: custom.radii.sm,
         intrinsicHeight: false,
         itemHeight: custom.controls.smallHeight,
         hoverActions: item.onHoverTap != null

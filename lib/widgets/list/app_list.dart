@@ -621,6 +621,9 @@ class AppListItem extends HookWidget {
   final EdgeInsetsGeometry? itemPadding;
   final BorderRadiusGeometry? itemRadius;
   final Color? itemColor;
+
+  /// 仅覆盖激活（选中）状态的背景色，优先级高于 [itemColor]。
+  final Color? activeColor;
   final Color? labelColor;
   final double? iconSize;
   final double? iconLabelGap;
@@ -661,6 +664,7 @@ class AppListItem extends HookWidget {
     this.itemPadding,
     this.itemRadius,
     this.itemColor,
+    this.activeColor,
     this.labelColor,
     this.iconSize,
     this.iconLabelGap,
@@ -702,7 +706,7 @@ class AppListItem extends HookWidget {
     final gap = iconLabelGap ?? custom.spacing.sm;
 
     final bgColor = switch ((active, isPressed.value, isHovered.value)) {
-      (true, _, _) => itemColor ?? custom.colors.selected,
+      (true, _, _) => itemColor ?? activeColor ?? custom.colors.selected,
       (_, true, _) when enabled => itemColor ?? custom.colors.selected,
       (_, _, true) when enabled => itemColor ?? custom.colors.hover,
       _ => Colors.transparent,
