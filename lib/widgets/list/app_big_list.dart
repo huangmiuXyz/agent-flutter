@@ -361,13 +361,9 @@ class AppBigGroup extends StatelessWidget {
           ),
         ),
         // ---- Card container ----
-        Container(
-          decoration: BoxDecoration(
-            color: custom.colors.cardBackground,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: custom.colors.border, width: 1),
-          ),
-          clipBehavior: Clip.antiAlias,
+        _CardSurface(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: custom.colors.border, width: 1),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -688,30 +684,76 @@ class _CardSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final solo = isFirst && isLast;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: custom.colors.cardBackground,
-        borderRadius: BorderRadius.only(
-          topLeft: isFirst ? const Radius.circular(12) : Radius.zero,
-          topRight: isFirst ? const Radius.circular(12) : Radius.zero,
-          bottomLeft: isLast ? const Radius.circular(12) : Radius.zero,
-          bottomRight: isLast ? const Radius.circular(12) : Radius.zero,
-        ),
-        border: Border(
-          top: isFirst
-              ? BorderSide(color: custom.colors.border)
-              : BorderSide.none,
-          bottom: isLast
-              ? BorderSide(color: custom.colors.border)
-              : BorderSide.none,
-          left: BorderSide(color: custom.colors.border),
-          right: BorderSide(color: custom.colors.border),
-        ),
+    return _CardSurface(
+      borderRadius: BorderRadius.only(
+        topLeft: isFirst ? const Radius.circular(12) : Radius.zero,
+        topRight: isFirst ? const Radius.circular(12) : Radius.zero,
+        bottomLeft: isLast ? const Radius.circular(12) : Radius.zero,
+        bottomRight: isLast ? const Radius.circular(12) : Radius.zero,
       ),
-      clipBehavior: solo ? Clip.antiAlias : Clip.none,
+      border: Border(
+        top: isFirst
+            ? BorderSide(color: custom.colors.border)
+            : BorderSide.none,
+        bottom: isLast
+            ? BorderSide(color: custom.colors.border)
+            : BorderSide.none,
+        left: BorderSide(color: custom.colors.border),
+        right: BorderSide(color: custom.colors.border),
+      ),
       child: child,
+    );
+  }
+}
+
+/// Card appearance: rounded background + border.
+///
+/// Uses a three-layer stack so the border is painted on top of the child:
+/// hover backgrounds (e.g. [AppBigRow]'s rounded [AppListItem] highlight) are
+/// clipped to the card shape by [ClipRRect] and can never cover the border or
+/// spill past the rounded corners.
+class _CardSurface extends StatelessWidget {
+  final BorderRadius borderRadius;
+  final Border border;
+  final Widget child;
+
+  const _CardSurface({
+    required this.borderRadius,
+    required this.border,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        // 1. Card background (bottom layer)
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: custom.colors.cardBackground,
+              borderRadius: borderRadius,
+            ),
+          ),
+        ),
+        // 2. Content clipped to the rounded card shape
+        ClipRRect(borderRadius: borderRadius, child: child),
+        // 3. Border overlay (top layer, never covered by hover background)
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                border: border,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
