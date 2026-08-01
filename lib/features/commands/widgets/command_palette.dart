@@ -207,10 +207,15 @@ class _CommandPalette extends HookWidget {
                     // 打开即选中第一项，Enter 可直接执行
                     initialFocusedIndex: 0,
                     emptyPlaceholder: '无匹配命令',
+                    // 选中高亮无圆角（VSCode 风格）
+                    focusRadius: BorderRadius.zero,
+                    // item 间无间距（VSCode 风格）
+                    itemGap: 0,
                     children: [
                       for (final entry in groups.entries)
                         AppListGroup(
                           title: entry.key,
+                          itemGap: 0,
                           children: [
                             for (final c in entry.value)
                               AppListItem(
@@ -220,6 +225,8 @@ class _CommandPalette extends HookWidget {
                                     ? formatShortcut(c.shortcut!)
                                     : null,
                                 disabled: !c.isEnabled,
+                                // 命令面板 item 激活背景无圆角（VSCode 风格）
+                                itemRadius: BorderRadius.zero,
                                 onTap: c.isEnabled ? () => execute(c) : null,
                               ),
                           ],

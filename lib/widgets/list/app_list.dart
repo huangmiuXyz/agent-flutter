@@ -175,6 +175,9 @@ class AppList extends HookWidget {
   /// Defaults to `'无内容'`. Set to `null` to show nothing.
   final String? emptyPlaceholder;
 
+  /// 键盘导航聚焦高亮的圆角（默认 [CustomTheme.radii.sm]）。
+  final BorderRadiusGeometry? focusRadius;
+
   const AppList({
     super.key,
     this.width,
@@ -192,6 +195,7 @@ class AppList extends HookWidget {
     this.autoFocus = false,
     this.initialFocusedIndex = -1,
     this.emptyPlaceholder = '无内容',
+    this.focusRadius,
   }) : assert(
          (children != null ? 1 : 0) +
                  (itemBuilder != null ? 1 : 0) +
@@ -392,6 +396,7 @@ class AppList extends HookWidget {
           size: child.size,
           showDivider: child.showDivider,
           focusedChildIndex: focusedInGroup,
+          focusRadius: focusRadius,
           children: child.children,
         );
       }
@@ -405,7 +410,7 @@ class AppList extends HookWidget {
           key: key,
           decoration: BoxDecoration(
             color: isFocused ? custom.colors.hover : Colors.transparent,
-            borderRadius: custom.radii.sm,
+            borderRadius: focusRadius ?? custom.radii.sm,
           ),
           child: child,
         ),
@@ -528,6 +533,9 @@ class AppListGroup extends StatelessWidget {
   /// 键盘导航时组内被聚焦的子项索引；null 表示无聚焦项（不显示高亮）。
   final int? focusedChildIndex;
 
+  /// 聚焦高亮的圆角（默认 [CustomTheme.radii.sm]）。
+  final BorderRadiusGeometry? focusRadius;
+
   const AppListGroup({
     super.key,
     this.icon,
@@ -538,6 +546,7 @@ class AppListGroup extends StatelessWidget {
     this.size,
     this.showDivider = false,
     this.focusedChildIndex,
+    this.focusRadius,
     required this.children,
   });
 
@@ -579,7 +588,7 @@ class AppListGroup extends StatelessWidget {
                     Container(
                       decoration: BoxDecoration(
                         color: custom.colors.hover,
-                        borderRadius: custom.radii.sm,
+                        borderRadius: focusRadius ?? custom.radii.sm,
                       ),
                       child: children[i],
                     )
@@ -875,7 +884,12 @@ class _GroupHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final padding = isSmall
-        ? EdgeInsets.fromLTRB(custom.spacing.sm + 2, custom.spacing.xs, 0, 0)
+        ? EdgeInsets.fromLTRB(
+            custom.spacing.sm + 2,
+            custom.spacing.xs + 2,
+            0,
+            custom.spacing.xs + 2,
+          )
         : EdgeInsets.fromLTRB(0, custom.spacing.xs + 2, 0, custom.spacing.xs);
 
     return Column(
