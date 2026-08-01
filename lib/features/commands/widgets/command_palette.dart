@@ -191,38 +191,42 @@ class _CommandPalette extends HookWidget {
             AppDivider(size: AppDividerSize.small),
 
             // ── 命令列表 ──
+            // shrinkWrap：内容少时高度自适应（无底部空白），
+            // 内容超出视口一半时才滚动
             ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: 240,
                 maxHeight: MediaQuery.of(context).size.height * 0.55,
               ),
-              child: SingleChildScrollView(
+              child: ListView(
+                shrinkWrap: true,
                 padding: EdgeInsets.symmetric(vertical: custom.spacing.xs),
-                child: AppList(
-                  size: AppListSize.small,
-                  keyboardNavigable: true,
-                  // 打开即选中第一项，Enter 可直接执行
-                  initialFocusedIndex: 0,
-                  emptyPlaceholder: '无匹配命令',
-                  children: [
-                    for (final entry in groups.entries)
-                      AppListGroup(
-                        title: entry.key,
-                        children: [
-                          for (final c in entry.value)
-                            AppListItem(
-                              icon: c.icon,
-                              label: c.title,
-                              trailing: c.shortcut != null
-                                  ? formatShortcut(c.shortcut!)
-                                  : null,
-                              disabled: !c.isEnabled,
-                              onTap: c.isEnabled ? () => execute(c) : null,
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
+                children: [
+                  AppList(
+                    size: AppListSize.small,
+                    keyboardNavigable: true,
+                    // 打开即选中第一项，Enter 可直接执行
+                    initialFocusedIndex: 0,
+                    emptyPlaceholder: '无匹配命令',
+                    children: [
+                      for (final entry in groups.entries)
+                        AppListGroup(
+                          title: entry.key,
+                          children: [
+                            for (final c in entry.value)
+                              AppListItem(
+                                icon: c.icon,
+                                label: c.title,
+                                trailing: c.shortcut != null
+                                    ? formatShortcut(c.shortcut!)
+                                    : null,
+                                disabled: !c.isEnabled,
+                                onTap: c.isEnabled ? () => execute(c) : null,
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
