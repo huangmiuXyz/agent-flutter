@@ -200,8 +200,6 @@ class _CommandPalette extends HookWidget {
                 padding: EdgeInsets.symmetric(vertical: custom.spacing.xs),
                 child: AppList(
                   size: AppListSize.small,
-                  // 行距加大，避免命令行之间过于拥挤
-                  itemGap: custom.spacing.sm,
                   keyboardNavigable: true,
                   // 打开即选中第一项，Enter 可直接执行
                   initialFocusedIndex: 0,
