@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/list/app_list.dart';
@@ -23,6 +25,15 @@ class MenuItem {
   final bool isSeparator;
   final bool isHeader;
 
+  /// 悬停时行尾浮出的图标按钮（仅鼠标 hover 时显示）。
+  final String? hoverIcon;
+
+  /// 点击 [hoverIcon] 按钮时的回调；为 null 则不显示悬停按钮。
+  final VoidCallback? onHoverTap;
+
+  /// 悬停按钮的 tooltip。
+  final String? hoverTooltip;
+
   /// Creates a regular menu item.
   const MenuItem({
     required this.label,
@@ -32,6 +43,9 @@ class MenuItem {
     this.selected = false,
     this.submenu,
     this.onTap,
+    this.hoverIcon,
+    this.onHoverTap,
+    this.hoverTooltip,
   }) : isSeparator = false,
        isHeader = false;
 
@@ -44,6 +58,9 @@ class MenuItem {
       selected = false,
       submenu = null,
       onTap = null,
+      hoverIcon = null,
+      onHoverTap = null,
+      hoverTooltip = null,
       isSeparator = true,
       isHeader = false;
 
@@ -54,6 +71,9 @@ class MenuItem {
       selected = false,
       submenu = null,
       onTap = null,
+      hoverIcon = null,
+      onHoverTap = null,
+      hoverTooltip = null,
       isSeparator = false,
       isHeader = true;
 }
@@ -363,6 +383,20 @@ class _MenuPanel extends HookWidget {
         active: item.selected,
         intrinsicHeight: false,
         itemHeight: custom.controls.smallHeight,
+        hoverActions: item.onHoverTap != null
+            ? [
+                AppIconButton(
+                  icon: item.hoverIcon ?? 'settings',
+                  size: ButtonSize.sm,
+                  hoverStyle: false,
+                  tooltip: item.hoverTooltip,
+                  onPressed: () {
+                    onDismiss();
+                    item.onHoverTap?.call();
+                  },
+                ),
+              ]
+            : null,
         trailingWidget: hasSubmenu
             ? AppIcon('chevronRight', size: custom.typography.captionSize)
             : null,

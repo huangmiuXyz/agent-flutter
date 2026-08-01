@@ -57,7 +57,9 @@ class AppCard extends StatelessWidget {
     final effectiveShadow = boxShadow ?? custom.shadows.small;
 
     return IntrinsicWidth(
-      stepWidth: stepWidth ?? minWidth ?? 0,
+      // stepWidth 仅在显式传入时按整倍数取整（用于多面板对齐）；
+      // 否则宽度 = max(内容固有宽度, minWidth)，完全自适应内容
+      stepWidth: stepWidth ?? 0,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           minWidth: minWidth ?? 0,

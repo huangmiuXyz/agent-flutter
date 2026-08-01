@@ -723,11 +723,18 @@ class AppListItem extends HookWidget {
                     );
                   }
 
-                  if (trailingChildren.isEmpty) return const SizedBox.shrink();
+                  // 没有行尾内容且没有悬停操作时直接返回；
+                  // 有 hoverActions 时仍需进入下方 Stack 以浮出悬停按钮
+                  if (trailingChildren.isEmpty && hoverActions == null) {
+                    return const SizedBox.shrink();
+                  }
 
                   // Hide trailing content on hover when hoverActions are present
                   // (use Opacity so layout space is preserved for the floating button)
-                  final hideTrailing = hoverActions != null && isHovered.value;
+                  final hideTrailing =
+                      trailingChildren.isNotEmpty &&
+                      hoverActions != null &&
+                      isHovered.value;
                   Widget content = Opacity(
                     opacity: hideTrailing ? 0.0 : 1.0,
                     child: Row(
@@ -741,7 +748,13 @@ class AppListItem extends HookWidget {
                         ? custom.controls.smallHeight
                         : custom.controls.mediumHeight;
                     content = ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: minHoverHeight),
+                      constraints: BoxConstraints(
+                        minHeight: minHoverHeight,
+                        // 行尾无内容时也预留一个按钮宽度：否则浮出的按钮是
+                        // Positioned 溢出子项，绘制可见但 hit-test 不可命中，
+                        // 点击会穿透到下层导致菜单误关闭
+                        minWidth: minHoverHeight,
+                      ),
                       child: Stack(
                         alignment: Alignment.center,
                         clipBehavior: Clip.none,

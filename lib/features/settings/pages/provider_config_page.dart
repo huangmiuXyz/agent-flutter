@@ -145,13 +145,13 @@ class _ConfigForm extends HookWidget {
           AppPrimaryButton(text: '保存', onPressed: handleSave),
         ],
         secondary: [
-          if (provider.configured)
-            AppSecondaryButton(text: '管理模型', onPressed: onManageModels),
-          if (provider.configured)
-            AppSecondaryButton(
-              text: '删除配置',
-              onPressed: () => _handleDelete(context),
-            ),
+          // 始终显示：从聊天页选择器跳转时也可能携带未标记 configured 的
+          // ProviderInfo，但按钮操作本身与 configured 状态无关
+          AppSecondaryButton(text: '管理模型', onPressed: onManageModels),
+          AppSecondaryButton(
+            text: '删除配置',
+            onPressed: () => _handleDelete(context),
+          ),
         ],
       ),
       children: [

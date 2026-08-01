@@ -14,6 +14,8 @@ import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
+import 'package:agent/features/settings/settings_page.dart';
+import 'package:agent/layout/main_layout.dart' show showSettingsDialog;
 
 import 'package:agent/widgets/select/panel_selector.dart';
 
@@ -60,6 +62,16 @@ class AgentSelector extends HookWidget {
               value: agent.id,
               label: agent.name,
               icon: agent.id == effectiveId ? 'check' : null,
+              // 悬停齿轮：直达该智能体的设置编辑页（不改变当前选中）
+              hoverIcon: 'settings',
+              hoverTooltip: '打开「${agent.name}」的设置',
+              onHoverTap: () {
+                showSettingsDialog(
+                  context,
+                  tab: SettingsTab.agents,
+                  agent: agent,
+                );
+              },
             ),
         ],
         onChanged: (id) {

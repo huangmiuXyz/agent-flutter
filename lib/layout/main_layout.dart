@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:agent/features/agents/models/agent_info.dart';
+import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
@@ -17,7 +19,13 @@ import 'package:agent/rust_bridge/api.dart' as api;
 /// 以模态弹窗形式显示设置页（主窗口内，与主窗口同 isolate）。
 ///
 /// 尺寸跟随主窗口：宽 80%、高 90%。
-Future<void> showSettingsDialog(BuildContext context) async {
+/// 可通过 [tab]/[provider]/[agent] 直达对应设置子页面（如从聊天页选择器跳转）。
+Future<void> showSettingsDialog(
+  BuildContext context, {
+  SettingsTab? tab,
+  ProviderInfo? provider,
+  AgentInfo? agent,
+}) async {
   final size = MediaQuery.sizeOf(context);
   final width = size.width * 0.8;
   final height = size.height * 0.9;
@@ -29,7 +37,14 @@ Future<void> showSettingsDialog(BuildContext context) async {
     // 设置页自身带内边距，弹窗 body 不再额外留白
     bodyPadding: EdgeInsets.zero,
     compactHeader: true,
-    child: SizedBox(height: height, child: const SettingsPage()),
+    child: SizedBox(
+      height: height,
+      child: SettingsPage(
+        initialTab: tab,
+        initialProvider: provider,
+        initialAgent: agent,
+      ),
+    ),
   );
 }
 

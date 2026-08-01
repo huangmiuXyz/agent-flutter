@@ -5,6 +5,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
+import 'package:agent/features/settings/settings_page.dart';
+import 'package:agent/layout/main_layout.dart' show showSettingsDialog;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
@@ -56,6 +58,16 @@ class ModelSelector extends HookWidget {
             // 选项值携带 (provider, model)，允许同名模型出现在多个提供商分组
             'value': encodeKey(p.key, name),
             'group': p.key,
+            // 悬停齿轮：直达该模型所属提供商的配置页（不改变当前选中）
+            'hoverIcon': 'settings',
+            'hoverTooltip': '打开「${p.key}」的提供商设置',
+            'onHoverTap': () {
+              showSettingsDialog(
+                context,
+                tab: SettingsTab.models,
+                provider: ProviderInfo(name: p.key),
+              );
+            },
           },
     ];
 

@@ -45,21 +45,35 @@ class _TabItem {
 }
 
 class SettingsPage extends HookWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({
+    super.key,
+    this.initialTab,
+    this.initialProvider,
+    this.initialAgent,
+  });
+
+  /// 打开时直接定位到的 tab（默认模型提供商）。
+  final SettingsTab? initialTab;
+
+  /// 打开时直接定位到的提供商配置页。
+  final ProviderInfo? initialProvider;
+
+  /// 打开时直接定位到的智能体编辑页。
+  final AgentInfo? initialAgent;
 
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final activeTab = useState(SettingsTab.models);
-    final selectedProvider = useState<ProviderInfo?>(null);
+    final activeTab = useState(initialTab ?? SettingsTab.models);
+    final selectedProvider = useState<ProviderInfo?>(initialProvider);
     final showAddProvider = useState(false);
     final selectedMcp = useState<McpServerInfo?>(null);
     final showAddMcp = useState(false);
     final selectedMcpDetail = useState<McpServerInfo?>(null);
     final selectedSkill = useState<SkillInfo?>(null);
     final skills = useState<List<SkillInfo>>([]);
-    final selectedAgent = useState<AgentInfo?>(null);
-    final showAgentEditor = useState(false);
+    final selectedAgent = useState<AgentInfo?>(initialAgent);
+    final showAgentEditor = useState(initialAgent != null);
     final showFontSettings = useState(false);
 
     // ── 切换到技能 tab 时自动扫描 ──

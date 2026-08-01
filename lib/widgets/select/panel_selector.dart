@@ -20,11 +20,23 @@ class PanelSelectorOption<T> {
   /// Whether this item can be selected. Defaults to `true`.
   final bool enabled;
 
+  /// 悬停时行尾浮出的图标（仅鼠标 hover 时显示）。
+  final String? hoverIcon;
+
+  /// 点击 [hoverIcon] 按钮时的回调（不触发行本身的选中）。
+  final VoidCallback? onHoverTap;
+
+  /// 悬停按钮的 tooltip。
+  final String? hoverTooltip;
+
   const PanelSelectorOption({
     required this.value,
     required this.label,
     this.icon,
     this.enabled = true,
+    this.hoverIcon,
+    this.onHoverTap,
+    this.hoverTooltip,
   });
 }
 // ───────────────────────────────────────────────────────────────────────────────
@@ -93,6 +105,9 @@ class PanelSelector<T> extends HookWidget {
           value: val,
           label: label,
           icon: item is Map ? item['icon'] as String? : null,
+          hoverIcon: item is Map ? item['hoverIcon'] as String? : null,
+          onHoverTap: item is Map ? item['onHoverTap'] as VoidCallback? : null,
+          hoverTooltip: item is Map ? item['hoverTooltip'] as String? : null,
         );
       }).toList();
     }
@@ -164,6 +179,13 @@ class PanelSelector<T> extends HookWidget {
                     : true,
                 selected: itemValue == currentVal,
                 onTap: () => onChanged?.call(itemValue),
+                hoverIcon: item is Map ? item['hoverIcon'] as String? : null,
+                onHoverTap: item is Map
+                    ? item['onHoverTap'] as VoidCallback?
+                    : null,
+                hoverTooltip: item is Map
+                    ? item['hoverTooltip'] as String?
+                    : null,
               ),
             );
           }
@@ -181,6 +203,9 @@ class PanelSelector<T> extends HookWidget {
             onTap: () {
               onChanged?.call(option.value);
             },
+            hoverIcon: option.hoverIcon,
+            onHoverTap: option.onHoverTap,
+            hoverTooltip: option.hoverTooltip,
           ),
       ];
     }
