@@ -6,19 +6,18 @@
 /// - 顶部有 "创建智能体" 按钮
 library;
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
+import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/rust_bridge/api.dart' as bridge;
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
-import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/list/app_big_list.dart';
+import 'package:agent/widgets/list/toggle_group_list.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
 
 /// 智能体列表页。
@@ -61,13 +60,9 @@ class AgentListPage extends HookWidget {
       Future<void> load() async {
         final map = <String, bool>{};
         for (final a in customs) {
-          try {
-            final raw = await bridge.readAgentConfig(configPath: a.configPath);
-            final cfg = jsonDecode(raw) as Map<String, dynamic>;
-            map[a.configPath] = cfg['enable'] as bool? ?? false;
-          } catch (_) {
-            map[a.configPath] = false;
-          }
+          final cfg = await AgentConfigHelper.readConfig(a.configPath);
+          map[a.configPath] =
+              cfg != null ? AgentConfigHelper.enabled(cfg) : false;
         }
         enabledMap.value = map;
       }
@@ -82,13 +77,12 @@ class AgentListPage extends HookWidget {
 
     Future<void> toggleEnabled(AgentInfo agent, bool value) async {
       try {
-        final raw = await bridge.readAgentConfig(configPath: agent.configPath);
-        final cfg = jsonDecode(raw) as Map<String, dynamic>;
+        final cfg = await AgentConfigHelper.readConfig(agent.configPath);
+        if (cfg == null) return;
         cfg['enable'] = value;
-        final json = '${const JsonEncoder.withIndent('  ').convert(cfg)}\n';
         await bridge.writeAgentConfig(
           configPath: agent.configPath,
-          configJson: json,
+          configJson: AgentConfigHelper.encode(cfg),
         );
         await store.refresh();
         enabledMap.value = {...enabledMap.value, agent.configPath: value};
@@ -97,101 +91,59 @@ class AgentListPage extends HookWidget {
 
     final global = agents.where((a) => a.isGlobal).toList();
     final customs = agents.where((a) => !a.isGlobal).toList();
-    final enabledList = customs.where((a) => isEnabled(a)).toList();
-    final disabledList = customs.where((a) => !isEnabled(a)).toList();
 
-    final groups = <Widget>[];
-    if (global.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
-          label: '全局',
-          children: [
-            for (final a in global)
-              AppBigRow(
-                name: a.name,
-                description: a.description.isEmpty
-                    ? '默认智能体（根 config.json）'
-                    : a.description,
-                icon: 'robot',
-                dot: true,
-                clickable: true,
-                onTap: () => onAgentTap(a),
-              ),
-          ],
-        ),
-      );
-    }
-    if (enabledList.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
-          label: '已启用',
-          children: [
-            for (final a in enabledList)
-              AppBigRow(
-                name: a.name,
-                description: a.description.isEmpty ? a.id : a.description,
-                icon: 'robot',
-                dot: true,
-                clickable: true,
-                onTap: () => onAgentTap(a),
-                actions: [
-                  AppSwitch(
-                    value: true,
-                    onChanged: (v) => toggleEnabled(a, v),
-                    size: SwitchSize.sm,
-                  ),
-                ],
-              ),
-          ],
-        ),
-      );
-    }
-    if (disabledList.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
-          label: '已禁用',
-          children: [
-            for (final a in disabledList)
-              AppBigRow(
-                name: a.name,
-                description: a.description.isEmpty ? a.id : a.description,
-                icon: 'robot',
-                dot: false,
-                clickable: true,
-                onTap: () => onAgentTap(a),
-                actions: [
-                  AppSwitch(
-                    value: false,
-                    onChanged: (v) => toggleEnabled(a, v),
-                    size: SwitchSize.sm,
-                  ),
-                ],
-              ),
-          ],
-        ),
-      );
-    }
-
-    return ContentFrame(
-      child: AppBigList(
-        key: ValueKey('agent_list_${agents.length}'),
-        count: customs.length,
-        countLabel: '个智能体',
-        showSearch: false,
+    return ToggleGroupListPage<AgentInfo>(
+      key: ValueKey('agent_list_${agents.length}'),
+      items: customs,
+      isEnabled: isEnabled,
+      count: customs.length,
+      countLabel: '个智能体',
+      extraGroups: [
+        if (global.isNotEmpty)
+          AppBigGroup(
+            label: '全局',
+            children: [
+              for (final a in global)
+                AppBigRow(
+                  name: a.name,
+                  description: a.description.isEmpty
+                      ? '默认智能体（根 config.json）'
+                      : a.description,
+                  icon: 'robot',
+                  dot: true,
+                  clickable: true,
+                  onTap: () => onAgentTap(a),
+                ),
+            ],
+          ),
+      ],
+      rowBuilder: (context, a) => AppBigRow(
+        name: a.name,
+        description: a.description.isEmpty ? a.id : a.description,
+        icon: 'robot',
+        dot: isEnabled(a),
+        clickable: true,
+        onTap: () => onAgentTap(a),
         actions: [
-          AppPrimaryButton(
-            text: '创建智能体',
-            icon: 'plus',
-            size: ButtonSize.sm,
-            onPressed: onCreateTap,
+          AppSwitch(
+            value: isEnabled(a),
+            onChanged: (v) => toggleEnabled(a, v),
+            size: SwitchSize.sm,
           ),
         ],
-        emptyState: AppBigEmpty(
-          icon: 'robot',
-          title: '暂无自定义智能体',
-          hint: '点击"创建智能体"，从全局配置出发组合模型、MCP 服务器和技能。',
+      ),
+      actions: [
+        AppPrimaryButton(
+          text: '创建智能体',
+          icon: 'plus',
+          size: ButtonSize.sm,
+          onPressed: onCreateTap,
         ),
-        children: groups,
+      ],
+      emptyState: AppBigEmpty(
+        icon: 'robot',
+        title: '暂无自定义智能体',
+        hint: '点击"创建智能体"，从全局配置出发组合模型、MCP 服务器和技能。',
       ),
     );
   }

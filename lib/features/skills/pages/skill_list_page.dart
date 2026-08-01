@@ -16,8 +16,8 @@ import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
-import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/list/app_big_list.dart';
+import 'package:agent/widgets/list/toggle_group_list.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
 
 /// 技能列表页。
@@ -41,66 +41,34 @@ class SkillListPage extends HookWidget {
     final merged = skills.map((s) => s.copyWith(
       enabled: states[s.id] ?? s.enabled,
     )).toList();
-    final enabled = merged.where((s) => s.enabled).toList();
-    final disabled = merged.where((s) => !s.enabled).toList();
-    final total = skills.length;
 
-    final groups = <Widget>[];
-    if (enabled.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
-          label: '已启用',
-          children: [
-            for (final s in enabled)
-              _SkillRow(
-                skill: s,
-                onTap: () => onSkillTap(s),
-              ),
-          ],
+    return ToggleGroupListPage<SkillInfo>(
+      key: ValueKey('skill_list_${skills.length}'),
+      items: merged,
+      isEnabled: (s) => s.enabled,
+      countLabel: '个技能',
+      rowBuilder: (context, s) => _SkillRow(
+        skill: s,
+        onTap: () => onSkillTap(s),
+      ),
+      actions: [
+        AppPrimaryButton(
+          text: '重新扫描',
+          size: ButtonSize.sm,
+          onPressed: onRescan,
         ),
-      );
-    }
-    if (disabled.isNotEmpty) {
-      groups.add(
-        AppBigGroup(
-          label: '已禁用',
-          children: [
-            for (final s in disabled)
-              _SkillRow(
-                skill: s,
-                onTap: () => onSkillTap(s),
-              ),
-          ],
+        const SizedBox(width: 8),
+        AppSecondaryButton(
+          text: '配置文件',
+          icon: 'fileCode',
+          size: ButtonSize.sm,
+          onPressed: () => openFile(store.configPath),
         ),
-      );
-    }
-
-    return ContentFrame(
-      child: AppBigList(
-        key: ValueKey('skill_list_${skills.length}'),
-        count: total,
-        countLabel: '个技能',
-        showSearch: false,
-        actions: [
-          AppPrimaryButton(
-            text: '重新扫描',
-            size: ButtonSize.sm,
-            onPressed: onRescan,
-          ),
-          const SizedBox(width: 8),
-          AppSecondaryButton(
-            text: '配置文件',
-            icon: 'fileCode',
-            size: ButtonSize.sm,
-            onPressed: () => openFile(store.configPath),
-          ),
-        ],
-        emptyState: AppBigEmpty(
-          icon: 'puzzle',
-          title: '暂无技能',
-          hint: '点击"重新扫描"发现项目中的技能文件。',
-        ),
-        children: groups,
+      ],
+      emptyState: AppBigEmpty(
+        icon: 'puzzle',
+        title: '暂无技能',
+        hint: '点击"重新扫描"发现项目中的技能文件。',
       ),
     );
   }

@@ -9,12 +9,12 @@
 /// - 底部操作栏：[从全局导入] [删除] [取消] [保存]
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/settings/models/mcp_server_info.dart';
@@ -136,46 +136,21 @@ class AgentEditPage extends HookWidget {
     useEffect(() {
       if (isCreate || loaded.value) return null;
       loaded.value = true;
-      bridge.readAgentConfig(configPath: agent!.configPath).then((raw) {
-        try {
-          final cfg = jsonDecode(raw) as Map<String, dynamic>;
-          nameController.text = cfg['name'] as String? ?? agent!.name;
-          descController.text = cfg['description'] as String? ?? '';
-          enabled.value =
-              cfg['enable'] as bool? ?? false;
-          workDirController.text = cfg['work_dir'] as String? ?? '';
-          final dm = cfg['default_model'];
-          if (dm is Map<String, dynamic>) {
-            selectedProvider.value = dm['provider'] as String?;
-            selectedModel.value = dm['model'] as String?;
-          }
-          final mcp = cfg['mcpServers'];
-          if (mcp is Map<String, dynamic>) {
-            selectedMcp.value = mcp.keys.toSet();
-          }
-          final sk = cfg['skills'];
-          if (sk is Map<String, dynamic>) {
-            selectedSkills.value = sk.entries
-                .where((e) {
-                  final v = e.value;
-                  return v is Map && v['enabled'] == true;
-                })
-                .map((e) => e.key)
-                .toSet();
-          }
-          final bt = cfg['builtinTools'];
-          if (bt is Map<String, dynamic>) {
-            selectedTools.value = bt.entries
-                .where((e) {
-                  final v = e.value;
-                  return v is Map && v['enabled'] == true;
-                })
-                .map((e) => e.key)
-                .toSet();
-          }
-        } catch (_) {
-          // 配置解析失败：保持默认空表单，用户可重建
+      AgentConfigHelper.readConfig(agent!.configPath).then((cfg) {
+        if (cfg == null) return; // 配置不可读/解析失败：保持默认空表单
+        nameController.text = cfg['name'] as String? ?? agent!.name;
+        descController.text = cfg['description'] as String? ?? '';
+        enabled.value = AgentConfigHelper.enabled(cfg);
+        workDirController.text = AgentConfigHelper.workDir(cfg);
+        final dm = AgentConfigHelper.defaultModel(cfg);
+        selectedProvider.value = dm?.provider;
+        selectedModel.value = dm?.model;
+        final mcp = cfg['mcpServers'];
+        if (mcp is Map<String, dynamic>) {
+          selectedMcp.value = mcp.keys.toSet();
         }
+        selectedSkills.value = AgentConfigHelper.enabledSkills(cfg);
+        selectedTools.value = AgentConfigHelper.enabledBuiltinTools(cfg);
       });
       return null;
     }, const []);
@@ -210,12 +185,10 @@ class AgentEditPage extends HookWidget {
         // 编辑模式以现有配置为底，保留 UI 不管理的字段；创建模式从空开始
         Map<String, dynamic> cfg = {};
         if (!isCreate) {
-          try {
-            final raw = await bridge.readAgentConfig(
-              configPath: agent!.configPath,
-            );
-            cfg = jsonDecode(raw) as Map<String, dynamic>;
-          } catch (_) {}
+          final existing = await AgentConfigHelper.readConfig(
+            agent!.configPath,
+          );
+          if (existing != null) cfg = existing;
         }
 
         if (isGlobal) {
@@ -286,7 +259,7 @@ class AgentEditPage extends HookWidget {
               global['language_models'] ?? <String, dynamic>{};
         }
 
-        final json = '${const JsonEncoder.withIndent('  ').convert(cfg)}\n';
+        final json = AgentConfigHelper.encode(cfg);
 
         if (isCreate) {
           await bridge.createAgent(

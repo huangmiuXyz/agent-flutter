@@ -6,11 +6,9 @@
 /// 3. 提供当前智能体的配置文件路径（聊天时传给 Rust）
 library;
 
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:signals/signals.dart';
 
+import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/rust_bridge/agent.dart' as bridge;
 import 'package:agent/rust_bridge/api.dart' as bridge_api;
@@ -90,21 +88,8 @@ class AgentStore {
     );
     final agent = currentAgent.value;
     if (agent == null || agent.isGlobal) return fallback;
-    try {
-      final raw = File(agent.configPath).readAsStringSync();
-      final cfg = jsonDecode(raw) as Map<String, dynamic>;
-      final dm = cfg['default_model'];
-      if (dm is Map) {
-        final p = dm['provider'] as String? ?? '';
-        final m = dm['model'] as String? ?? '';
-        if (p.isNotEmpty && m.isNotEmpty) {
-          return (provider: p, model: m);
-        }
-      }
-    } catch (_) {
-      // 配置文件不可读/解析失败 → 回退全局
-    }
-    return fallback;
+    final cfg = AgentConfigHelper.readConfigSync(agent.configPath);
+    return AgentConfigHelper.defaultModel(cfg ?? {}) ?? fallback;
   }
 
   /// 解析聊天应使用的工作目录。
@@ -115,14 +100,8 @@ class AgentStore {
     final fallback = ConfigStore.instance.workDir.value;
     final agent = currentAgent.value;
     if (agent == null || agent.isGlobal) return fallback;
-    try {
-      final raw = File(agent.configPath).readAsStringSync();
-      final cfg = jsonDecode(raw) as Map<String, dynamic>;
-      final wd = cfg['work_dir'] as String? ?? '';
-      if (wd.isNotEmpty) return wd;
-    } catch (_) {
-      // 配置文件不可读/解析失败 → 回退全局
-    }
-    return fallback;
+    final cfg = AgentConfigHelper.readConfigSync(agent.configPath);
+    final wd = AgentConfigHelper.workDir(cfg ?? {});
+    return wd.isNotEmpty ? wd : fallback;
   }
 }
