@@ -373,6 +373,29 @@ class AppList extends HookWidget {
             navEntries[ff].childIndex == childIndex;
       }
 
+      // 分组：把聚焦高亮下放到组内对应子项（避免整个组块被罩上背景）
+      if (child is AppListGroup && !useBuilder) {
+        final ff = focusedIdx.value;
+        int? focusedInGroup;
+        if (ff >= 0 && ff < navEntries.length) {
+          final e = navEntries[ff];
+          if (e.childIndex == childIndex && e.groupChildIndex != null) {
+            focusedInGroup = e.groupChildIndex;
+          }
+        }
+        return AppListGroup(
+          icon: child.icon,
+          title: child.title,
+          header: child.header,
+          padding: child.padding,
+          itemGap: child.itemGap,
+          size: child.size,
+          showDivider: child.showDivider,
+          focusedChildIndex: focusedInGroup,
+          children: child.children,
+        );
+      }
+
       final key = focusKeysRef.value.putIfAbsent(childIndex, () => GlobalKey());
       if (isFocused) focusKeyRef.value = key;
 
@@ -502,6 +525,9 @@ class AppListGroup extends StatelessWidget {
   /// Whether to show a separator line above this group.
   final bool showDivider;
 
+  /// 键盘导航时组内被聚焦的子项索引；null 表示无聚焦项（不显示高亮）。
+  final int? focusedChildIndex;
+
   const AppListGroup({
     super.key,
     this.icon,
@@ -511,6 +537,7 @@ class AppListGroup extends StatelessWidget {
     this.itemGap,
     this.size,
     this.showDivider = false,
+    this.focusedChildIndex,
     required this.children,
   });
 
@@ -547,7 +574,17 @@ class AppListGroup extends StatelessWidget {
               children: [
                 for (int i = 0; i < children.length; i++) ...[
                   if (i > 0) SizedBox(height: effectiveItemGap),
-                  children[i],
+                  // 键盘导航聚焦时仅高亮组内对应单项（不罩住整个组块）
+                  if (focusedChildIndex == i)
+                    Container(
+                      decoration: BoxDecoration(
+                        color: custom.colors.hover,
+                        borderRadius: custom.radii.sm,
+                      ),
+                      child: children[i],
+                    )
+                  else
+                    children[i],
                 ],
               ],
             ),
