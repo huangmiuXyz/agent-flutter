@@ -139,6 +139,10 @@ class PanelSelector<T> extends HookWidget {
     final lastPosition = useRef<Offset?>(null);
     final lastAlignRight = useRef<bool>(false);
 
+    // 指针按下时已执行收起（背景 onPointerDown 会抢先关闭菜单，onTap 触发时
+    // isOpen 已为 false）；此标记让 onTap 跳过重新打开，仅对应当前这次点击
+    final pendingCollapse = useRef(false);
+
     /// Build the menu items list, grouping by the `group` key.
     List<MenuItem> buildMenuItems() {
       if (data != null) {
@@ -226,12 +230,22 @@ class PanelSelector<T> extends HookWidget {
       return null;
     }, [data, options]);
 
-    void onTap() {
-      // 菜单已打开且属于本按钮 → 再次点击收起（不刷新、不重建）
+    void handlePointerDown() {
+      // 菜单已打开且属于本按钮 → 按下即收起。
+      // 必须在此处理：overlay 全屏背景的 onPointerDown 会在按下瞬间
+      // 抢先关闭菜单，等 onTap 触发时状态已变，无法再区分收起/打开
       if (ContextMenu.isOpen && ContextMenu.activeLink == layerLink) {
+        pendingCollapse.value = true;
         isOpen.value = false;
         lastPosition.value = null;
         ContextMenu.dismiss();
+      }
+    }
+
+    void onTap() {
+      // 本次点击已在按下时处理为收起，不再重新打开
+      if (pendingCollapse.value) {
+        pendingCollapse.value = false;
         return;
       }
 
@@ -271,34 +285,40 @@ class PanelSelector<T> extends HookWidget {
         onEnter: (_) => isHovered.value = true,
         onExit: (_) => isHovered.value = false,
         cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: GestureDetector(
-          onTap: enabled ? onTap : null,
-          child: Container(
-            key: buttonKey,
-            height: custom.controls.smallHeight,
-            padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
-            decoration: BoxDecoration(
-              color: isHovered.value ? custom.colors.hover : Colors.transparent,
-              borderRadius: custom.radii.xs,
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppText(
-                    selectedLabel ?? placeholder ?? '',
-                    variant: AppTextVariant.caption,
-                    color: selectedLabel != null
-                        ? custom.colors.textPrimary
-                        : custom.colors.textSecondary,
-                  ),
-                  SizedBox(width: custom.spacing.xs),
-                  AppIcon(
-                    isOpen.value ? 'chevronUp' : 'chevronDown',
-                    size: custom.typography.captionSize,
-                    color: custom.colors.textSecondary,
-                  ),
-                ],
+        child: Listener(
+          onPointerDown: (_) => handlePointerDown(),
+          child: GestureDetector(
+            onTap: enabled ? onTap : null,
+            onTapCancel: () => pendingCollapse.value = false,
+            child: Container(
+              key: buttonKey,
+              height: custom.controls.smallHeight,
+              padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
+              decoration: BoxDecoration(
+                color: isHovered.value
+                    ? custom.colors.hover
+                    : Colors.transparent,
+                borderRadius: custom.radii.xs,
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppText(
+                      selectedLabel ?? placeholder ?? '',
+                      variant: AppTextVariant.caption,
+                      color: selectedLabel != null
+                          ? custom.colors.textPrimary
+                          : custom.colors.textSecondary,
+                    ),
+                    SizedBox(width: custom.spacing.xs),
+                    AppIcon(
+                      isOpen.value ? 'chevronUp' : 'chevronDown',
+                      size: custom.typography.captionSize,
+                      color: custom.colors.textSecondary,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
