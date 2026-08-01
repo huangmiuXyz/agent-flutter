@@ -175,6 +175,14 @@ class XtermStore {
   /// 供 [togglePanel] 判断当前方向）。
   final panelExpanded = signal(false);
 
+  /// 终端聚焦请求计数器 — 快捷键/命令展开面板时递增，
+  /// 终端组件监听后把光标聚焦到终端输入。
+  final terminalFocusRequestCount = signal(0);
+
+  /// 聊天输入框聚焦请求计数器 — 快捷键/命令折叠面板时递增，
+  /// 聊天输入组件监听后把光标聚焦到 AI 聊天输入框。
+  final chatFocusRequestCount = signal(0);
+
   /// 活跃的终端 ID 集合（兼容旧代码）
   final activeIds = signal(<String>{});
 
@@ -239,11 +247,15 @@ class XtermStore {
   void collapsePanel() => collapseRequestCount.value++;
 
   /// 切换终端面板展开/折叠（快捷键/命令面板入口）
+  ///
+  /// 展开时请求终端聚焦，折叠时请求聊天输入框聚焦。
   void togglePanel() {
     if (panelExpanded.value) {
       collapsePanel();
+      chatFocusRequestCount.value++;
     } else {
       expandPanel();
+      terminalFocusRequestCount.value++;
     }
   }
 

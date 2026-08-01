@@ -101,6 +101,20 @@ class _CommandPalette extends HookWidget {
     final custom = CustomTheme.of(context);
     final searchController = useTextEditingController();
     final query = useState('');
+    // 显式控制搜索框焦点：不依赖 autofocus（Overlay 的 FocusScope
+    // canRequestFocus=false，autofocus 会失效，焦点留在路由层）。
+    final searchFocusNode = useFocusNode();
+
+    // 面板挂载后强制把光标聚焦到搜索框（post-frame，最后执行，
+    // 盖过 AppList 的 autofocus 竞争）。
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          searchFocusNode.requestFocus();
+        }
+      });
+      return null;
+    }, []);
 
     // 订阅影响命令可用性的信号：流式状态/选中会话变化时刷新 enabled
     useExistingSignal(SessionStore.instance.streamingSessionIds);
@@ -131,22 +145,24 @@ class _CommandPalette extends HookWidget {
       boxShadow: custom.shadows.large,
       child: SizedBox(
         width: 560,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── 搜索条（扁平无边框） ──
-            Focus(
-              onKeyEvent: (node, event) {
-                // Esc 关闭面板（AppList 的键盘导航不消费 Esc）
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.escape) {
-                  onClose();
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: Container(
+        child: Focus(
+          // Esc 关闭面板。必须包住整个面板（搜索条 + 列表）而非只包搜索条：
+          // AppList 键盘导航（autofocus）会把焦点放在列表项上，
+          // 仅包搜索条的监听器收不到 Esc 冒泡。
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent &&
+                event.logicalKey == LogicalKeyboardKey.escape) {
+              onClose();
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── 搜索条（扁平无边框） ──
+              Container(
                 padding: EdgeInsets.fromLTRB(
                   custom.spacing.md,
                   custom.spacing.sm,
@@ -164,7 +180,7 @@ class _CommandPalette extends HookWidget {
                     Expanded(
                       child: TextField(
                         controller: searchController,
-                        autofocus: true,
+                        focusNode: searchFocusNode,
                         onChanged: (v) => query.value = v,
                         style: TextStyle(
                           fontSize: 15,
@@ -187,56 +203,56 @@ class _CommandPalette extends HookWidget {
                   ],
                 ),
               ),
-            ),
-            AppDivider(size: AppDividerSize.small),
+              AppDivider(size: AppDividerSize.small),
 
-            // ── 命令列表 ──
-            // shrinkWrap：内容少时高度自适应（无底部空白），
-            // 内容超出视口一半时才滚动
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.55,
+              // ── 命令列表 ──
+              // shrinkWrap：内容少时高度自适应（无底部空白），
+              // 内容超出视口一半时才滚动
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.55,
+                ),
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.symmetric(vertical: custom.spacing.xs),
+                  children: [
+                    AppList(
+                      size: AppListSize.small,
+                      keyboardNavigable: true,
+                      // 打开即选中第一项，Enter 可直接执行
+                      initialFocusedIndex: 0,
+                      emptyPlaceholder: '无匹配命令',
+                      // 选中高亮无圆角（VSCode 风格）
+                      focusRadius: BorderRadius.zero,
+                      // item 间无间距（VSCode 风格）
+                      itemGap: 0,
+                      children: [
+                        for (final entry in groups.entries)
+                          AppListGroup(
+                            title: entry.key,
+                            itemGap: 0,
+                            children: [
+                              for (final c in entry.value)
+                                AppListItem(
+                                  icon: c.icon,
+                                  label: c.title,
+                                  trailing: c.shortcut != null
+                                      ? formatShortcut(c.shortcut!)
+                                      : null,
+                                  disabled: !c.isEnabled,
+                                  // 命令面板 item 激活背景无圆角（VSCode 风格）
+                                  itemRadius: BorderRadius.zero,
+                                  onTap: c.isEnabled ? () => execute(c) : null,
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.symmetric(vertical: custom.spacing.xs),
-                children: [
-                  AppList(
-                    size: AppListSize.small,
-                    keyboardNavigable: true,
-                    // 打开即选中第一项，Enter 可直接执行
-                    initialFocusedIndex: 0,
-                    emptyPlaceholder: '无匹配命令',
-                    // 选中高亮无圆角（VSCode 风格）
-                    focusRadius: BorderRadius.zero,
-                    // item 间无间距（VSCode 风格）
-                    itemGap: 0,
-                    children: [
-                      for (final entry in groups.entries)
-                        AppListGroup(
-                          title: entry.key,
-                          itemGap: 0,
-                          children: [
-                            for (final c in entry.value)
-                              AppListItem(
-                                icon: c.icon,
-                                label: c.title,
-                                trailing: c.shortcut != null
-                                    ? formatShortcut(c.shortcut!)
-                                    : null,
-                                disabled: !c.isEnabled,
-                                // 命令面板 item 激活背景无圆角（VSCode 风格）
-                                itemRadius: BorderRadius.zero,
-                                onTap: c.isEnabled ? () => execute(c) : null,
-                              ),
-                          ],
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

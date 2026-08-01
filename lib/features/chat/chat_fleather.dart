@@ -42,10 +42,18 @@ class _NoBounceScrollPhysics extends ScrollPhysics {
 }
 
 class ChatFleather extends StatefulWidget {
-  const ChatFleather({super.key, this.controller, this.onSubmit});
+  const ChatFleather({
+    super.key,
+    this.controller,
+    this.focusNode,
+    this.onSubmit,
+  });
 
   /// 外部传入的 controller，为空则内部自动创建
   final FleatherController? controller;
+
+  /// 外部传入的 FocusNode（用于外部聚焦控制），为空则内部自动创建
+  final FocusNode? focusNode;
 
   /// 按下 Enter 时回调（不含 Shift 修饰键）
   final VoidCallback? onSubmit;
@@ -56,20 +64,24 @@ class ChatFleather extends StatefulWidget {
 
 class _ChatFleatherState extends State<ChatFleather> {
   late FleatherController _controller;
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? FleatherController();
     _controller.addListener(_onControllerChanged);
+    // 外部传入的 FocusNode 由外部负责 dispose，内部创建的由自己 dispose
+    _focusNode = widget.focusNode ?? FocusNode();
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
-    _focusNode.dispose();
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    }
     super.dispose();
   }
 

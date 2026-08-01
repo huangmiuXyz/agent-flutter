@@ -2,12 +2,13 @@ import 'package:fleather/fleather.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-import 'package:signals_flutter/signals_flutter.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/agents/widgets/agent_selector.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/store/session_store.dart';
+import 'package:agent/store/xterm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
 
@@ -26,6 +27,24 @@ class ChatInput extends HookWidget {
     final width = readingWidth;
     final controller = useMemoized(() => FleatherController());
     final sending = useState(false);
+    // 外部可控制的 FocusNode：快捷键折叠终端面板时聚焦聊天输入框
+    final focusNode = useMemoized(() => FocusNode());
+
+    // 快捷键/命令折叠终端面板时，把光标聚焦到聊天输入框
+    final chatFocusCount =
+        useExistingSignal(XtermStore.instance.chatFocusRequestCount);
+    useEffect(() {
+      if (chatFocusCount.value > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            focusNode.requestFocus();
+          }
+        });
+      }
+      return null;
+    }, [chatFocusCount.value]);
+
+    useEffect(() => () => focusNode.dispose(), []);
 
     Future<void> send() async {
       final text = controller.document
@@ -57,7 +76,11 @@ class ChatInput extends HookWidget {
         child: Column(
           children: [
             Expanded(
-              child: ChatFleather(controller: controller, onSubmit: send),
+              child: ChatFleather(
+                controller: controller,
+                focusNode: focusNode,
+                onSubmit: send,
+              ),
             ),
             SizedBox(
               height: custom.spacing.lg,

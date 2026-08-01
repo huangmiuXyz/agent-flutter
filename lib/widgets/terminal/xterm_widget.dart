@@ -57,6 +57,20 @@ class XtermTerminalWidget extends HookWidget {
       return null;
     }, [visible, id]);
 
+    // 快捷键/命令展开面板时把光标聚焦到终端输入
+    final focusRequest =
+        useExistingSignal(XtermStore.instance.terminalFocusRequestCount);
+    useEffect(() {
+      if (focusRequest.value > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) {
+            FocusScope.of(context).requestFocus(focusNode.value);
+          }
+        });
+      }
+      return null;
+    }, [focusRequest.value]);
+
     final brightness = useExistingSignal(
       ThemeStore.instance.effectiveBrightness,
     );
