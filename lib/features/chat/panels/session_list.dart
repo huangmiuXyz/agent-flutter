@@ -4,9 +4,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
-import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
-import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -109,14 +107,7 @@ class SessionList extends HookWidget {
                         newName.trim() == session.name) {
                       return;
                     }
-                    final service = LlmService();
-                    final dbPath = ConfigStore.instance.dbPath;
-                    await service.renameSession(
-                      dbPath: dbPath,
-                      sessionId: session.id,
-                      name: newName.trim(),
-                    );
-                    SessionStore.instance.renameSession(
+                    await SessionStore.instance.renameSession(
                       session.id,
                       newName.trim(),
                     );
@@ -154,27 +145,8 @@ class SessionList extends HookWidget {
                                 onOk: () {},
                               );
                               if (confirmed == true) {
-                                final service = LlmService();
-                                final dbPath = ConfigStore.instance.dbPath;
-                                await service.deleteSession(
-                                  dbPath: dbPath,
-                                  sessionId: session.id,
-                                );
-                                if (selectedId == session.id) {
-                                  SessionStore.instance.selectedId.value =
-                                      null;
-                                }
-                                // 如果被删的是当前显示的会话，清理显示状态和内存中的消息数据
-                                if (SessionStore
-                                        .instance.displayedSessionId.value ==
-                                    session.id) {
-                                  SessionStore.instance.displayedSessionId
-                                      .value = null;
-                                }
-                                SessionStore.instance.sessions.value = Map.from(
-                                  SessionStore.instance.sessions.value,
-                                )..remove(session.id);
-                                SessionStore.instance.removeSession(session.id);
+                                await SessionStore.instance
+                                    .deleteSessions([session.id]);
                               }
                             },
                           ),

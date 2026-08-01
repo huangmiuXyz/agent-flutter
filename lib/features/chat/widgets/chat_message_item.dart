@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/services/session/part_types.dart';
 import 'package:agent/theme/custom_theme.dart';
 
 import 'package:agent/widgets/text/app_text.dart';
@@ -60,7 +61,7 @@ class _UserMessage extends HookWidget {
 
     // 找到第一个 text part 的内容作为初始值
     final textPart = visibleParts.cast<api.PartInfo?>().firstWhere(
-      (p) => p!.partType == 'text',
+      (p) => p!.partType == PartTypes.text,
       orElse: () => null,
     );
     final initialText = textPart != null
@@ -254,18 +255,18 @@ class ChatMessageItem extends HookWidget {
   }
 
   bool _isVisiblePart(api.PartInfo part, List<api.PartInfo> allParts) {
-    if (part.partType == 'tool_result') return false;
-    if (part.partType == 'tool_call_frag') {
-      if (allParts.any((p) => p.partType == 'tool_call')) return false;
+    if (part.partType == PartTypes.toolResult) return false;
+    if (part.partType == PartTypes.toolCallFrag) {
+      if (allParts.any((p) => p.partType == PartTypes.toolCall)) return false;
       return part.content.isNotEmpty;
     }
-    if (part.partType == 'text') {
+    if (part.partType == PartTypes.text) {
       return part.content.isNotEmpty;
     }
-    if (part.partType == 'reasoning') {
+    if (part.partType == PartTypes.reasoning) {
       return part.content.isNotEmpty;
     }
-    return part.partType == 'tool_call';
+    return part.partType == PartTypes.toolCall;
   }
 
   Widget _buildPartWithSpacing(
@@ -297,15 +298,15 @@ class ChatMessageItem extends HookWidget {
     bool isLastExpandable = false,
   }) {
     return switch (part.partType) {
-      'text' => ChatTextPart(content: part.content, streaming: streaming),
-      'reasoning' => ChatExpandablePart(
+      PartTypes.text => ChatTextPart(content: part.content, streaming: streaming),
+      PartTypes.reasoning => ChatExpandablePart(
         content: part.content,
         iconName: 'lightbulb',
         title: '深度思考',
         titleColor: custom.colors.textSecondary,
         defaultExpanded: isLastExpandable,
       ),
-      'tool_call' => ChatExpandablePart(
+      PartTypes.toolCall => ChatExpandablePart(
         content: part.content,
         iconName: 'mousePointer2',
         title: _toolCallTitle(part.content),
@@ -313,8 +314,8 @@ class ChatMessageItem extends HookWidget {
         defaultExpanded: isLastExpandable,
         resultContent: _lookupResult(part.content),
       ),
-      'tool_result' => const SizedBox.shrink(),
-      'tool_call_frag' => _buildFragPart(
+      PartTypes.toolResult => const SizedBox.shrink(),
+      PartTypes.toolCallFrag => _buildFragPart(
         part,
         custom,
         isLastExpandable: isLastExpandable,
@@ -354,17 +355,11 @@ class ChatMessageItem extends HookWidget {
   int _lastExpandablePartIndex(List<api.PartInfo> parts) {
     int lastIdx = -1;
     for (int i = 0; i < parts.length; i++) {
-      if (_isExpandable(parts[i])) {
+      if (PartTypes.isExpandable(parts[i].partType)) {
         lastIdx = i;
       }
     }
     return lastIdx;
-  }
-
-  bool _isExpandable(api.PartInfo part) {
-    return part.partType == 'reasoning' ||
-        part.partType == 'tool_call' ||
-        part.partType == 'tool_call_frag';
   }
 
   String? _lookupResult(String content) {

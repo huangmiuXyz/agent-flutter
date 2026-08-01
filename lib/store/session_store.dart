@@ -22,6 +22,7 @@ import 'package:agent/store/config_store.dart';
 import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/services/session/session_state.dart';
 import 'package:agent/services/session/stream_event_processor.dart';
+import 'package:agent/services/session/part_types.dart';
 
 // ─── SessionStore ───
 
@@ -90,7 +91,13 @@ class SessionStore {
     sessionList.value = sessionList.value.where((s) => s.id != id).toList();
   }
 
-  void renameSession(String id, String newName) {
+  /// 重命名会话：先写 DB，再更新内存列表。
+  Future<void> renameSession(String id, String newName) async {
+    await LlmService().renameSession(
+      dbPath: ConfigStore.instance.dbPath,
+      sessionId: id,
+      name: newName,
+    );
     sessionList.value = [
       for (final s in sessionList.value)
         if (s.id == id)
@@ -103,6 +110,42 @@ class SessionStore {
         else
           s,
     ];
+  }
+
+  /// 删除会话（单个或批量）：删 DB → 清理选中/显示状态 → 移除内存数据。
+  ///
+  /// 各会话独立 try/catch，单个失败不影响其余删除。
+  Future<void> deleteSessions(List<String> ids) async {
+    if (ids.isEmpty) return;
+    final service = LlmService();
+    final dbPath = ConfigStore.instance.dbPath;
+
+    for (final id in ids) {
+      try {
+        await service.deleteSession(dbPath: dbPath, sessionId: id);
+      } catch (_) {
+        // 继续删除其余会话
+      }
+    }
+
+    // 清理选中/显示状态
+    if (displayedSessionId.value != null &&
+        ids.contains(displayedSessionId.value)) {
+      displayedSessionId.value = null;
+    }
+    if (selectedId.value != null && ids.contains(selectedId.value)) {
+      selectedId.value = null;
+    }
+
+    // 移除内存状态与订阅
+    final map = Map<String, SessionState>.from(sessions.value);
+    for (final id in ids) {
+      map.remove(id);
+      removeSession(id);
+      unsubscribeSession(id);
+      _sendContext.remove(id);
+    }
+    sessions.value = map;
   }
 
   // ── 状态访问 ──
@@ -139,6 +182,46 @@ class SessionStore {
     selectedId.value = session.id;
     displayedSessionId.value = session.id;
     return session.id;
+  }
+
+  /// 创建新会话并切换（打开）到它 —— UI 层的「新建会话」统一入口。
+  Future<String> createAndOpen() async {
+    final id = await createSession();
+    await switchTo(id);
+    return id;
+  }
+
+  /// 发送用户输入 —— [ChatInput] 与消息队列「Send Now」的统一入口。
+  ///
+  /// 行为：
+  /// 1. 当前会话流式输出中 → 自动入队，等回复结束后发送
+  /// 2. 跟随当前智能体的模型配置（[AgentStore.resolveModel]）
+  /// 3. 无会话时自动创建
+  ///
+  /// 返回是否真正发出（文本为空或模型未配置时返回 false）。
+  Future<bool> sendPrompt(String text, {String? sessionId}) async {
+    final trimmed = text.replaceAll('\n', '').trim();
+    if (trimmed.isEmpty) return false;
+
+    final sid = sessionId ?? selectedId.value;
+    if (sid != null && streamingSessionIds.value.contains(sid)) {
+      // 流式输出中 → 入队，等待当前回复结束后自动发送
+      MessageQueueStore.instance.enqueue(trimmed);
+      MessageQueueStore.instance.expand();
+      return true;
+    }
+
+    final resolved = AgentStore.instance.resolveModel();
+    if (resolved.provider.isEmpty || resolved.model.isEmpty) return false;
+
+    final targetId = sid ?? await createSession();
+    await sendMessage(
+      sessionId: targetId,
+      provider: resolved.provider,
+      model: resolved.model,
+      prompt: trimmed,
+    );
+    return true;
   }
 
   /// 切换到指定会话：订阅事件流 + 加载 DB 历史。
@@ -193,7 +276,7 @@ class SessionStore {
         id: '${userMsgId}_part',
         msgId: userMsgId,
         seq: 0,
-        partType: 'text',
+        partType: PartTypes.text,
         content: prompt,
       ),
     ];
@@ -264,7 +347,7 @@ class SessionStore {
     final parts = s.partsByMsg[msgId];
     if (parts != null) {
       for (int i = 0; i < parts.length; i++) {
-        if (parts[i].partType == 'text') {
+        if (parts[i].partType == PartTypes.text) {
           parts[i] = api.PartInfo(
             id: parts[i].id,
             msgId: parts[i].msgId,
@@ -389,7 +472,7 @@ class SessionStore {
           id: '${steerMsgId}_part',
           msgId: steerMsgId,
           seq: 0,
-          partType: 'text',
+          partType: PartTypes.text,
           content: event.text,
         ),
       ];
@@ -437,18 +520,8 @@ class SessionStore {
     final text = await api.consumeNonSteer(sessionId: sessionId);
     if (text == null) return;
 
-    // 复用 sendMessage 路径（跟随当前智能体的模型配置）
-    final resolved = AgentStore.instance.resolveModel();
-    final provider = resolved.provider;
-    final model = resolved.model;
-    if (provider.isEmpty || model.isEmpty) return;
-
-    sendMessage(
-      sessionId: sessionId,
-      provider: provider,
-      model: model,
-      prompt: text,
-    );
+    // 复用 sendPrompt 路径（跟随当前智能体的模型配置，失败静默）
+    await sendPrompt(text, sessionId: sessionId);
   }
 
   /// 清理指定 session 的流式状态

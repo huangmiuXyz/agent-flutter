@@ -3,6 +3,8 @@ library;
 
 import 'package:agent/rust_bridge/api.dart' as api;
 
+import 'part_types.dart';
+
 class SessionState {
   final String sessionId;
 
@@ -52,9 +54,9 @@ class SessionState {
       if (!messageOrder.contains(part.msgId)) {
         messageOrder.add(part.msgId);
       }
-      if (part.partType == 'text') {
+      if (part.partType == PartTypes.text) {
         partLens[part.id] = part.content.length;
-      } else if (part.partType == 'reasoning') {
+      } else if (part.partType == PartTypes.reasoning) {
         reasoningPartLens[part.id] = part.content.length;
       }
     }

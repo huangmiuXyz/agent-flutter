@@ -4,11 +4,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/agents/widgets/agent_selector.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
 import 'package:agent/features/chat/chat_fleather.dart';
-import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
@@ -36,36 +34,11 @@ class ChatInput extends HookWidget {
           .trim();
       if (text.isEmpty) return;
 
-      final sid = SessionStore.instance.selectedId.value;
-      final isStreaming =
-          sid != null &&
-          SessionStore.instance.streamingSessionIds.value.contains(sid);
-
-      if (isStreaming) {
-        // 流式输出中 → 入队，等待当前回复结束后自动发送
-        MessageQueueStore.instance.enqueue(text);
-        controller.clear();
-        MessageQueueStore.instance.expand();
-        return;
-      }
-
-      final resolved = AgentStore.instance.resolveModel();
-      final provider = resolved.provider;
-      final model = resolved.model;
-      if (provider.isEmpty || model.isEmpty) return;
-
       sending.value = true;
-      controller.clear();
-
-      String sessionId = sid ?? await SessionStore.instance.createSession();
-
       try {
-        await SessionStore.instance.sendMessage(
-          sessionId: sessionId,
-          provider: provider,
-          model: model,
-          prompt: text,
-        );
+        // 统一入口：流式输出中自动入队；模型未配置时保留输入框内容
+        final ok = await SessionStore.instance.sendPrompt(text);
+        if (ok) controller.clear();
       } finally {
         sending.value = false;
       }

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:agent/store/config_store.dart';
 import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -428,21 +427,8 @@ class _SendNowButton extends StatelessWidget {
           await sessionStore.cancelStreaming(sid);
         }
 
-        // 3. 确保会话存在
-        final sessionId =
-            sessionStore.selectedId.value ?? await sessionStore.createSession();
-
-        // 4. 立即发送
-        final provider = ConfigStore.instance.currentProvider.value;
-        final model = ConfigStore.instance.currentModel.value;
-        if (provider.isEmpty || model.isEmpty) return;
-
-        sessionStore.sendMessage(
-          sessionId: sessionId,
-          provider: provider,
-          model: model,
-          prompt: message.text,
-        );
+        // 3. 立即发送（跟随当前智能体的模型配置，与输入框发送路径一致）
+        await sessionStore.sendPrompt(message.text);
       },
       borderRadius: custom.radii.xs,
       child: Container(

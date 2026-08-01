@@ -3,10 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/chat/panels/session_list.dart';
-import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
-import 'package:agent/services/llm/llm_service.dart';
-import 'package:agent/services/session/session_state.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -160,44 +157,13 @@ class LeftPanel extends HookWidget {
       return;
     }
 
-    final service = LlmService();
-    final dbPath = ConfigStore.instance.dbPath;
-    final mgr = SessionStore.instance;
-    final currentDisplayedId = mgr.displayedSessionId.value;
-    final currentSelectedId = mgr.selectedId.value;
-
-    // 批量删除
-    for (final sessionId in ids) {
-      try {
-        await service.deleteSession(dbPath: dbPath, sessionId: sessionId);
-      } catch (_) {
-        // 继续删除其余会话
-      }
-    }
-
-    // 清理显示状态
-    if (currentDisplayedId != null && ids.contains(currentDisplayedId)) {
-      mgr.displayedSessionId.value = null;
-    }
-    if (currentSelectedId != null && ids.contains(currentSelectedId)) {
-      mgr.selectedId.value = null;
-    }
-
-    // 从内存状态中移除
-    final sessionsMap = Map<String, SessionState>.from(mgr.sessions.value);
-    for (final id in ids) {
-      sessionsMap.remove(id);
-      mgr.removeSession(id);
-    }
-    mgr.sessions.value = sessionsMap;
-
+    await SessionStore.instance.deleteSessions(ids);
     selectMode.value = false;
   }
 
   Future<void> _createSession(BuildContext context) async {
     try {
-      final sessionId = await SessionStore.instance.createSession();
-      SessionStore.instance.switchTo(sessionId);
+      await SessionStore.instance.createAndOpen();
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(

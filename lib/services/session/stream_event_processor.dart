@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/rust_bridge/events.dart';
 
+import 'part_types.dart';
 import 'session_state.dart';
 
 class StreamEventProcessor {
@@ -92,7 +93,7 @@ class StreamEventProcessor {
         id: partId,
         msgId: newMsgId,
         seq: s.partsByMsg[newMsgId]!.length,
-        partType: 'reasoning',
+        partType: PartTypes.reasoning,
         content: text,
       ),
     );
@@ -131,7 +132,7 @@ class StreamEventProcessor {
         id: partId,
         msgId: newMsgId,
         seq: s.partsByMsg[newMsgId]!.length,
-        partType: 'text',
+        partType: PartTypes.text,
         content: text,
       ),
     );
@@ -144,7 +145,7 @@ class StreamEventProcessor {
     _ensureMessageExists(s, msgId);
 
     // 移除该消息下的所有 tool_call_frag，因为已收到完整的 tool_call
-    s.partsByMsg[msgId]!.removeWhere((p) => p.partType == 'tool_call_frag');
+    s.partsByMsg[msgId]!.removeWhere((p) => p.partType == PartTypes.toolCallFrag);
 
     // 添加 tool_call part，内联结果以便流式渲染时可直接显示
     final toolCallJson = jsonEncode({
@@ -160,7 +161,7 @@ class StreamEventProcessor {
       id: 'tc_${msgId}_${s.partsByMsg[msgId]!.length}',
       msgId: msgId,
       seq: s.partsByMsg[msgId]!.length,
-      partType: 'tool_call',
+      partType: PartTypes.toolCall,
       content: toolCallJson,
     ));
 
@@ -225,7 +226,7 @@ class StreamEventProcessor {
                   id: event.partId,
                   msgId: msgId,
                   seq: event.index,
-                  partType: 'tool_call_frag',
+                  partType: PartTypes.toolCallFrag,
                   content: initialContent,
                 ),
               );

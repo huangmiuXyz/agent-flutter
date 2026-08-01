@@ -8,6 +8,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/services/session/part_types.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -363,12 +364,7 @@ class _MessageList extends StatelessWidget {
               final role = messageRoles[msgId] ?? '';
 
               // 纯工具类消息不占位
-              if (parts.isNotEmpty &&
-                  parts.every(
-                    (p) =>
-                        p.partType == 'tool_result' ||
-                        p.partType == 'tool_call_frag',
-                  )) {
+              if (parts.isNotEmpty && PartTypes.isToolOnly(parts)) {
                 return const SizedBox.shrink();
               }
 
@@ -509,23 +505,15 @@ class _MessageList extends StatelessWidget {
       final mId = messageOrder[i];
       final parts = partsByMsg[mId] ?? [];
       if (parts.isEmpty) continue;
-      if (parts.every(
-        (p) => p.partType == 'tool_result' || p.partType == 'tool_call_frag',
-      )) {
+      if (PartTypes.isToolOnly(parts)) {
         continue;
       }
       if (messageRoles[mId] == 'assistant' &&
-          parts.any((p) => _isExpandablePartType(p.partType))) {
+          parts.any((p) => PartTypes.isExpandable(p.partType))) {
         return i;
       }
     }
     return -1;
-  }
-
-  bool _isExpandablePartType(String partType) {
-    return partType == 'reasoning' ||
-        partType == 'tool_call' ||
-        partType == 'tool_call_frag';
   }
 
   Map<String, String> _buildToolCallResults(
@@ -534,7 +522,7 @@ class _MessageList extends StatelessWidget {
     final results = <String, String>{};
     for (final parts in partsByMsg.values) {
       for (final part in parts) {
-        if (part.partType == 'tool_result') {
+        if (part.partType == PartTypes.toolResult) {
           try {
             final json = jsonDecode(part.content) as Map<String, dynamic>;
             final toolCallId = json['tool_call_id'] as String?;
