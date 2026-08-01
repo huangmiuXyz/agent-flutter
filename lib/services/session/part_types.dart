@@ -26,3 +26,16 @@ class PartTypes {
         (p) => p.partType == toolResult || p.partType == toolCallFrag,
       );
 }
+
+/// [api.PartInfo] 的便捷复制扩展（rust_bridge 生成类不便直接改）。
+///
+/// 当前仅需要修改 [api.PartInfo.content] 的场景（流式追加、重试编辑等）。
+extension PartInfoX on api.PartInfo {
+  api.PartInfo copyWith({String? content}) => api.PartInfo(
+    id: id,
+    msgId: msgId,
+    seq: seq,
+    partType: partType,
+    content: content ?? this.content,
+  );
+}

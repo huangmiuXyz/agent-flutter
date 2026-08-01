@@ -18,6 +18,7 @@ import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/settings/models/mcp_server_info.dart';
+import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api.dart' as bridge;
 import 'package:agent/store/config_store.dart';
@@ -81,27 +82,10 @@ class AgentEditPage extends HookWidget {
     final loaded = useState(false);
 
     // ── 全局可选项：provider → models 映射（来自全局 language_models）──
-    final providerModels = useMemoized(() {
-      final result = <String, List<String>>{};
-      final lm = configStore.data.value['language_models'];
-      if (lm is Map<String, dynamic>) {
-        for (final proto in lm.values) {
-          if (proto is! Map<String, dynamic>) continue;
-          for (final entry in proto.entries) {
-            final cfg = entry.value;
-            if (cfg is! Map<String, dynamic>) continue;
-            final raw = cfg['available_models'] as List<dynamic>?;
-            if (raw == null) continue;
-            final names = raw
-                .map((e) => e is Map ? e['name']?.toString() : e.toString())
-                .whereType<String>()
-                .toList();
-            result.putIfAbsent(entry.key, () => []).addAll(names);
-          }
-        }
-      }
-      return result;
-    }, [configStore.data.value]);
+    final providerModels = useMemoized(
+      () => parseProviderModels(configStore.data.value),
+      [configStore.data.value],
+    );
 
     // ── 全局 MCP 服务器列表 ──
     final mcpServers = useMemoized(

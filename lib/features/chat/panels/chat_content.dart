@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -12,6 +11,7 @@ import 'package:agent/services/session/part_types.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/layout_utils.dart' show readingWidth;
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
@@ -234,7 +234,7 @@ class ChatContent extends StatelessWidget {
         Align(
           alignment: Alignment.topCenter,
           child: SizedBox(
-            width: _readingWidth(),
+            width: readingWidth,
             child: const MessageQueuePanel(),
           ),
         ),
@@ -416,7 +416,7 @@ class _MessageList extends StatelessWidget {
                 return Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
-                    width: _readingWidth(),
+                    width: readingWidth,
                     child: Opacity(
                       opacity: isListVisible.value ? 1.0 : 0.0,
                       child: ListView.builder(
@@ -539,9 +539,4 @@ class _MessageList extends StatelessWidget {
     }
     return results;
   }
-}
-
-double _readingWidth() {
-  final display = PlatformDispatcher.instance.displays.first;
-  return display.size.width / display.devicePixelRatio / 2;
 }

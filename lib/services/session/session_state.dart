@@ -87,14 +87,7 @@ class SessionState {
     for (final entry in partsByMsg.entries) {
       for (int i = 0; i < entry.value.length; i++) {
         if (entry.value[i].id == partId) {
-          final old = entry.value[i];
-          entry.value[i] = api.PartInfo(
-            id: old.id,
-            msgId: old.msgId,
-            seq: old.seq,
-            partType: old.partType,
-            content: content,
-          );
+          entry.value[i] = entry.value[i].copyWith(content: content);
           return;
         }
       }

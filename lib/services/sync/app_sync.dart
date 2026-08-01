@@ -59,35 +59,40 @@ Future<void> initAppSync() async {
   CrossWindowSync.on('settingChanged', _handleRemoteSettingChanged);
 }
 
-void _handleRemoteConfigChanged(dynamic args) {
+/// 在防循环锁内执行 [fn]，避免「本地广播 → 远端收到后 reload → 再广播」死循环。
+///
+/// 若 [fn] 抛异常也会复位锁，避免永久卡死。
+void _withSyncingGuard(void Function() fn) {
   if (_syncing) return;
   _syncing = true;
-  ConfigStore.instance.reload();
-  _syncing = false;
+  try {
+    fn();
+  } finally {
+    _syncing = false;
+  }
+}
+
+void _handleRemoteConfigChanged(dynamic args) {
+  _withSyncingGuard(() => ConfigStore.instance.reload());
 }
 
 void _handleRemoteFileOpened(dynamic args) {
-  if (_syncing) return;
-  _syncing = true;
-  CodeForgeStore.instance.reload();
-  _syncing = false;
+  _withSyncingGuard(() => CodeForgeStore.instance.reload());
 }
 
 void _handleRemoteFontFamilyChanged(dynamic args) {
-  if (_syncing) return;
-  _syncing = true;
-  if (args is String) {
-    ThemeStore.instance.fontFamily.value = args;
-  }
-  _syncing = false;
+  _withSyncingGuard(() {
+    if (args is String) {
+      ThemeStore.instance.fontFamily.value = args;
+    }
+  });
 }
 
 void _handleRemoteSettingChanged(dynamic args) {
-  if (_syncing) return;
-  _syncing = true;
-  SettingStore.instance.reload();
-  ThemeStore.instance.fontFamily.value = SettingStore.instance.fontFamily;
-  _syncing = false;
+  _withSyncingGuard(() {
+    SettingStore.instance.reload();
+    ThemeStore.instance.fontFamily.value = SettingStore.instance.fontFamily;
+  });
 }
 
 class _SignalObserver extends SignalsObserver {

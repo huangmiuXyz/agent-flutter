@@ -31,12 +31,6 @@ class ModelListPage extends HookWidget {
     required this.onBack,
   });
 
-  /// Map provider name to the protocol used in config.json.
-  String _protocolFor(String name) {
-    if (name == 'Anthropic') return 'anthropic';
-    return 'openai_compatible';
-  }
-
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
@@ -45,7 +39,7 @@ class ModelListPage extends HookWidget {
     final modelsList = useState<List<String>>([]);
     final loadingState = useState(true);
     final errorMsg = useState<String?>(null);
-    final protocol = _protocolFor(provider.name);
+    final protocol = protocolForProvider(provider.name);
 
     // ── Load models + enabled state on mount ──
     useEffect(() {

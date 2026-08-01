@@ -348,13 +348,7 @@ class SessionStore {
     if (parts != null) {
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].partType == PartTypes.text) {
-          parts[i] = api.PartInfo(
-            id: parts[i].id,
-            msgId: parts[i].msgId,
-            seq: parts[i].seq,
-            partType: parts[i].partType,
-            content: newPrompt,
-          );
+          parts[i] = parts[i].copyWith(content: newPrompt);
         }
       }
     }

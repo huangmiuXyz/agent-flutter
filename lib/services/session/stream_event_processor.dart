@@ -66,54 +66,28 @@ class StreamEventProcessor {
   /// 找不到时自动创建新消息。
   static void appendReasoningContent(SessionState s, String partId, String text,
       {String? msgId}) {
-    for (final parts in s.partsByMsg.values) {
-      for (int i = 0; i < parts.length; i++) {
-        if (parts[i].id == partId) {
-          final old = parts[i];
-          parts[i] = api.PartInfo(
-            id: old.id,
-            msgId: old.msgId,
-            seq: old.seq,
-            partType: old.partType,
-            content: old.content + text,
-          );
-          return;
-        }
-      }
-    }
-    // 找不到 part，创建新消息（或追加到同 msgId 的已有消息）
-    final newMsgId = msgId ?? '${partId}_msg';
-    if (!s.partsByMsg.containsKey(newMsgId)) {
-      s.messageOrder.add(newMsgId);
-      s.partsByMsg[newMsgId] = [];
-      s.messageRoles[newMsgId] = 'assistant';
-    }
-    s.partsByMsg[newMsgId]!.add(
-      api.PartInfo(
-        id: partId,
-        msgId: newMsgId,
-        seq: s.partsByMsg[newMsgId]!.length,
-        partType: PartTypes.reasoning,
-        content: text,
-      ),
-    );
+    _appendContent(s, partId, text, PartTypes.reasoning, msgId: msgId);
   }
 
   /// 在 partsByMsg 中找到 partId 对应的 part，追加文本。
   /// 找不到时自动创建新消息。
   static void appendPartContent(SessionState s, String partId, String text,
       {String? msgId}) {
+    _appendContent(s, partId, text, PartTypes.text, msgId: msgId);
+  }
+
+  /// [appendPartContent] / [appendReasoningContent] 的公共实现。
+  static void _appendContent(
+    SessionState s,
+    String partId,
+    String text,
+    String partType, {
+    String? msgId,
+  }) {
     for (final parts in s.partsByMsg.values) {
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].id == partId) {
-          final old = parts[i];
-          parts[i] = api.PartInfo(
-            id: old.id,
-            msgId: old.msgId,
-            seq: old.seq,
-            partType: old.partType,
-            content: old.content + text,
-          );
+          parts[i] = parts[i].copyWith(content: parts[i].content + text);
           return;
         }
       }
@@ -132,7 +106,7 @@ class StreamEventProcessor {
         id: partId,
         msgId: newMsgId,
         seq: s.partsByMsg[newMsgId]!.length,
-        partType: PartTypes.text,
+        partType: partType,
         content: text,
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
+import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
@@ -45,42 +46,18 @@ class ModelSelector extends HookWidget {
 
     // 从 config.json 读取所有已激活的模型
     final allData = ConfigStore.instance.data.value;
-    final languageModels = allData['language_models'] as Map<String, dynamic>?;
+    final providerModels = parseProviderModels(allData);
 
-    List<dynamic> items = [];
-    if (languageModels != null) {
-      for (final protocolEntry in languageModels.entries) {
-        final providers = protocolEntry.value as Map<String, dynamic>?;
-        if (providers == null) continue;
-        for (final providerEntry in providers.entries) {
-          final providerName = providerEntry.key;
-          final providerConfig = providerEntry.value as Map<String, dynamic>?;
-          if (providerConfig == null) continue;
-          final raw = providerConfig['available_models'];
-          if (raw == null) continue;
-          try {
-            final decoded = jsonDecode(jsonEncode(raw));
-            if (decoded is List) {
-              for (final e in decoded) {
-                final Map<String, dynamic> entry;
-                if (e is Map) {
-                  entry = Map<String, dynamic>.from(e);
-                } else {
-                  entry = {'name': e.toString()};
-                }
-                final name = entry['name'] as String?;
-                if (name != null && name.isNotEmpty) {
-                  // 选项值携带 (provider, model)，允许同名模型出现在多个提供商分组
-                  entry['value'] = encodeKey(providerName, name);
-                  entry['group'] = providerName;
-                  items.add(entry);
-                }
-              }
-            }
-          } catch (_) {}
-        }
-      }
-    }
+    final items = <dynamic>[
+      for (final p in providerModels.entries)
+        for (final name in p.value)
+          {
+            'name': name,
+            // 选项值携带 (provider, model)，允许同名模型出现在多个提供商分组
+            'value': encodeKey(p.key, name),
+            'group': p.key,
+          },
+    ];
 
     // 当前选中项同样用 (provider, model) 复合值匹配，
     // 避免同名模型在不同提供商下同时被打勾/显示错乱

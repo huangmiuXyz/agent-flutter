@@ -69,7 +69,7 @@ class _ConfigForm extends HookWidget {
     final apiKeyCtrl = useTextEditingController();
     final endpointCtrl = useTextEditingController(text: provider.baseUrl ?? '');
     // Detect protocol from provider type
-    final protocol = _protocolFor(provider.name);
+    final protocol = protocolForProvider(provider.name);
 
     // 订阅 config 变化，跨窗口同步后重新加载表单
     final configVersion = useExistingSignal(ConfigStore.instance.data).value;
@@ -182,7 +182,7 @@ class _ConfigForm extends HookWidget {
     try {
       ConfigStore.instance.mutate((data) {
         // Remove the provider's config section if it exists
-        final protocol = _protocolFor(provider.name);
+        final protocol = protocolForProvider(provider.name);
         final models = data['language_models'] as Map<String, dynamic>?;
         if (models != null) {
           final protocolConfig = models[protocol] as Map<String, dynamic>?;
@@ -199,7 +199,7 @@ class _ConfigForm extends HookWidget {
       });
 
       debugPrint(
-        'Deleted provider config: ${_protocolFor(provider.name)}.${provider.name}',
+        'Deleted provider config: ${protocolForProvider(provider.name)}.${provider.name}',
       );
 
       if (context.mounted) {
@@ -216,13 +216,4 @@ class _ConfigForm extends HookWidget {
       }
     }
   }
-}
-
-/// Map provider name to the protocol used in config.json.
-///
-/// - Anthropic → "anthropic"
-/// - Everything else → "openai_compatible"
-String _protocolFor(String name) {
-  if (name == 'Anthropic') return 'anthropic';
-  return 'openai_compatible';
 }

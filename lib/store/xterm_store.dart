@@ -231,16 +231,6 @@ class XtermStore {
   /// 折叠终端面板（仅语义占位，实际折叠由用户拖拽控制）
   void collapsePanel() {}
 
-  /// 释放指定 ID 的终端会话（兼容旧代码）
-  void dispose(String id) {
-    _terminals.remove(id)?.dispose();
-    activeIds.value = _terminals.keys.toSet();
-    tabs.value = tabs.value.where((t) => t.id != id).toList();
-    if (activeTabId.value == id) {
-      activeTabId.value = tabs.value.isNotEmpty ? tabs.value.last.id : null;
-    }
-  }
-
   /// 释放所有终端会话
   void disposeAll() {
     for (final t in _terminals.values) {
