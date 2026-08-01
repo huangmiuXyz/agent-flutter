@@ -35,7 +35,8 @@ class AgentSelector extends HookWidget {
       return null;
     }, const []);
 
-    // 每次打开下拉面板时重新扫描，确保设置弹窗中创建/删除后即时生效
+    // 每次打开下拉面板时重新扫描，确保设置弹窗中创建/删除后即时生效；
+    // 仅打开时刷新（PanelSelector.onBeforeOpen），收起时不触发
     final refresh = useCallback(() {
       store.refresh();
     }, []);
@@ -49,30 +50,29 @@ class AgentSelector extends HookWidget {
       return const SizedBox.shrink();
     }
 
-    // 用 Listener 在指针按下时提前刷新（早于 PanelSelector 的 GestureDetector）
-    // 刷新完成后 agents 信号更新 → PanelSelector 的 useEffect([options]) 会原地刷新菜单内容
-    return Listener(
-      onPointerDown: (_) => refresh(),
-      child: PanelSelector<String>(
-        value: effectiveId,
-        placeholder: '选择智能体',
-        options: [
-          for (final agent in agents)
-            PanelSelectorOption<String>(
-              value: agent.id,
-              label: agent.name,
-              icon: agent.id == effectiveId ? 'check' : null,
-              // 悬停齿轮：直达该智能体的设置编辑页（不改变当前选中）
-              hoverIcon: 'settings',
-              onHoverTap: () {
-                showSettingsDialog(
-                  context,
-                  tab: SettingsTab.agents,
-                  agent: agent,
-                );
-              },
-            ),
-        ],
+    // 打开菜单前刷新 agents 列表，刷新完成后信号更新 →
+    // PanelSelector 的 useEffect([options]) 会原地刷新菜单内容
+    return PanelSelector<String>(
+      value: effectiveId,
+      placeholder: '选择智能体',
+      onBeforeOpen: refresh,
+      options: [
+        for (final agent in agents)
+          PanelSelectorOption<String>(
+            value: agent.id,
+            label: agent.name,
+            icon: agent.id == effectiveId ? 'check' : null,
+            // 悬停齿轮：直达该智能体的设置编辑页（不改变当前选中）
+            hoverIcon: 'settings',
+            onHoverTap: () {
+              showSettingsDialog(
+                context,
+                tab: SettingsTab.agents,
+                agent: agent,
+              );
+            },
+          ),
+      ],
         onChanged: (id) {
           if (id != null) {
             store.select(id);
@@ -80,7 +80,6 @@ class AgentSelector extends HookWidget {
             refresh();
           }
         },
-      ),
     );
   }
 }

@@ -40,7 +40,8 @@ class PanelSelectorOption<T> {
 /// A compact panel-style selector with a label + down arrow.
 ///
 /// Tapping opens a [ContextMenu] dropdown; the currently selected item
-/// is marked with a checkmark via [MenuItem.selected].
+/// is marked with a checkmark via [MenuItem.selected]. Tapping again while
+/// the menu is open collapses it. The chevron icon flips with open state.
 ///
 /// When [data] is provided, each map can contain:
 /// - `label` (String) — display text
@@ -72,6 +73,9 @@ class PanelSelector<T> extends HookWidget {
   /// Called when the user selects an option.
   final ValueChanged<T?>? onChanged;
 
+  /// 打开菜单前回调（如刷新数据）。再次点击收起时不触发。
+  final VoidCallback? onBeforeOpen;
+
   /// Minimum width of the dropdown menu.
   final double menuMinWidth;
 
@@ -82,6 +86,7 @@ class PanelSelector<T> extends HookWidget {
     this.options = const [],
     this.data,
     this.onChanged,
+    this.onBeforeOpen,
     this.menuMinWidth = 160,
   });
 
@@ -113,6 +118,8 @@ class PanelSelector<T> extends HookWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
     final isHovered = useState(false);
+    // 本按钮的菜单是否展开（驱动 chevron 图标切换）
+    final isOpen = useState(false);
     final buttonKey = useMemoized(() => GlobalKey());
     final layerLink = useMemoized(() => LayerLink());
 
@@ -213,12 +220,23 @@ class PanelSelector<T> extends HookWidget {
           link: layerLink,
           alignRight: lastAlignRight.value,
           items: buildMenuItems(),
+          onDismiss: () => isOpen.value = false,
         );
       });
       return null;
     }, [data, options]);
 
     void onTap() {
+      // 菜单已打开且属于本按钮 → 再次点击收起（不刷新、不重建）
+      if (ContextMenu.isOpen && ContextMenu.activeLink == layerLink) {
+        isOpen.value = false;
+        lastPosition.value = null;
+        ContextMenu.dismiss();
+        return;
+      }
+
+      onBeforeOpen?.call();
+
       // Get the button's global position to anchor the menu.
       final renderBox =
           buttonKey.currentContext?.findRenderObject() as RenderBox?;
@@ -242,7 +260,9 @@ class PanelSelector<T> extends HookWidget {
         link: layerLink,
         alignRight: alignRight,
         items: buildMenuItems(),
+        onDismiss: () => isOpen.value = false,
       );
+      isOpen.value = true;
     }
 
     return CompositedTransformTarget(
@@ -274,7 +294,7 @@ class PanelSelector<T> extends HookWidget {
                   ),
                   SizedBox(width: custom.spacing.xs),
                   AppIcon(
-                    'chevronDown',
+                    isOpen.value ? 'chevronUp' : 'chevronDown',
                     size: custom.typography.captionSize,
                     color: custom.colors.textSecondary,
                   ),

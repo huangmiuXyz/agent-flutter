@@ -98,6 +98,9 @@ class ContextMenu {
   /// 菜单面板是否正在显示。
   static bool get isOpen => _overlayEntry != null;
 
+  /// 当前打开菜单的锚点 [LayerLink]；PanelSelector 据此判断菜单是否属于自己。
+  static LayerLink? get activeLink => _lastLink;
+
   static void show(
     BuildContext context, {
     required Offset position,
