@@ -87,12 +87,16 @@ class ContextMenu {
   static bool _lastAlignRight = false;
   static VoidCallback? _lastOnDismiss;
 
+  /// 打开菜单的锚定按钮的全局矩形（背景 dismiss 时用于排除按钮区域）。
+  static Rect? _lastAnchorRect;
+
   static void dismiss() {
     _overlayEntry?.remove();
     _overlayEntry = null;
     _lastPosition = null;
     _lastItems = null;
     _lastOnDismiss = null;
+    _lastAnchorRect = null;
   }
 
   /// 菜单面板是否正在显示。
@@ -100,6 +104,9 @@ class ContextMenu {
 
   /// 当前打开菜单的锚点 [LayerLink]；PanelSelector 据此判断菜单是否属于自己。
   static LayerLink? get activeLink => _lastLink;
+
+  /// 当前打开菜单的锚定按钮矩形；为 null 时背景点击一律关闭菜单。
+  static Rect? get activeAnchorRect => _lastAnchorRect;
 
   static void show(
     BuildContext context, {
@@ -111,6 +118,7 @@ class ContextMenu {
     LayerLink? link,
     bool alignRight = false,
     VoidCallback? onDismiss,
+    Rect? anchorRect,
   }) {
     // Store latest params so the overlay builder picks them up.
     _lastPosition = position;
@@ -121,6 +129,10 @@ class ContextMenu {
     _lastLink = link;
     _lastAlignRight = alignRight;
     _lastOnDismiss = onDismiss;
+    // 原地刷新时（anchorRect 为 null）保留原有矩形
+    if (anchorRect != null) {
+      _lastAnchorRect = anchorRect;
+    }
 
     if (_overlayEntry != null) {
       // Update existing overlay IN PLACE — no dismiss.
@@ -269,7 +281,16 @@ class _MenuOverlay extends HookWidget {
         Positioned.fill(
           child: Listener(
             behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => onDismiss(),
+            onPointerDown: (event) {
+              // 指针落在打开菜单的锚定按钮上时不关闭菜单：背景在按下瞬间
+              // 抢先 dismiss 会让按钮的 onTap 重新打开菜单，导致
+              // “再次点击收起”失效。关闭决定交给按钮的 onTap
+              final rect = ContextMenu.activeAnchorRect;
+              if (rect != null && rect.inflate(4).contains(event.position)) {
+                return;
+              }
+              onDismiss();
+            },
             child: const SizedBox.expand(),
           ),
         ),
