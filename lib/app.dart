@@ -3,6 +3,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:agent/features/commands/command_shortcuts.dart';
+import 'package:agent/features/commands/command_store.dart';
+import 'package:agent/features/commands/commands.dart';
 import 'package:agent/store/theme_store.dart';
 import 'package:agent/router/router.dart';
 import 'package:agent/theme/app_theme.dart';
@@ -41,6 +44,9 @@ class AgentApp extends HookWidget {
   Widget build(BuildContext context) {
     final settings = useExistingSignal(ThemeStore.instance.settings);
 
+    // 注册应用全部命令（幂等，重复注册覆盖同 id）
+    CommandStore.instance.registerAll(AppCommands.all());
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'Agent',
@@ -51,7 +57,10 @@ class AgentApp extends HookWidget {
       // Zero duration: avoid flicker when resolving light/dark theme on startup.
       themeAnimationDuration: Duration.zero,
       routerConfig: appRouter,
-      builder: (context, child) => VirtualWindowFrameInit()(context, child),
+      // 快捷键层挂在 Navigator 外层，任意焦点下都能响应命令快捷键
+      builder: (context, child) => CommandShortcuts(
+        child: VirtualWindowFrameInit()(context, child),
+      ),
     );
   }
 }
