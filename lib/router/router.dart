@@ -17,6 +17,13 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
 );
 
+/// 根 Navigator 的 context。
+///
+/// 供快捷键层等位于 Navigator 外层（如 MaterialApp.builder）的代码
+/// 执行需要 Navigator 的操作（打开弹窗等）。仅在 Navigator 挂载后非 null。
+BuildContext? get rootNavigatorContext =>
+    _rootNavigatorKey.currentState?.context;
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: AppRoutes.chat,

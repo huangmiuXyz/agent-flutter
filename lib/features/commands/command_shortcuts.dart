@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import 'package:agent/features/commands/commands.dart';
+import 'package:agent/router/router.dart';
 
 class CommandShortcuts extends StatelessWidget {
   final Widget child;
@@ -19,7 +20,16 @@ class CommandShortcuts extends StatelessWidget {
     return CallbackShortcuts(
       bindings: {
         for (final cmd in AppCommands.all())
-          if (cmd.shortcut != null) cmd.shortcut!: () => cmd.run(context),
+          if (cmd.shortcut != null)
+            cmd.shortcut!: () {
+              // 本组件位于 MaterialApp.builder（Navigator 外层），build 的
+              // context 不含 Navigator；快捷键触发时根 Navigator 已挂载，
+              // 统一用其 context 执行命令（打开弹窗等操作需要）
+              final ctx = rootNavigatorContext;
+              if (ctx != null) {
+                cmd.run(ctx);
+              }
+            },
       },
       child: Focus(autofocus: true, child: child),
     );
