@@ -269,7 +269,8 @@ class AppList extends HookWidget {
     final scrollController = useMemoized(() => ScrollController());
 
     final focusNode = useFocusNode();
-    final focusedIdx = useState<int>(keyboardNavigable ? 0 : -1);
+    // 初始不聚焦任何项（-1），用户按下 ↑/↓ 后才开始导航
+    final focusedIdx = useState<int>(-1);
     final focusKeyRef = useRef<GlobalKey?>(null);
     final focusKeysRef = useRef(<int, GlobalKey>{});
 

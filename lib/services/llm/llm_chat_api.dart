@@ -10,10 +10,7 @@ import 'package:agent/rust_bridge/api.dart' as api;
 import 'llm_shared.dart';
 
 /// 聊天相关 API
-mixin ChatApi {
-  /// 子类必须提供初始化检查
-  void ensureInitialized();
-
+mixin ChatApi on GuardedApi {
   /// 发送聊天消息，等待完整回复（非流式）
   Future<String> chat({
     required String configPath,
@@ -24,9 +21,9 @@ mixin ChatApi {
     String? sessionId,
     String? systemPrompt,
   }) async {
-    ensureInitialized();
-    try {
-      final result = await api.chat(
+    final result = await guard(
+      '聊天失败',
+      () => api.chat(
         configPath: configPath,
         provider: provider,
         model: model,
@@ -34,11 +31,9 @@ mixin ChatApi {
         dbPath: dbPath,
         sessionId: sessionId,
         systemPrompt: systemPrompt,
-      );
-      return result.text;
-    } catch (e) {
-      throw LlmException('聊天失败: $e');
-    }
+      ),
+    );
+    return result.text;
   }
 
   /// 发送聊天消息（流式）— 触发后端任务，事件通过 [EngineClient] 推送。
@@ -56,23 +51,20 @@ mixin ChatApi {
     String? dbPath,
     String? sessionId,
     String? systemPrompt,
-  }) async {
-    ensureInitialized();
-    try {
-      await api.chatStream(
-        configPath: configPath,
-        provider: provider,
-        model: model,
-        prompt: prompt,
-        userMsgId: userMsgId,
-        dbPath: dbPath,
-        sessionId: sessionId,
-        systemPrompt: systemPrompt,
+  }) =>
+      guard(
+        '启动流式聊天失败',
+        () => api.chatStream(
+          configPath: configPath,
+          provider: provider,
+          model: model,
+          prompt: prompt,
+          userMsgId: userMsgId,
+          dbPath: dbPath,
+          sessionId: sessionId,
+          systemPrompt: systemPrompt,
+        ),
       );
-    } catch (e) {
-      throw LlmException('启动流式聊天失败: $e');
-    }
-  }
 
   /// 重试（编辑）用户消息：替换内容后重新流式请求 LLM。
   ///
@@ -85,20 +77,17 @@ mixin ChatApi {
     required String chatText,
     required String sessionId,
     String? dbPath,
-  }) async {
-    ensureInitialized();
-    try {
-      await api.chatRetry(
-        configPath: configPath,
-        provider: provider,
-        model: model,
-        msgId: msgId,
-        chatText: chatText,
-        sessionId: sessionId,
-        dbPath: dbPath,
+  }) =>
+      guard(
+        '重试失败',
+        () => api.chatRetry(
+          configPath: configPath,
+          provider: provider,
+          model: model,
+          msgId: msgId,
+          chatText: chatText,
+          sessionId: sessionId,
+          dbPath: dbPath,
+        ),
       );
-    } catch (e) {
-      throw LlmException('重试失败: $e');
-    }
-  }
 }

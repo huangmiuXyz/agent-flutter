@@ -124,6 +124,8 @@ void main() async {
       );
 
       windowManager.waitUntilReadyToShow(windowOptions, () async {
+        // 启动即最大化：先最大化再显示，避免窗口先以小尺寸出现
+        await windowManager.maximize();
         await windowManager.show();
         await windowManager.focus();
       });
