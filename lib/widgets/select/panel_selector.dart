@@ -26,9 +26,6 @@ class PanelSelectorOption<T> {
   /// 点击 [hoverIcon] 按钮时的回调（不触发行本身的选中）。
   final VoidCallback? onHoverTap;
 
-  /// 悬停按钮的 tooltip。
-  final String? hoverTooltip;
-
   const PanelSelectorOption({
     required this.value,
     required this.label,
@@ -36,7 +33,6 @@ class PanelSelectorOption<T> {
     this.enabled = true,
     this.hoverIcon,
     this.onHoverTap,
-    this.hoverTooltip,
   });
 }
 // ───────────────────────────────────────────────────────────────────────────────
@@ -107,7 +103,6 @@ class PanelSelector<T> extends HookWidget {
           icon: item is Map ? item['icon'] as String? : null,
           hoverIcon: item is Map ? item['hoverIcon'] as String? : null,
           onHoverTap: item is Map ? item['onHoverTap'] as VoidCallback? : null,
-          hoverTooltip: item is Map ? item['hoverTooltip'] as String? : null,
         );
       }).toList();
     }
@@ -183,9 +178,6 @@ class PanelSelector<T> extends HookWidget {
                 onHoverTap: item is Map
                     ? item['onHoverTap'] as VoidCallback?
                     : null,
-                hoverTooltip: item is Map
-                    ? item['hoverTooltip'] as String?
-                    : null,
               ),
             );
           }
@@ -205,7 +197,6 @@ class PanelSelector<T> extends HookWidget {
             },
             hoverIcon: option.hoverIcon,
             onHoverTap: option.onHoverTap,
-            hoverTooltip: option.hoverTooltip,
           ),
       ];
     }

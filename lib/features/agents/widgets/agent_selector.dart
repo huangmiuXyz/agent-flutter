@@ -64,7 +64,6 @@ class AgentSelector extends HookWidget {
               icon: agent.id == effectiveId ? 'check' : null,
               // 悬停齿轮：直达该智能体的设置编辑页（不改变当前选中）
               hoverIcon: 'settings',
-              hoverTooltip: '打开「${agent.name}」的设置',
               onHoverTap: () {
                 showSettingsDialog(
                   context,

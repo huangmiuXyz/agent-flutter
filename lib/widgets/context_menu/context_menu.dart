@@ -31,9 +31,6 @@ class MenuItem {
   /// 点击 [hoverIcon] 按钮时的回调；为 null 则不显示悬停按钮。
   final VoidCallback? onHoverTap;
 
-  /// 悬停按钮的 tooltip。
-  final String? hoverTooltip;
-
   /// Creates a regular menu item.
   const MenuItem({
     required this.label,
@@ -45,7 +42,6 @@ class MenuItem {
     this.onTap,
     this.hoverIcon,
     this.onHoverTap,
-    this.hoverTooltip,
   }) : isSeparator = false,
        isHeader = false;
 
@@ -60,7 +56,6 @@ class MenuItem {
       onTap = null,
       hoverIcon = null,
       onHoverTap = null,
-      hoverTooltip = null,
       isSeparator = true,
       isHeader = false;
 
@@ -73,7 +68,6 @@ class MenuItem {
       onTap = null,
       hoverIcon = null,
       onHoverTap = null,
-      hoverTooltip = null,
       isSeparator = false,
       isHeader = true;
 }
@@ -389,7 +383,9 @@ class _MenuPanel extends HookWidget {
                   icon: item.hoverIcon ?? 'settings',
                   size: ButtonSize.sm,
                   hoverStyle: false,
-                  tooltip: item.hoverTooltip,
+                  // 菜单面板位于 CompositedTransformFollower 内，Tooltip 的
+                  // OverlayPortal 在布局阶段无法计算 follower 的 paint transform
+                  // （Flutter 已知限制），因此菜单内的悬停按钮不显示 tooltip
                   onPressed: () {
                     onDismiss();
                     item.onHoverTap?.call();

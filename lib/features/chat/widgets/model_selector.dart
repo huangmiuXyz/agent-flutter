@@ -60,7 +60,6 @@ class ModelSelector extends HookWidget {
             'group': p.key,
             // 悬停齿轮：直达该模型所属提供商的配置页（不改变当前选中）
             'hoverIcon': 'settings',
-            'hoverTooltip': '打开「${p.key}」的提供商设置',
             'onHoverTap': () {
               showSettingsDialog(
                 context,
