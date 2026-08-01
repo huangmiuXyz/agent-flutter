@@ -56,31 +56,36 @@ class _CommandPaletteOverlay extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    return Stack(
-      children: [
-        // 全屏遮罩：点击关闭面板
-        Positioned.fill(
-          child: Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => onClose(),
-            child: Container(color: custom.colors.overlay),
-          ),
-        ),
-        // 顶部居中的面板（轻微淡入）
-        Align(
-          alignment: Alignment.topCenter,
-          child: Padding(
-            padding: EdgeInsets.only(top: 72),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 120),
-              builder: (_, value, child) =>
-                  Opacity(opacity: value, child: child),
-              child: _CommandPalette(onClose: onClose),
+    // OverlayEntry 直接挂在 overlay 上，上方没有 Material；
+    // TextField 等 Material 组件需要 Material 祖先
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          // 全屏遮罩：点击关闭面板
+          Positioned.fill(
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => onClose(),
+              child: Container(color: custom.colors.overlay),
             ),
           ),
-        ),
-      ],
+          // 顶部居中的面板（轻微淡入）
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: EdgeInsets.only(top: 72),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 120),
+                builder: (_, value, child) =>
+                    Opacity(opacity: value, child: child),
+                child: _CommandPalette(onClose: onClose),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
