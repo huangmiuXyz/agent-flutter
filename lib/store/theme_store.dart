@@ -3,6 +3,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/material.dart';
 import 'package:signals/signals.dart';
 
+import 'package:agent/store/setting_store.dart';
 import 'package:agent/theme/app_theme.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/theme_settings.dart';
@@ -46,12 +47,18 @@ class ThemeStore {
   // ── actions ──
 
   void toggle() {
-    themeMode.value = effectiveBrightness.value == Brightness.dark
-        ? ThemeMode.light
-        : ThemeMode.dark;
+    setThemeMode(
+      effectiveBrightness.value == Brightness.dark
+          ? ThemeMode.light
+          : ThemeMode.dark,
+    );
   }
 
-  void setThemeMode(ThemeMode mode) => themeMode.value = mode;
+  void setThemeMode(ThemeMode mode) {
+    themeMode.value = mode;
+    // 同步持久化到 setting.json（跨窗口通过 settingChanged 广播同步）
+    SettingStore.instance.setThemeMode(mode);
+  }
 
   void setFontWeight(FontWeight weight) => fontWeightValue.value = weight.value;
 
@@ -84,7 +91,7 @@ class ThemeStore {
   }
 
   void resetAll() {
-    themeMode.value = ThemeMode.system;
+    setThemeMode(ThemeMode.system);
     fontFamily.value = kDefaultFontFamily;
     fontWeightValue.value = 400;
     fontSizeScale.value = 1.0;

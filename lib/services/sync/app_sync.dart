@@ -42,6 +42,7 @@ Future<void> initAppSync() async {
   // 主动初始化 SettingStore，并同步到 ThemeStore
   final settingStore = SettingStore.instance;
   ThemeStore.instance.fontFamily.value = settingStore.fontFamily;
+  ThemeStore.instance.themeMode.value = settingStore.themeMode;
 
   // 全局监听本地 signal 变化
   SignalsObserver.instance = _SignalObserver();
@@ -92,6 +93,7 @@ void _handleRemoteSettingChanged(dynamic args) {
   _withSyncingGuard(() {
     SettingStore.instance.reload();
     ThemeStore.instance.fontFamily.value = SettingStore.instance.fontFamily;
+    ThemeStore.instance.themeMode.value = SettingStore.instance.themeMode;
   });
 }
 

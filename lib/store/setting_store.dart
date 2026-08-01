@@ -6,6 +6,8 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/material.dart';
+
 import 'package:agent/store/file_signal_store.dart';
 import 'package:agent/theme/app_tokens.dart';
 import 'package:agent/utils/platform_dirs.dart';
@@ -15,15 +17,31 @@ class SettingStore extends JsonFileSignalStore {
   SettingStore._() : super(_resolvePath());
 
   @override
-  Map<String, dynamic> defaults() => {'fontFamily': kDefaultFontFamily};
+  Map<String, dynamic> defaults() => {
+    'fontFamily': kDefaultFontFamily,
+    'themeMode': 'system',
+  };
 
   // ── 便捷读取 ──
 
   String get fontFamily =>
       data.value['fontFamily'] as String? ?? kDefaultFontFamily;
 
+  /// 持久化的主题模式，缺失/非法值时回退到跟随系统。
+  ThemeMode get themeMode {
+    return switch (data.value['themeMode']) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
   void setFontFamily(String family) {
     mutate((d) => d['fontFamily'] = family);
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    mutate((d) => d['themeMode'] = mode.name);
   }
 
   // ── 路径解析 ──

@@ -29,6 +29,21 @@ import 'package:agent/widgets/list/app_list.dart';
 /// Settings category tabs.
 enum SettingsTab { display, models, mcp, skills, agents }
 
+/// 设置面板的跳转目标（tab / 提供商 / 智能体）。
+///
+/// 设置面板是单例弹窗：已打开时再次触发打开入口，不会叠加新面板，
+/// 而是通过更新 [settingsPanelTarget] 把已打开的面板导航到目标页。
+class SettingsTarget {
+  const SettingsTarget({this.tab, this.provider, this.agent});
+
+  final SettingsTab? tab;
+  final ProviderInfo? provider;
+  final AgentInfo? agent;
+}
+
+/// 当前设置面板的跳转目标；null 表示无待处理目标。
+final ValueNotifier<SettingsTarget?> settingsPanelTarget = ValueNotifier(null);
+
 const _sidebarsItems = [
   _TabItem(SettingsTab.display, '显示', 'palette'),
   _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
@@ -99,6 +114,25 @@ class SettingsPage extends HookWidget {
       showAgentEditor.value = false;
       showFontSettings.value = false;
     }
+
+    // ── 单例面板：已打开时收到新的跳转请求，就地导航而不是叠加新面板 ──
+    final target = useValueListenable(settingsPanelTarget);
+    useEffect(() {
+      final t = target;
+      if (t == null) return null;
+      if (t.tab != null && t.tab != activeTab.value) {
+        activeTab.value = t.tab!;
+        resetSubStates();
+      }
+      if (t.provider != null) {
+        selectedProvider.value = t.provider;
+      }
+      if (t.agent != null) {
+        selectedAgent.value = t.agent;
+        showAgentEditor.value = true;
+      }
+      return null;
+    }, [target]);
 
     // ── Right content ──
     Widget content;

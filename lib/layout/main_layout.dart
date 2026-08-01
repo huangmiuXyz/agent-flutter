@@ -16,36 +16,55 @@ import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 
+/// 设置面板单例标记：同一窗口内只允许一个设置弹窗，避免叠加多个。
+bool _settingsPanelOpen = false;
+
 /// 以模态弹窗形式显示设置页（主窗口内，与主窗口同 isolate）。
 ///
 /// 尺寸跟随主窗口：宽 80%、高 90%。
 /// 可通过 [tab]/[provider]/[agent] 直达对应设置子页面（如从聊天页选择器跳转）。
+///
+/// 面板是单例：已打开时不会叠加新面板，而是把已打开的面板导航到
+/// 新请求的目标页（[tab]/[provider]/[agent]）。
 Future<void> showSettingsDialog(
   BuildContext context, {
   SettingsTab? tab,
   ProviderInfo? provider,
   AgentInfo? agent,
 }) async {
-  final size = MediaQuery.sizeOf(context);
-  final width = size.width * 0.8;
-  final height = size.height * 0.9;
-  await AppDialog.show(
-    context: context,
-    title: '设置',
-    showFooter: false,
-    width: width,
-    // 设置页自身带内边距，弹窗 body 不再额外留白
-    bodyPadding: EdgeInsets.zero,
-    compactHeader: true,
-    child: SizedBox(
-      height: height,
-      child: SettingsPage(
-        initialTab: tab,
-        initialProvider: provider,
-        initialAgent: agent,
+  final target = SettingsTarget(tab: tab, provider: provider, agent: agent);
+  if (_settingsPanelOpen) {
+    // 已有面板：就地导航，不叠加新弹窗
+    settingsPanelTarget.value = target;
+    return;
+  }
+  _settingsPanelOpen = true;
+  settingsPanelTarget.value = target;
+  try {
+    final size = MediaQuery.sizeOf(context);
+    final width = size.width * 0.8;
+    final height = size.height * 0.9;
+    await AppDialog.show(
+      context: context,
+      title: '设置',
+      showFooter: false,
+      width: width,
+      // 设置页自身带内边距，弹窗 body 不再额外留白
+      bodyPadding: EdgeInsets.zero,
+      compactHeader: true,
+      child: SizedBox(
+        height: height,
+        child: SettingsPage(
+          initialTab: tab,
+          initialProvider: provider,
+          initialAgent: agent,
+        ),
       ),
-    ),
-  );
+    );
+  } finally {
+    settingsPanelTarget.value = null;
+    _settingsPanelOpen = false;
+  }
 }
 
 /// A title-bar button styled consistently with [WindowCaptionButton].
