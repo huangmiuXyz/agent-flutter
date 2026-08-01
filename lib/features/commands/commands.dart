@@ -14,13 +14,19 @@ import 'package:agent/features/commands/models/command_info.dart';
 import 'package:agent/features/commands/widgets/command_palette.dart';
 import 'package:agent/layout/main_layout.dart' show showSettingsDialog;
 import 'package:agent/store/session_store.dart';
+import 'package:agent/store/sidebar_store.dart';
 import 'package:agent/store/theme_store.dart';
+import 'package:agent/store/xterm_store.dart';
 
 /// macOS 用 Meta（⌘），其他平台用 Control（Ctrl），对齐项目快捷键习惯。
 SingleActivator _key(LogicalKeyboardKey key, {bool shift = false}) {
   final isMac = Platform.isMacOS;
   return SingleActivator(key, meta: isMac, control: !isMac, shift: shift);
 }
+
+/// 用户指定使用 Control（所有平台），如 Ctrl+J 切换终端。
+SingleActivator _ctrlKey(LogicalKeyboardKey key) =>
+    SingleActivator(key, control: true);
 
 /// 全部命令（注册顺序即命令面板分组顺序）。
 abstract final class AppCommands {
@@ -49,6 +55,30 @@ abstract final class AppCommands {
       icon: 'palette',
       shortcut: _key(LogicalKeyboardKey.keyL, shift: true),
       run: (context) => ThemeStore.instance.toggle(),
+    ),
+    CommandInfo(
+      id: 'view.toggleTerminal',
+      title: '切换终端',
+      category: '视图',
+      icon: 'terminal',
+      shortcut: _ctrlKey(LogicalKeyboardKey.keyJ),
+      run: (context) => XtermStore.instance.togglePanel(),
+    ),
+    CommandInfo(
+      id: 'view.toggleLeftSidebar',
+      title: '切换左侧边栏',
+      category: '视图',
+      icon: 'panelLeft',
+      shortcut: _ctrlKey(LogicalKeyboardKey.keyB),
+      run: (context) => SidebarStore.instance.toggleLeft(),
+    ),
+    CommandInfo(
+      id: 'view.toggleRightSidebar',
+      title: '切换右侧边栏',
+      category: '视图',
+      icon: 'panelRight',
+      shortcut: _ctrlKey(LogicalKeyboardKey.keyU),
+      run: (context) => SidebarStore.instance.toggleRight(),
     ),
 
     // ── 会话 ──

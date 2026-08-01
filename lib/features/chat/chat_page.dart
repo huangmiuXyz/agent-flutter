@@ -8,6 +8,7 @@ import 'package:agent/features/chat/panels/chat_content.dart';
 import 'package:agent/features/chat/panels/left_panel.dart';
 import 'package:agent/features/chat/panels/right_panel.dart';
 import 'package:agent/features/chat/panels/terminal_panel.dart';
+import 'package:agent/store/sidebar_store.dart';
 import 'package:agent/store/xterm_store.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 
@@ -60,6 +61,25 @@ class _ExpandableTerminalPanel extends HookWidget {
       return null;
     }, [expandCount.value]);
 
+    // 监听 collapseRequestCount：快捷键/命令请求折叠时执行折叠
+    final collapseCount =
+        useExistingSignal(XtermStore.instance.collapseRequestCount);
+    useEffect(() {
+      if (collapseCount.value > 0) {
+        controller.collapse();
+      }
+      return null;
+    }, [collapseCount.value]);
+
+    // 面板展开状态同步到 store：用户拖拽也会更新，供 togglePanel 判断方向
+    useEffect(() {
+      void sync() =>
+          XtermStore.instance.panelExpanded.value = !controller.isCollapsed.value;
+      sync();
+      controller.isCollapsed.addListener(sync);
+      return () => controller.isCollapsed.removeListener(sync);
+    }, []);
+
     return ResizeBox(
       controller: controller,
       direction: ResizeDirection.top,
@@ -68,6 +88,71 @@ class _ExpandableTerminalPanel extends HookWidget {
       maxSize: _maxSize,
       collapseThreshold: 80,
       initialCollapsed: true,
+      other: other,
+      child: child,
+    );
+  }
+}
+
+/// 可编程展开/折叠的侧边栏容器 — 监听 [SidebarStore] 切换计数，
+/// 由命令面板/快捷键 Ctrl+B / Ctrl+U 控制，用户拖拽仍可正常折叠。
+class _ControlledSidebar extends HookWidget {
+  const _ControlledSidebar({
+    required this.direction,
+    required this.toggleCount,
+    required this.expanded,
+    required this.other,
+    required this.child,
+  });
+
+  final ResizeDirection direction;
+  final Signal<int> toggleCount;
+  final Signal<bool> expanded;
+  final Widget other;
+  final Widget child;
+
+  static const double _initialSize = 256;
+  static const double _minSize = 180;
+  static const double _maxSize = 400;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = useMemoized(
+      () => ResizeBoxController(
+        initialCollapsed: false,
+        initialSize: _initialSize,
+      ),
+    );
+
+    // 监听切换计数：按当前展开状态执行展开/折叠
+    final count = useExistingSignal(toggleCount);
+    useEffect(() {
+      if (count.value > 0) {
+        if (expanded.value) {
+          controller.collapse();
+        } else {
+          controller.expand(_initialSize.clamp(_minSize, _maxSize));
+        }
+      }
+      return null;
+    }, [count.value]);
+
+    // 展开状态同步到 store：用户拖拽也会更新，保证下次切换方向准确
+    useEffect(() {
+      void sync() => expanded.value = !controller.isCollapsed.value;
+      sync();
+      controller.isCollapsed.addListener(sync);
+      return () => controller.isCollapsed.removeListener(sync);
+    }, []);
+
+    return ResizeBox(
+      controller: controller,
+      direction: direction,
+      minSize: _minSize,
+      initialSize: _initialSize,
+      maxSize: _maxSize,
+      collapseThreshold: 80,
+      initialCollapsed: false,
       other: other,
       child: child,
     );
@@ -91,16 +176,14 @@ class ChatDemo extends StatelessWidget {
   }
 
   Widget _buildThreePanelLayout() {
-    return ResizeBox(
+    return _ControlledSidebar(
       direction: ResizeDirection.left,
-      minSize: 180,
-      initialSize: 256,
-      maxSize: 400,
-      other: ResizeBox(
+      toggleCount: SidebarStore.instance.rightToggleCount,
+      expanded: SidebarStore.instance.rightExpanded,
+      other: _ControlledSidebar(
         direction: ResizeDirection.right,
-        minSize: 180,
-        initialSize: 256,
-        maxSize: 400,
+        toggleCount: SidebarStore.instance.leftToggleCount,
+        expanded: SidebarStore.instance.leftExpanded,
         other: const _ExpandableTerminalPanel(
           other: ChatContent(),
           child: TerminalPanel(),
@@ -112,11 +195,10 @@ class ChatDemo extends StatelessWidget {
   }
 
   Widget _buildTwoPanelLayout() {
-    return ResizeBox(
+    return _ControlledSidebar(
       direction: ResizeDirection.right,
-      minSize: 180,
-      initialSize: 256,
-      maxSize: 400,
+      toggleCount: SidebarStore.instance.leftToggleCount,
+      expanded: SidebarStore.instance.leftExpanded,
       other: const _ExpandableTerminalPanel(
         other: ChatContent(),
         child: TerminalPanel(),

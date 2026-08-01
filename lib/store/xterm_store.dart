@@ -168,6 +168,13 @@ class XtermStore {
   /// bool 只在 false→true 变化时通知，而计数器每次递增都会通知监听者。
   final expandRequestCount = signal(0);
 
+  /// 终端面板"请求折叠"计数器 — 快捷键/命令切换面板时递增。
+  final collapseRequestCount = signal(0);
+
+  /// 终端面板当前是否展开（由面板组件与 controller 状态同步，
+  /// 供 [togglePanel] 判断当前方向）。
+  final panelExpanded = signal(false);
+
   /// 活跃的终端 ID 集合（兼容旧代码）
   final activeIds = signal(<String>{});
 
@@ -228,8 +235,17 @@ class XtermStore {
   /// 请求展开终端面板（递增计数器，触发监听者执行展开）
   void expandPanel() => expandRequestCount.value++;
 
-  /// 折叠终端面板（仅语义占位，实际折叠由用户拖拽控制）
-  void collapsePanel() {}
+  /// 请求折叠终端面板（递增计数器，触发监听者执行折叠）
+  void collapsePanel() => collapseRequestCount.value++;
+
+  /// 切换终端面板展开/折叠（快捷键/命令面板入口）
+  void togglePanel() {
+    if (panelExpanded.value) {
+      collapsePanel();
+    } else {
+      expandPanel();
+    }
+  }
 
   /// 释放所有终端会话
   void disposeAll() {

@@ -12,6 +12,8 @@ const Map<String, IconData> _registry = {
   'square': LucideIcons.square,
   'terminal': LucideIcons.terminal,
   'terminalSquare': LucideIcons.terminalSquare,
+  'panelLeft': LucideIcons.panelLeft,
+  'panelRight': LucideIcons.panelRight,
   'activity': LucideIcons.activity,
   'x': LucideIcons.x,
   'plus': LucideIcons.plus,

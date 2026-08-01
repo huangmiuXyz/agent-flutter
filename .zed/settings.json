@@ -2,7 +2,7 @@
   "file_scan_exclusions": ["*.freezed.dart", "*.g.dart"],
   "context_servers": {
     "marionette": {
-      "command": "C:\\Users\\cc\\AppData\\Local\\Pub\\Cache\\bin\\marionette_mcp.bat",
+      "command": "/Users/Zhuanz/.pub-cache/bin/marionette_mcp",
       "args": []
     }
   }
