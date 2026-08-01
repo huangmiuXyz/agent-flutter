@@ -27,6 +27,7 @@ enum AppColorRole {
   success,
   warning,
   bottomPanel,
+  resizeHandle,
 }
 
 @immutable
@@ -64,6 +65,7 @@ class AppColors {
   Color get success => _colors[AppColorRole.success]!;
   Color get warning => _colors[AppColorRole.warning]!;
   Color get bottomPanel => _colors[AppColorRole.bottomPanel]!;
+  Color get resizeHandle => _colors[AppColorRole.resizeHandle]!;
 
   static final light = AppColors._fromMap({
     AppColorRole.background: const Color(0xFFF9F9F9),
@@ -91,7 +93,9 @@ class AppColors {
     AppColorRole.cardBorder: const Color(0xFFE6E6E6),
     AppColorRole.success: const Color(0xFF198844),
     AppColorRole.warning: const Color(0xFFC47F00),
-    AppColorRole.bottomPanel: const Color(0xFF131313),
+    AppColorRole.bottomPanel: const Color(0xFFF9F9F9), // 与 background 一致，终端面板与终端内容无缝衔接
+    // VS Code sash 悬停色
+    AppColorRole.resizeHandle: const Color(0xFF0078D4),
   });
 
   static final dark = AppColors._fromMap({
@@ -121,6 +125,8 @@ class AppColors {
     AppColorRole.success: const Color(0xFF4ADE80),
     AppColorRole.warning: const Color(0xFFFBBF24),
     AppColorRole.bottomPanel: const Color(0xFF131313),
+    // VS Code sash 悬停色
+    AppColorRole.resizeHandle: const Color(0xFF3794FF),
   });
 
   Color colorFor(AppColorRole role) => _colors[role]!;

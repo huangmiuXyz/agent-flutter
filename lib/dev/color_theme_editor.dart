@@ -57,6 +57,7 @@ const _groups = <String, List<AppColorRole>>{
     AppColorRole.menuBackground,
     AppColorRole.menuBorder,
     AppColorRole.menuHover,
+    AppColorRole.resizeHandle,
   ],
 };
 
@@ -83,6 +84,7 @@ const _labels = <AppColorRole, String>{
   AppColorRole.menuHover: '菜单悬停',
   AppColorRole.success: '成功',
   AppColorRole.warning: '警告',
+  AppColorRole.resizeHandle: '拖拽手柄',
 };
 
 class ColorThemeEditor extends HookWidget {

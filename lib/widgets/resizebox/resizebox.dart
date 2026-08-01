@@ -319,9 +319,7 @@ class _ResizeHandle extends HookWidget {
     final showVisual = collapsed
         ? (isHoveringEdge.value || isDragging.value)
         : (isHoveringHandle.value || isDragging.value);
-    final handleColor = collapsed
-        ? custom.colors.accentHover
-        : custom.colors.accent;
+    final handleColor = custom.colors.resizeHandle;
 
     final rawForPos = (collapsed || !isDragging.value)
         ? targetSize.value
