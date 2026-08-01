@@ -23,13 +23,29 @@ import 'package:agent/widgets/list/app_list.dart';
 
 /// 打开命令面板（OverlayEntry，顶部居中）。
 void showCommandPalette(BuildContext context) {
-  final overlay = Overlay.of(context, rootOverlay: true);
+  // 入口 context 可能是根 Navigator（快捷键层，其自身没有 Overlay 祖先），
+  // 统一从 Navigator 取它管理的 overlay
+  final overlay = Navigator.of(context).overlay;
+  if (overlay == null) return;
+
+  // 已打开时忽略重复触发（避免嵌套面板）
+  if (_paletteOpen) return;
+  _paletteOpen = true;
+
   late final OverlayEntry entry;
   entry = OverlayEntry(
-    builder: (_) => _CommandPaletteOverlay(onClose: () => entry.remove()),
+    builder: (_) => _CommandPaletteOverlay(
+      onClose: () {
+        _paletteOpen = false;
+        entry.remove();
+      },
+    ),
   );
   overlay.insert(entry);
 }
+
+/// 面板是否已打开（防重复触发）。
+bool _paletteOpen = false;
 
 /// 命令面板覆盖层：半透明遮罩（点按关闭）+ 顶部居中面板。
 class _CommandPaletteOverlay extends HookWidget {
