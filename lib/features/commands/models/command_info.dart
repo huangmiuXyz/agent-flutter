@@ -4,6 +4,8 @@
 ///            + 可用性（enabled 谓词）+ 执行（run）。
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/widgets.dart';
 
 /// 单条命令。
@@ -45,17 +47,16 @@ class CommandInfo {
 
 /// 将快捷键格式化为平台风格的可读文本（用于命令面板/菜单显示）。
 ///
-/// - macOS：⌘⇧P
+/// - macOS：⌘ ⇧ P（符号间空格分隔，避免拥挤）
 /// - 其他：Ctrl+Shift+P
 String formatShortcut(SingleActivator activator) {
-  final isMac =
-      activator.meta && !activator.control; // meta 通常指 macOS Command
+  final isMac = Platform.isMacOS;
   final parts = <String>[];
-  if (activator.meta) parts.add(isMac ? '⌘' : 'Meta+');
-  if (activator.control) parts.add(isMac ? '^' : 'Ctrl+');
-  if (activator.alt) parts.add(isMac ? '⌥' : 'Alt+');
-  if (activator.shift) parts.add(isMac ? '⇧' : 'Shift+');
+  if (activator.meta) parts.add(isMac ? '⌘' : 'Meta');
+  if (activator.control) parts.add(isMac ? '^' : 'Ctrl');
+  if (activator.alt) parts.add(isMac ? '⌥' : 'Alt');
+  if (activator.shift) parts.add(isMac ? '⇧' : 'Shift');
   final label = activator.trigger.keyLabel.toUpperCase();
   parts.add(label.isEmpty ? '?' : label);
-  return parts.join();
+  return parts.join(isMac ? ' ' : '+');
 }
