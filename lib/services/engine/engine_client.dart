@@ -141,6 +141,7 @@ class EngineClient {
     if (event is EngineEvent_ToolCallFragment) return event.sessionId;
     if (event is EngineEvent_ToolCall) return event.sessionId;
     if (event is EngineEvent_ReasoningChunk) return event.sessionId;
+    if (event is EngineEvent_WebSearchCall) return event.sessionId;
     if (event is EngineEvent_Error) return event.sessionId;
     if (event is EngineEvent_FrontendToolCall) return event.sessionId;
     if (event is EngineEvent_QueueState) return event.sessionId;

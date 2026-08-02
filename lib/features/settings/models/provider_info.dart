@@ -4,6 +4,7 @@
 library;
 
 import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/widgets/select/app_select.dart';
 
 /// Thin wrapper around [api.ProviderSummary] with display helpers.
 class ProviderInfo {
@@ -30,13 +31,61 @@ class ProviderInfo {
   );
 }
 
-/// 提供商名称 → config.json 中 `language_models` 的协议键。
+/// 协议类型选项：值 = config.json 的 `language_models` 段名。
+const protocolOptions = [
+  AppSelectOption<String>(value: 'openai_compatible', label: 'OpenAI 兼容'),
+  AppSelectOption<String>(value: 'anthropic', label: 'Anthropic 原生'),
+  AppSelectOption<String>(value: 'responses', label: 'OpenAI Responses'),
+];
+
+/// 提供商名称 → 默认协议键（无配置时的推断）。
 ///
 /// - Anthropic → `anthropic`
 /// - 其他 → `openai_compatible`
 String protocolForProvider(String name) {
   if (name == 'Anthropic') return 'anthropic';
   return 'openai_compatible';
+}
+
+/// 从 config 的 `language_models` 中查找指定 provider 的完整配置，
+/// 不关心它当前在哪个协议段（`openai_compatible` / `anthropic` / `responses`）。
+/// 找不到返回 null。
+Map<String, dynamic>? findProviderConfig(
+  Map<String, dynamic> data,
+  String providerId,
+) {
+  final lm = data['language_models'];
+  if (lm is! Map<String, dynamic>) return null;
+  for (final proto in lm.values) {
+    if (proto is! Map<String, dynamic>) continue;
+    final cfg = proto[providerId];
+    if (cfg is Map<String, dynamic>) return cfg;
+  }
+  return null;
+}
+
+/// 检测 provider 在 config 的 `language_models` 中所处的协议段。
+/// 找不到返回 null（调用方回退到按名称推断）。
+String? protocolFromConfig(Map<String, dynamic> data, String providerId) {
+  final lm = data['language_models'];
+  if (lm is! Map<String, dynamic>) return null;
+  for (final entry in lm.entries) {
+    final proto = entry.value;
+    if (proto is Map<String, dynamic> && proto.containsKey(providerId)) {
+      return entry.key;
+    }
+  }
+  return null;
+}
+
+/// 从智能体自包含 config 中检测 provider 所在的协议段。
+/// 检测不到时返回 null（调用方回退到按名称推断）。
+String? protocolFromAgentConfig(
+  Map<String, dynamic> cfg,
+  String? providerId,
+) {
+  if (providerId == null) return null;
+  return protocolFromConfig(cfg, providerId);
 }
 
 /// 从 config.json 的 `language_models` 结构解析提供商 → 可用模型名列表。

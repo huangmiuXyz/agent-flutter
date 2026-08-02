@@ -1,7 +1,7 @@
-/// Provider config page — API Key, Endpoint, default model settings.
+/// Provider config page — API Key, Endpoint, 协议类型, default model settings.
 ///
 /// Persists to config.json via [ConfigFileStore]:
-///   language_models.openai_compatible.{id}.api_url
+///   language_models.{protocol}.{id}.api_url
 ///   language_models.{protocol}.{id}.api_key
 library;
 
@@ -18,6 +18,8 @@ import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
+import 'package:agent/widgets/select/app_select.dart';
+import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen config form for a single provider.
@@ -68,8 +70,10 @@ class _ConfigForm extends HookWidget {
   Widget build(BuildContext context) {
     final apiKeyCtrl = useTextEditingController();
     final endpointCtrl = useTextEditingController(text: provider.baseUrl ?? '');
-    // Detect protocol from provider type
-    final protocol = protocolForProvider(provider.name);
+    // 联网搜索：服务端搜索工具（仅对支持的协议生效，如 OpenAI Responses）
+    final webSearch = useState(false);
+    // 协议类型：默认按提供商名推断，可从现有配置检测实际所在段
+    final protocol = useState<String?>(protocolForProvider(provider.name));
 
     // 订阅 config 变化，跨窗口同步后重新加载表单
     final configVersion = useExistingSignal(ConfigStore.instance.data).value;
@@ -77,10 +81,18 @@ class _ConfigForm extends HookWidget {
     // ── Load existing config on mount or config change ──
     useEffect(() {
       try {
-        final section =
-            (ConfigStore.instance.data.value['language_models']
-                    as Map<String, dynamic>?)?[protocol]?[provider.name]
-                as Map<String, dynamic>?;
+        // 从任意段检测 provider 实际所在协议段
+        final detected = protocolFromConfig(
+          ConfigStore.instance.data.value,
+          provider.name,
+        );
+        if (detected != null) {
+          protocol.value = detected;
+        }
+        final section = findProviderConfig(
+          ConfigStore.instance.data.value,
+          provider.name,
+        );
         if (section != null) {
           final url = section['api_url'] as String?;
           if (url != null && url.isNotEmpty) {
@@ -90,6 +102,8 @@ class _ConfigForm extends HookWidget {
           if (key != null && key.isNotEmpty) {
             apiKeyCtrl.text = key;
           }
+          final ws = section['web_search'];
+          webSearch.value = ws == true || ws is Map;
         }
       } catch (_) {}
       return null;
@@ -97,14 +111,38 @@ class _ConfigForm extends HookWidget {
 
     // ── Save handler ──
     Future<void> handleSave() async {
+      final newProtocol = protocol.value;
+      if (newProtocol == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('请选择协议类型')));
+        }
+        return;
+      }
+
       try {
         ConfigStore.instance.mutate((m) {
-          // Ensure the full path exists, creating missing sections as needed
           final languageModels =
               m.putIfAbsent('language_models', () => <String, dynamic>{})
                   as Map<String, dynamic>;
+
+          // 从其他协议段移除旧配置（协议变更时迁移）
+          final oldProtocol = protocolFromConfig(m, provider.name);
+          if (oldProtocol != null && oldProtocol != newProtocol) {
+            final oldSection =
+                languageModels[oldProtocol] as Map<String, dynamic>?;
+            if (oldSection != null) {
+              oldSection.remove(provider.name);
+              if (oldSection.isEmpty) {
+                languageModels.remove(oldProtocol);
+              }
+            }
+          }
+
+          // 写入新协议段
           final protocolConfig =
-              languageModels.putIfAbsent(protocol, () => <String, dynamic>{})
+              languageModels.putIfAbsent(newProtocol, () => <String, dynamic>{})
                   as Map<String, dynamic>;
           final cfg =
               protocolConfig.putIfAbsent(
@@ -115,6 +153,11 @@ class _ConfigForm extends HookWidget {
           cfg['api_url'] = endpointCtrl.text;
           if (apiKeyCtrl.text.isNotEmpty) {
             cfg['api_key'] = apiKeyCtrl.text;
+          }
+          if (webSearch.value) {
+            cfg['web_search'] = true;
+          } else {
+            cfg.remove('web_search');
           }
         });
 
@@ -141,9 +184,7 @@ class _ConfigForm extends HookWidget {
       title: provider.label,
       subtitle: provider.baseUrl,
       actions: FormActions(
-        primary: [
-          AppPrimaryButton(text: '保存', onPressed: handleSave),
-        ],
+        primary: [AppPrimaryButton(text: '保存', onPressed: handleSave)],
         secondary: [
           // 始终显示：从聊天页选择器跳转时也可能携带未标记 configured 的
           // ProviderInfo，但按钮操作本身与 configured 状态无关
@@ -155,6 +196,13 @@ class _ConfigForm extends HookWidget {
         ],
       ),
       children: [
+        AppSelect<String>(
+          label: '协议类型',
+          placeholder: '选择 API 协议',
+          value: protocol.value,
+          options: protocolOptions,
+          onChanged: (v) => protocol.value = v,
+        ),
         AppField(
           label: 'API Key',
           placeholder: '输入 ${provider.label} 的 API Key',
@@ -165,6 +213,11 @@ class _ConfigForm extends HookWidget {
           label: 'API Endpoint（可选）',
           placeholder: provider.baseUrl ?? 'https://api.example.com/v1',
           controller: endpointCtrl,
+        ),
+        AppSwitch(
+          value: webSearch.value,
+          onChanged: (v) => webSearch.value = v,
+          label: '启用联网搜索（服务端执行，仅部分协议支持）',
         ),
       ],
     );
@@ -181,16 +234,19 @@ class _ConfigForm extends HookWidget {
 
     try {
       ConfigStore.instance.mutate((data) {
-        // Remove the provider's config section if it exists
-        final protocol = protocolForProvider(provider.name);
+        // 从所有协议段移除该 provider 的配置
         final models = data['language_models'] as Map<String, dynamic>?;
         if (models != null) {
-          final protocolConfig = models[protocol] as Map<String, dynamic>?;
-          if (protocolConfig != null) {
-            protocolConfig.remove(provider.name);
-            if (protocolConfig.isEmpty) {
-              models.remove(protocol);
+          final toRemove = <String>[];
+          for (final entry in models.entries) {
+            final section = entry.value as Map<String, dynamic>?;
+            if (section != null && section.containsKey(provider.name)) {
+              section.remove(provider.name);
+              if (section.isEmpty) toRemove.add(entry.key);
             }
+          }
+          for (final key in toRemove) {
+            models.remove(key);
           }
           if (models.isEmpty) {
             data.remove('language_models');
@@ -198,9 +254,7 @@ class _ConfigForm extends HookWidget {
         }
       });
 
-      debugPrint(
-        'Deleted provider config: ${protocolForProvider(provider.name)}.${provider.name}',
-      );
+      debugPrint('Deleted provider config: ${provider.name}');
 
       if (context.mounted) {
         ScaffoldMessenger.of(

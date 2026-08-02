@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -266,8 +265,6 @@ class _MessageList extends StatelessWidget {
         final messageRoles = sessionState.messageRoles;
         final messageModels = sessionState.messageModels;
 
-        final toolCallResults = _buildToolCallResults(partsByMsg);
-
         if (messageOrder.isEmpty) return const SizedBox.shrink();
 
         final lastExpandableMsgIndex = _lastExpandableMessageIndex(
@@ -375,7 +372,6 @@ class _MessageList extends StatelessWidget {
                 role: role,
                 parts: parts,
                 streaming: isStreaming,
-                toolCallResults: toolCallResults,
                 autoExpandLast: index == lastExpandableMsgIndex,
                 modelName: isFirstInTurn[index] == true
                     ? messageModels[msgId]
@@ -514,29 +510,5 @@ class _MessageList extends StatelessWidget {
       }
     }
     return -1;
-  }
-
-  Map<String, String> _buildToolCallResults(
-    Map<String, List<api.PartInfo>> partsByMsg,
-  ) {
-    final results = <String, String>{};
-    for (final parts in partsByMsg.values) {
-      for (final part in parts) {
-        if (part.partType == PartTypes.toolResult) {
-          try {
-            final json = jsonDecode(part.content) as Map<String, dynamic>;
-            final toolCallId = json['tool_call_id'] as String?;
-            if (toolCallId != null && toolCallId.isNotEmpty) {
-              final resultContent = json['content'] as String?;
-              results[toolCallId] =
-                  (resultContent != null && resultContent.isNotEmpty)
-                  ? resultContent
-                  : part.content;
-            }
-          } catch (_) {}
-        }
-      }
-    }
-    return results;
   }
 }

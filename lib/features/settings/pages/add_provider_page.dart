@@ -1,8 +1,8 @@
-/// Add custom provider page — form to create a new OpenAI-compatible provider.
+/// Add custom provider page — form to create a new provider.
 ///
 /// Persists to config.json via [ConfigStore]:
-///   language_models.openai_compatible.{name}.api_url
-///   language_models.openai_compatible.{name}.api_key
+///   language_models.{protocol}.{name}.api_url
+///   language_models.{protocol}.{name}.api_key
 library;
 
 import 'package:flutter/material.dart';
@@ -14,8 +14,9 @@ import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
+import 'package:agent/widgets/select/app_select.dart';
 
-/// Full-screen form for adding a custom OpenAI-compatible provider.
+/// Full-screen form for adding a custom provider.
 class AddProviderPage extends HookWidget {
   /// Called when the user wants to go back to the provider list.
   final VoidCallback onBack;
@@ -32,6 +33,7 @@ class AddProviderPage extends HookWidget {
     final endpointCtrl = useTextEditingController(
       text: 'https://api.openai.com/v1',
     );
+    final protocol = useState<String>('openai_compatible');
     final saving = useState(false);
     final nameError = useState<String?>(null);
 
@@ -56,11 +58,17 @@ class AddProviderPage extends HookWidget {
             : 'https://api.openai.com/v1';
 
         ConfigStore.instance.mutate((m) {
-          final cfg =
-              m['language_models']['openai_compatible'].putIfAbsent(
-                    providerId,
+          final languageModels =
+              m.putIfAbsent('language_models', () => <String, dynamic>{})
+                  as Map<String, dynamic>;
+          final protocolConfig =
+              languageModels.putIfAbsent(
+                    protocol.value,
                     () => <String, dynamic>{},
                   )
+                  as Map<String, dynamic>;
+          final cfg =
+              protocolConfig.putIfAbsent(providerId, () => <String, dynamic>{})
                   as Map<String, dynamic>;
           cfg['api_url'] = url;
           if (apiKeyCtrl.text.trim().isNotEmpty) {
@@ -72,12 +80,14 @@ class AddProviderPage extends HookWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('提供商添加成功')));
-          onSaved?.call(ProviderInfo(
-            name: providerId,
-            displayName: name,
-            baseUrl: url,
-            configured: true,
-          ));
+          onSaved?.call(
+            ProviderInfo(
+              name: providerId,
+              displayName: name,
+              baseUrl: url,
+              configured: true,
+            ),
+          );
         }
       } catch (e) {
         if (context.mounted) {
@@ -97,7 +107,7 @@ class AddProviderPage extends HookWidget {
         AppBreadcrumbItem('添加提供商'),
       ],
       title: '添加自定义提供商',
-      subtitle: '添加一个兼容 OpenAI API 的自定义模型提供商',
+      subtitle: '添加一个自定义模型提供商',
       actions: FormActions(
         primary: [
           AppPrimaryButton(
@@ -113,6 +123,13 @@ class AddProviderPage extends HookWidget {
           controller: nameCtrl,
           errorText: nameError.value,
           onChanged: (_) => nameError.value = null,
+        ),
+        AppSelect<String>(
+          label: '协议类型',
+          placeholder: '选择 API 协议',
+          value: protocol.value,
+          options: protocolOptions,
+          onChanged: (v) => protocol.value = v ?? 'openai_compatible',
         ),
         AppField(
           label: 'API Key',

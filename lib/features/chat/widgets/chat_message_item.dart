@@ -11,6 +11,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 import 'chat_expandable_part.dart';
+import 'chat_search_part.dart';
 import 'chat_text_part.dart';
 
 /// Intent signalled when user presses Enter (without modifiers) to retry.
@@ -145,7 +146,6 @@ class ChatMessageItem extends HookWidget {
   final String msgId;
   final String role;
   final List<api.PartInfo> parts;
-  final Map<String, String> toolCallResults;
 
   /// 是否允许自动展开本消息内的最后一个可展开 part。
   /// 仅在全局最后一条有 expandable part 的消息上为 true。
@@ -172,7 +172,6 @@ class ChatMessageItem extends HookWidget {
     required this.msgId,
     required this.role,
     required this.parts,
-    this.toolCallResults = const {},
     this.autoExpandLast = false,
     this.modelName,
     this.onRetry,
@@ -185,12 +184,10 @@ class ChatMessageItem extends HookWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
-    // 按 seq 排序 parts，过滤掉永远不可见的类型
-    final sortedParts = List<api.PartInfo>.from(parts)
-      ..sort((a, b) => a.seq.compareTo(b.seq));
-    final visibleParts = sortedParts
-        .where((p) => _isVisiblePart(p, sortedParts))
-        .toList();
+    // parts 列表本身即是时间顺序：流式按事件到达追加，重载按 DB 行序（rowid）
+    // 返回。不要按 seq 排序 —— 预创建部件（text）的 seq 固定为 1，而搜索/
+    // 工具卡片发生在回答之前，seq 会把它俩错排到答案后面。
+    final visibleParts = parts.where((p) => _isVisiblePart(p)).toList();
 
     if (visibleParts.isEmpty) {
       return const SizedBox.shrink();
@@ -223,6 +220,8 @@ class ChatMessageItem extends HookWidget {
           )
         : null;
 
+    // 完全按 parts 原始顺序渲染：不做任何合并/拆分/移动，
+    // 每个 part 按自身类型显示（思考、搜索、答案各归其位）。
     final lastExpandableIndex = _lastExpandablePartIndex(visibleParts);
     final effectiveLastIdx = autoExpandLast ? lastExpandableIndex : -1;
 
@@ -254,19 +253,31 @@ class ChatMessageItem extends HookWidget {
     return result;
   }
 
-  bool _isVisiblePart(api.PartInfo part, List<api.PartInfo> allParts) {
+  bool _isVisiblePart(api.PartInfo part) {
     if (part.partType == PartTypes.toolResult) return false;
-    if (part.partType == PartTypes.toolCallFrag) {
-      if (allParts.any((p) => p.partType == PartTypes.toolCall)) return false;
-      return part.content.isNotEmpty;
-    }
     if (part.partType == PartTypes.text) {
       return part.content.isNotEmpty;
     }
     if (part.partType == PartTypes.reasoning) {
       return part.content.isNotEmpty;
     }
-    return part.partType == PartTypes.toolCall;
+    if (part.partType == PartTypes.webSearch) {
+      return part.content.isNotEmpty;
+    }
+    // tool_call / tool_call_frag 是同一个调用生命周期内的两种状态，都展示
+    return part.partType == PartTypes.toolCall ||
+        part.partType == PartTypes.toolCallFrag;
+  }
+
+  /// 找出最后一个可展开 part 的索引（reasoning / tool_call / tool_call_frag）
+  static int _lastExpandablePartIndex(List<api.PartInfo> parts) {
+    int lastIdx = -1;
+    for (int i = 0; i < parts.length; i++) {
+      if (PartTypes.isExpandable(parts[i].partType)) {
+        lastIdx = i;
+      }
+    }
+    return lastIdx;
   }
 
   Widget _buildPartWithSpacing(
@@ -298,7 +309,10 @@ class ChatMessageItem extends HookWidget {
     bool isLastExpandable = false,
   }) {
     return switch (part.partType) {
-      PartTypes.text => ChatTextPart(content: part.content, streaming: streaming),
+      PartTypes.text => ChatTextPart(
+        content: part.content,
+        streaming: streaming,
+      ),
       PartTypes.reasoning => ChatExpandablePart(
         content: part.content,
         iconName: 'lightbulb',
@@ -306,7 +320,7 @@ class ChatMessageItem extends HookWidget {
         titleColor: custom.colors.textSecondary,
         defaultExpanded: isLastExpandable,
       ),
-      PartTypes.toolCall => ChatExpandablePart(
+      PartTypes.toolCall || PartTypes.toolCallFrag => ChatExpandablePart(
         content: part.content,
         iconName: 'mousePointer2',
         title: _toolCallTitle(part.content),
@@ -315,62 +329,15 @@ class ChatMessageItem extends HookWidget {
         resultContent: _lookupResult(part.content),
       ),
       PartTypes.toolResult => const SizedBox.shrink(),
-      PartTypes.toolCallFrag => _buildFragPart(
-        part,
-        custom,
-        isLastExpandable: isLastExpandable,
-      ),
+      PartTypes.webSearch => ChatSearchPart(content: part.content),
       _ => const SizedBox.shrink(),
     };
   }
 
-  Widget _buildFragPart(
-    api.PartInfo part,
-    CustomTheme custom, {
-    bool isLastExpandable = false,
-  }) {
-    final raw = part.content;
-    if (raw.isEmpty) return const SizedBox.shrink();
-
-    String title;
-    String? fragTitle;
-    try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      final name = json['name'] as String?;
-      fragTitle = name != null && name.isNotEmpty ? '工具调用: $name' : null;
-    } catch (_) {}
-    title = fragTitle ?? '工具调用…';
-
-    return ChatExpandablePart(
-      content: raw,
-      iconName: 'mousePointer2',
-      title: title,
-      titleColor: custom.colors.accent,
-      defaultExpanded: isLastExpandable,
-    );
-  }
-
-  /// 找出最后一个可展开 part 的索引（reasoning / tool_call / tool_call_frag）
-  // ── widget 内部方法 ──
-  int _lastExpandablePartIndex(List<api.PartInfo> parts) {
-    int lastIdx = -1;
-    for (int i = 0; i < parts.length; i++) {
-      if (PartTypes.isExpandable(parts[i].partType)) {
-        lastIdx = i;
-      }
-    }
-    return lastIdx;
-  }
-
+  /// 读取工具调用结果：内嵌在 part 内容里的 `_result`（完成时由 Rust 写入）。
   String? _lookupResult(String content) {
     try {
       final json = jsonDecode(content) as Map<String, dynamic>;
-      // 从 DB 加载后的路径：按 tool_call_id 查找 tool_result
-      final id = json['id'] as String?;
-      if (id != null && toolCallResults.containsKey(id)) {
-        return toolCallResults[id];
-      }
-      // 流式路径：检查内联的 _result（由 StreamEventProcessor.handleToolCall 写入）
       final inlineResult = json['_result'] as String?;
       if (inlineResult != null && inlineResult.isNotEmpty) {
         return inlineResult;

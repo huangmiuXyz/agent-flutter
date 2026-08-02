@@ -16,26 +16,29 @@ class PartTypes {
   static const toolCallFrag = 'tool_call_frag';
   static const toolResult = 'tool_result';
 
+  /// 服务端联网搜索（web_search_call）— 仅展示，不本地执行
+  static const webSearch = 'web_search';
+
   /// reasoning / tool_call / tool_call_frag 是否属于可展开 part。
   static bool isExpandable(String type) =>
       type == reasoning || type == toolCall || type == toolCallFrag;
 
   /// 消息是否只包含工具类 part（纯工具消息在消息列表中不占位）。
-  static bool isToolOnly(List<api.PartInfo> parts) =>
-      parts.every(
-        (p) => p.partType == toolResult || p.partType == toolCallFrag,
-      );
+  static bool isToolOnly(List<api.PartInfo> parts) => parts.every(
+    (p) => p.partType == toolResult || p.partType == toolCallFrag,
+  );
 }
 
 /// [api.PartInfo] 的便捷复制扩展（rust_bridge 生成类不便直接改）。
 ///
-/// 当前仅需要修改 [api.PartInfo.content] 的场景（流式追加、重试编辑等）。
+/// 支持修改 [api.PartInfo.content]（流式追加、重试编辑等）与
+/// [api.PartInfo.partType]（如 tool_call_frag → tool_call 原地覆盖）。
 extension PartInfoX on api.PartInfo {
-  api.PartInfo copyWith({String? content}) => api.PartInfo(
+  api.PartInfo copyWith({String? content, String? partType}) => api.PartInfo(
     id: id,
     msgId: msgId,
     seq: seq,
-    partType: partType,
+    partType: partType ?? this.partType,
     content: content ?? this.content,
   );
 }

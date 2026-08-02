@@ -101,6 +101,10 @@ class AgentConfigHelper {
         .toSet();
   }
 
+  /// 取出工具调用轮次上限（`max_tool_call_rounds`），缺省 100，0 表示不限制。
+  static int maxToolCallRounds(Map<String, dynamic> cfg) =>
+      cfg['max_tool_call_rounds'] as int? ?? 100;
+
   /// 将配置序列化为缩进 JSON（写回配置文件用）。
   static String encode(Map<String, dynamic> cfg) =>
       '${const JsonEncoder.withIndent('  ').convert(cfg)}\n';

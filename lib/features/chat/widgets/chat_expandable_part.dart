@@ -31,6 +31,10 @@ class ChatExpandablePart extends HookWidget {
   /// 可选的工具执行结果（JSON），有值时在展开区显示在参数下方
   final String? resultContent;
 
+  /// 展开区内可选的子内容（如思考阶段发起的联网搜索标签、后续思考文本段），
+  /// 渲染在正文下方，元素之间仅以间距隔开
+  final List<Widget>? children;
+
   const ChatExpandablePart({
     super.key,
     required this.content,
@@ -39,6 +43,7 @@ class ChatExpandablePart extends HookWidget {
     required this.titleColor,
     this.defaultExpanded = true,
     this.resultContent,
+    this.children,
   });
 
   @override
@@ -52,19 +57,15 @@ class ChatExpandablePart extends HookWidget {
       return null;
     }, [defaultExpanded]);
 
-    // 解析调用参数 — 只显示 arguments，不显示 id/type/function 外层
+    // 解析调用参数 — 统一格式：{id, call_type, function: {name, arguments}, _result?}
     String argumentsText;
     try {
       final json = jsonDecode(content);
       String raw;
       if (json is Map<String, dynamic>) {
-        // tool_call: {function: {arguments: "{...}"}}
         final func = json['function'];
         if (func is Map<String, dynamic> && func['arguments'] is String) {
           raw = func['arguments'] as String;
-        } else if (json['arguments'] is String) {
-          // tool_call_frag: {arguments: "{...}"}
-          raw = json['arguments'] as String;
         } else {
           raw = const JsonEncoder.withIndent('  ').convert(json);
         }
@@ -169,13 +170,29 @@ class ChatExpandablePart extends HookWidget {
                         Flexible(
                           fit: FlexFit.loose,
                           child: SingleChildScrollView(
-                            child: SelectableText(
-                              argumentsText,
-                              style: TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: custom.typography.captionSize,
-                                color: custom.colors.textSecondary,
-                              ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SelectableText(
+                                  argumentsText,
+                                  style: TextStyle(
+                                    fontFamily: 'JetBrainsMono',
+                                    fontSize: custom.typography.captionSize,
+                                    color: custom.colors.textSecondary,
+                                  ),
+                                ),
+                                if (children != null &&
+                                    children!.isNotEmpty) ...[
+                                  for (final child in children!)
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                        top: custom.spacing.sm,
+                                      ),
+                                      child: child,
+                                    ),
+                                ],
+                              ],
                             ),
                           ),
                         ),

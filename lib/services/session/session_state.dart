@@ -93,4 +93,16 @@ class SessionState {
       }
     }
   }
+
+  /// 更新 part 的类型（如 tool_call_frag → tool_call，内容原地覆盖）
+  void updatePartType(String partId, String partType) {
+    for (final entry in partsByMsg.entries) {
+      for (int i = 0; i < entry.value.length; i++) {
+        if (entry.value[i].id == partId) {
+          entry.value[i] = entry.value[i].copyWith(partType: partType);
+          return;
+        }
+      }
+    }
+  }
 }

@@ -7,7 +7,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api.dart' as api;
 import 'package:agent/store/config_store.dart';
@@ -39,7 +38,11 @@ class ModelListPage extends HookWidget {
     final modelsList = useState<List<String>>([]);
     final loadingState = useState(true);
     final errorMsg = useState<String?>(null);
-    final protocol = protocolForProvider(provider.name);
+    // 协议段以 config 实际所在段为准（provider 可能配置在 responses/anthropic 段），
+    // 检测不到时回退到按名称推断。写错段会导致开关状态无法持久化。
+    final protocol =
+        protocolFromConfig(ConfigStore.instance.data.value, provider.name) ??
+        protocolForProvider(provider.name);
 
     // ── Load models + enabled state on mount ──
     useEffect(() {
@@ -53,9 +56,11 @@ class ModelListPage extends HookWidget {
           );
 
           // Read enabled models from config
-          final rawList = (ConfigStore.instance.data.value['language_models']
-                  as Map<String, dynamic>?)
-              ?[protocol]?[provider.name]?['available_models'] as List<dynamic>?;
+          final rawList =
+              (ConfigStore.instance.data.value['language_models']
+                      as Map<String, dynamic>?)?[protocol]?[provider
+                      .name]?['available_models']
+                  as List<dynamic>?;
           Set<String> enabled = {};
           if (rawList != null) {
             enabled = rawList
@@ -87,12 +92,21 @@ class ModelListPage extends HookWidget {
         }
 
         ConfigStore.instance.mutate((m) {
-          final section = (m['language_models'] as Map<String, dynamic>?)
-              ?[protocol]?[provider.name] as Map<String, dynamic>?;
-          if (section != null) {
-            section['available_models'] =
-                updated.map((name) => {'name': name}).toList();
-          }
+          final languageModels =
+              m.putIfAbsent('language_models', () => <String, dynamic>{})
+                  as Map<String, dynamic>;
+          final protocolConfig =
+              languageModels.putIfAbsent(protocol, () => <String, dynamic>{})
+                  as Map<String, dynamic>;
+          final section =
+              protocolConfig.putIfAbsent(
+                    provider.name,
+                    () => <String, dynamic>{},
+                  )
+                  as Map<String, dynamic>;
+          section['available_models'] = updated
+              .map((name) => {'name': name})
+              .toList();
         });
         activeModels.value = updated;
       } catch (e) {

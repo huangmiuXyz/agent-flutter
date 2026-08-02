@@ -30,33 +30,82 @@ class StreamEventProcessor {
       s.trackTextLength(event.partId, event.totalLen);
 
       if (event.content.isNotEmpty && event.partId.isNotEmpty) {
-        appendPartContent(s, event.partId, event.content,
-            msgId: event.msgId.isNotEmpty ? event.msgId : null);
+        appendPartContent(
+          s,
+          event.partId,
+          event.content,
+          msgId: event.msgId.isNotEmpty ? event.msgId : null,
+        );
       }
     } else if (event is EngineEvent_ToolCallFragment) {
-      if (s.isTextRedundant(event.partId, event.totalLen)) return;
-      s.trackTextLength(event.partId, event.totalLen);
-
+      // 工具调用片段：后端每次发“当前完整参数”，直接覆盖（幂等，无需去重）
+      final content = jsonEncode({
+        'id': event.id,
+        'call_type': 'function',
+        'function': {'name': event.name, 'arguments': event.arguments},
+      });
       final existing = findPartContent(s, event.partId);
-      final prev = existing ?? '';
-      final merged = mergeToolCallFrag(prev, event);
-
       if (existing != null) {
-        // 已有 part，更新合并后的内容
-        s.updatePartContent(event.partId, merged);
+        s.updatePartContent(event.partId, content);
       } else {
-        // 新建 tool_call_frag part，带初始合并内容
-        addToolCallFragPart(s, event, merged);
+        _ensureMessageExists(s, event.msgId);
+        s.partsByMsg[event.msgId]!.add(
+          api.PartInfo(
+            id: event.partId,
+            msgId: event.msgId,
+            seq: event.index,
+            partType: PartTypes.toolCallFrag,
+            content: content,
+          ),
+        );
       }
     } else if (event is EngineEvent_ToolCall) {
-      handleToolCall(s, event.msgId, event.toolName, event.arguments, event.result);
+      // 工具调用完成：与流式片段同一 part_id，原地覆盖为带结果的完整卡片
+      handleToolCall(
+        s,
+        event.msgId,
+        event.partId,
+        event.toolName,
+        event.arguments,
+        event.result,
+      );
     } else if (event is EngineEvent_ReasoningChunk) {
       if (s.isReasoningRedundant(event.partId, event.totalLen)) return;
       s.trackReasoningLength(event.partId, event.totalLen);
 
       if (event.content.isNotEmpty && event.partId.isNotEmpty) {
-        appendReasoningContent(s, event.partId, event.content,
-            msgId: event.msgId.isNotEmpty ? event.msgId : null);
+        appendReasoningContent(
+          s,
+          event.partId,
+          event.content,
+          msgId: event.msgId.isNotEmpty ? event.msgId : null,
+        );
+      }
+    } else if (event is EngineEvent_WebSearchCall) {
+      // 服务端联网搜索：同一 part 按状态递进更新（in_progress → completed）。
+      // 事件携带完整内容 JSON（含 action），与 DB 落库一致，
+      // 流式展示不丢搜索词/地址；旧事件无 content 时兜底构造。
+      final content = event.content.isNotEmpty
+          ? event.content
+          : jsonEncode({
+              'status': event.status,
+              'search_query': event.searchQuery,
+            });
+      final existing = findPartContent(s, event.partId);
+      if (existing == content) return; // 同一状态去重
+      if (existing != null) {
+        s.updatePartContent(event.partId, content);
+      } else {
+        _ensureMessageExists(s, event.msgId);
+        s.partsByMsg[event.msgId]!.add(
+          api.PartInfo(
+            id: event.partId,
+            msgId: event.msgId,
+            seq: s.partsByMsg[event.msgId]!.length,
+            partType: PartTypes.webSearch,
+            content: content,
+          ),
+        );
       }
     }
     // FrontendToolCall / Done / Error 不在此处理 — 由上层（SessionStore / EngineClient）处理
@@ -64,15 +113,23 @@ class StreamEventProcessor {
 
   /// 在 partsByMsg 中找到 partId 对应的 reasoning part，追加内容。
   /// 找不到时自动创建新消息。
-  static void appendReasoningContent(SessionState s, String partId, String text,
-      {String? msgId}) {
+  static void appendReasoningContent(
+    SessionState s,
+    String partId,
+    String text, {
+    String? msgId,
+  }) {
     _appendContent(s, partId, text, PartTypes.reasoning, msgId: msgId);
   }
 
   /// 在 partsByMsg 中找到 partId 对应的 part，追加文本。
   /// 找不到时自动创建新消息。
-  static void appendPartContent(SessionState s, String partId, String text,
-      {String? msgId}) {
+  static void appendPartContent(
+    SessionState s,
+    String partId,
+    String text, {
+    String? msgId,
+  }) {
     _appendContent(s, partId, text, PartTypes.text, msgId: msgId);
   }
 
@@ -112,32 +169,42 @@ class StreamEventProcessor {
     );
   }
 
-  /// 处理工具调用完成事件，将 tool_call part 添加到对应消息
+  /// 处理工具调用完成事件：原地覆盖同一 part_id 的卡片（含内嵌结果）。
   static void handleToolCall(
-      SessionState s, String msgId, String name, String arguments, String result) {
-    if (msgId.isEmpty) return;
+    SessionState s,
+    String msgId,
+    String partId,
+    String name,
+    String arguments,
+    String result,
+  ) {
+    if (msgId.isEmpty || partId.isEmpty) return;
     _ensureMessageExists(s, msgId);
 
-    // 移除该消息下的所有 tool_call_frag，因为已收到完整的 tool_call
-    s.partsByMsg[msgId]!.removeWhere((p) => p.partType == PartTypes.toolCallFrag);
-
-    // 添加 tool_call part，内联结果以便流式渲染时可直接显示
-    final toolCallJson = jsonEncode({
-      'id': 'tc_$msgId',
-      'function': {
-        'name': name,
-        'arguments': arguments,
-      },
+    final content = jsonEncode({
+      'id': partId,
+      'call_type': 'function',
+      'function': {'name': name, 'arguments': arguments},
       '_result': result,
     });
 
-    s.partsByMsg[msgId]!.add(api.PartInfo(
-      id: 'tc_${msgId}_${s.partsByMsg[msgId]!.length}',
-      msgId: msgId,
-      seq: s.partsByMsg[msgId]!.length,
-      partType: PartTypes.toolCall,
-      content: toolCallJson,
-    ));
+    final existing = findPartContent(s, partId);
+    if (existing != null) {
+      s.updatePartContent(partId, content);
+      // 类型同步为完成态（tool_call_frag → tool_call）
+      s.updatePartType(partId, PartTypes.toolCall);
+    } else {
+      // 极端情况：没收到片段事件（如重连后），直接新建完成态卡片
+      s.partsByMsg[msgId]!.add(
+        api.PartInfo(
+          id: partId,
+          msgId: msgId,
+          seq: s.partsByMsg[msgId]!.length,
+          partType: PartTypes.toolCall,
+          content: content,
+        ),
+      );
+    }
 
     s.messageRoles[msgId] = 'assistant';
   }
@@ -162,54 +229,5 @@ class StreamEventProcessor {
       }
     }
     return null;
-  }
-
-  /// 合并新的 tool_call_frag 事件到已有内容中
-  static String mergeToolCallFrag(
-    String prev,
-    EngineEvent_ToolCallFragment event,
-  ) {
-    final parsed = prev.isNotEmpty
-        ? (jsonDecode(prev) as Map<String, dynamic>)
-        : <String, dynamic>{};
-    if (event.id != null) parsed['id'] = event.id;
-    if (event.name != null) parsed['name'] = event.name;
-    if (event.arguments != null) {
-      parsed['arguments'] =
-          (parsed['arguments'] as String? ?? '') + event.arguments!;
-    }
-    return jsonEncode(parsed);
-  }
-
-  /// 动态添加 tool_call_frag 到 partsByMsg
-  static void addToolCallFragPart(
-    SessionState s,
-    EngineEvent_ToolCallFragment event,
-    String initialContent,
-  ) {
-    final segs = event.partId.split('_');
-    if (segs.length >= 3 && segs[0] == 'tcf') {
-      final last = int.tryParse(segs.last);
-      if (last != null) {
-        final msgId = segs.sublist(1, segs.length - 1).join('_');
-        if (msgId.isNotEmpty) {
-          s.partsByMsg
-              .putIfAbsent(msgId, () => [])
-              .add(
-                api.PartInfo(
-                  id: event.partId,
-                  msgId: msgId,
-                  seq: event.index,
-                  partType: PartTypes.toolCallFrag,
-                  content: initialContent,
-                ),
-              );
-          if (!s.messageOrder.contains(msgId)) {
-            s.messageOrder.add(msgId);
-          }
-          s.messageRoles[msgId] = 'assistant';
-        }
-      }
-    }
   }
 }
