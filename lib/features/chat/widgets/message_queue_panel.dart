@@ -422,10 +422,9 @@ class _SendNowButton extends StatelessWidget {
         // 1. 从 Rust 队列移除
         store.remove(index);
 
-        // 2. 如果有活跃流，取消
-        if (sessionStore.streamingSessionIds.value.contains(sid)) {
-          await sessionStore.cancelStreaming(sid);
-        }
+        // 2. 先终止当前流（幂等：无活跃流时为空操作），
+        //    确保发送前旧流已停止，不与新流事件交错
+        await sessionStore.cancelStreaming(sid);
 
         // 3. 立即发送（跟随当前智能体的模型配置，与输入框发送路径一致）
         await sessionStore.sendPrompt(message.text);

@@ -60,6 +60,15 @@ class SessionStore {
   /// 用于在收到 Chunk 事件时为新建 assistant 消息打上模型标签。
   final Map<String, _SendContext> _sendContext = {};
 
+  /// 已显式取消流式生成的会话集合。
+  ///
+  /// cancel 后旧流在途的 Done / Error 事件仍可能到达（事件已推入 sink），
+  /// 需要忽略它们，避免误清掉新流的流式状态或触发队列自动发送。
+  final Set<String> _cancelledStreams = {};
+
+  /// cancel 后等待旧流在途事件落定的时间
+  static const Duration _cancelSettleDelay = Duration(milliseconds: 50);
+
   /// 数据变更前的回调（供 ChatScrollObserver 记录位置）
   void Function()? onBeforeEmit;
 
@@ -159,12 +168,14 @@ class SessionStore {
     try {
       await LlmService().cancelStream(sessionId: sessionId);
     } catch (_) {}
-    // 清理流状态
-    streamingSessionIds.value = {
-      for (final id in streamingSessionIds.value)
-        if (id != sessionId) id,
-    };
+    // 清理流状态（UI 立即恢复）
+    _clearStreaming(sessionId);
+    // 标记：旧流在途的 Done / Error 事件应被忽略（见 _onSessionEvent）
+    _cancelledStreams.add(sessionId);
     _emit();
+    // 等待旧流已推入事件管道的残留事件（尾部 chunk / Done）落定并被消费，
+    // 保证调用方（如 Send Now）随后启动的新流不会与旧流事件交错。
+    await Future<void>.delayed(_cancelSettleDelay);
   }
 
   // ── 操作 ──
@@ -287,6 +298,8 @@ class SessionStore {
     // ── 确保订阅 + 标记流式 ──
     _ensureSessionSubscription(sessionId);
     _sendContext[sessionId] = _SendContext(provider, model);
+    // 新一轮流开始：清除取消标记，此后该会话的 Done / Error 视为新流事件
+    _cancelledStreams.remove(sessionId);
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 
@@ -378,6 +391,8 @@ class SessionStore {
     // 3. 触发后端重试（事件通过订阅异步到达）
     _ensureSessionSubscription(sessionId);
     _sendContext[sessionId] = _SendContext(provider, model);
+    // 新一轮流开始：清除取消标记
+    _cancelledStreams.remove(sessionId);
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 
@@ -426,6 +441,7 @@ class SessionStore {
   void unsubscribeSession(String sessionId) {
     _sessionSubs.remove(sessionId)?.cancel();
     EngineClient.instance.unsubscribeSession(sessionId);
+    _cancelledStreams.remove(sessionId);
   }
 
   /// 单个事件应用到 session state。
@@ -433,6 +449,13 @@ class SessionStore {
   /// 处理 Chunk / ReasoningChunk / ToolCallFragment / ToolCall / Done / Error。
   /// FrontendToolCall 不在此处理（由 EngineClient 直接路由到 handler）。
   void _onSessionEvent(String sessionId, SessionState s, EngineEvent event) {
+    // 被显式取消的旧流，其残留的终止事件（Done / Error）应被忽略：
+    // 此时可能已有新流在运行（同一 sessionId），误处理会清掉新流的
+    // 流式状态，或触发队列自动发送下一条消息。
+    if (event is EngineEvent_Done || event is EngineEvent_Error) {
+      if (_cancelledStreams.remove(sessionId)) return;
+    }
+
     // 流式创建的 assistant 消息，记录模型名
     String? eMsgId;
     if (event is EngineEvent_Chunk) {
