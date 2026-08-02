@@ -99,20 +99,7 @@ class SessionList extends HookWidget {
                     ? (isChecked ? 'checkSquare2' : 'square')
                     : null,
                 label: session.name,
-                labelWidget: InlineField(
-                  controller: TextEditingController(text: session.name),
-                  size: FieldSize.sm,
-                  onSubmitted: (newName) async {
-                    if (newName.trim().isEmpty ||
-                        newName.trim() == session.name) {
-                      return;
-                    }
-                    await SessionStore.instance.renameSession(
-                      session.id,
-                      newName.trim(),
-                    );
-                  },
-                ),
+                labelWidget: _SessionNameField(session: session),
                 trailing: _formatSessionTime(session.updatedAt),
                 active: selectMode ? isChecked : isSelected,
                 intrinsicHeight: true,
@@ -145,8 +132,9 @@ class SessionList extends HookWidget {
                                 onOk: () {},
                               );
                               if (confirmed == true) {
-                                await SessionStore.instance
-                                    .deleteSessions([session.id]);
+                                await SessionStore.instance.deleteSessions([
+                                  session.id,
+                                ]);
                               }
                             },
                           ),
@@ -168,5 +156,39 @@ class SessionList extends HookWidget {
       ids.add(id);
     }
     onSelectionChange?.call(ids);
+  }
+}
+
+/// 会话名称编辑框 — 持有 [TextEditingController] 并随重命名结果同步。
+///
+/// 提取为独立 HookWidget，避免在 build 中内联创建 controller
+/// （SignalBuilder 每次重建都会新建且永不释放）。
+class _SessionNameField extends HookWidget {
+  const _SessionNameField({required this.session});
+
+  final api.SessionInfo session;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = useTextEditingController(text: session.name);
+
+    // 重命名成功后同步显示新名字；正在编辑时不覆盖用户输入
+    useEffect(() {
+      if (controller.text != session.name) {
+        controller.text = session.name;
+      }
+      return null;
+    }, [session.name]);
+
+    return InlineField(
+      controller: controller,
+      size: FieldSize.sm,
+      onSubmitted: (newName) async {
+        if (newName.trim().isEmpty || newName.trim() == session.name) {
+          return;
+        }
+        await SessionStore.instance.renameSession(session.id, newName.trim());
+      },
+    );
   }
 }

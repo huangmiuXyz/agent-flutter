@@ -182,7 +182,9 @@ class _ProviderAvatar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(7),
-        color: Colors.primaries[name.hashCode % Colors.primaries.length]
+        // hashCode 可能为负（Dart `%` 对负数返回负余数），先取低 31 位保证非负
+        color: Colors
+            .primaries[(name.hashCode & 0x7fffffff) % Colors.primaries.length]
             .withValues(alpha: 0.2),
       ),
       child: Center(

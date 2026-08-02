@@ -76,11 +76,11 @@ class _EditorWindowState extends State<EditorWindow> {
       debugPrint('code_forge RustLib init error: $e');
     }
 
-    final config = configFor(widget.filePath);
+    final config = configFor(_currentPath);
 
     LspConfig? lsp;
     if (config?.lspFactory != null) {
-      lsp = await tryStartLsp(widget.filePath);
+      lsp = await tryStartLsp(_currentPath);
     }
 
     try {
@@ -99,7 +99,7 @@ class _EditorWindowState extends State<EditorWindow> {
 
     // 监听文件外部变更，自动刷新编辑器
     _fileWatcher = watchFileChanges(
-      widget.filePath,
+      _currentPath,
       _onFileExternallyChanged,
       ignoreOwnWrites: () => _saving,
     );
@@ -116,9 +116,7 @@ class _EditorWindowState extends State<EditorWindow> {
       ignoreOwnWrites: () => _saving,
     );
     _controller?.text = _readFile(newPath);
-    unawaited(windowManager.setTitle(
-      '编辑 — ${newPath.split('/').last}',
-    ));
+    unawaited(windowManager.setTitle('编辑 — ${newPath.split('/').last}'));
     if (mounted) setState(() {});
   }
 
@@ -140,7 +138,7 @@ class _EditorWindowState extends State<EditorWindow> {
     }
   }
 
-  Mode? get _language => configFor(widget.filePath)?.mode;
+  Mode? get _language => configFor(_currentPath)?.mode;
 
   Future<void> _ensureRustLibInitialized() async {
     try {
@@ -195,7 +193,7 @@ class _EditorWindowState extends State<EditorWindow> {
     if (_controller == null) return;
     _saving = true;
     try {
-      await File(widget.filePath).writeAsString(_controller!.text);
+      await File(_currentPath).writeAsString(_controller!.text);
     } catch (_) {
     } finally {
       _saving = false;
@@ -264,7 +262,7 @@ class _EditorWindowState extends State<EditorWindow> {
                 ),
                 enableFolding: true,
                 enableGuideLines: true,
-                filePath: widget.filePath,
+                filePath: _currentPath,
               ),
             ),
             if (_diagnosticPanelVisible)

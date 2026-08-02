@@ -26,7 +26,7 @@ abstract class FileSignalStore {
   FileSignalStore(this.path) {
     loadFromDisk();
     // 自动持久化：信号一变，立即写文件
-    effect(() => _writeFile());
+    _writeEffect = effect(() => _writeFile());
     // 监听外部文件修改（如手动编辑、其他窗口写入）
     _startWatch();
   }
@@ -51,6 +51,23 @@ abstract class FileSignalStore {
 
   int _lastWriteMs = 0;
 
+  /// 自动持久化 effect，dispose 时释放
+  EffectCleanup? _writeEffect;
+
+  /// 文件监听句柄，dispose 时释放
+  WatcherDisposable? _watcher;
+
+  /// 释放文件监听与自动持久化订阅。
+  ///
+  /// 进程级单例 store 在应用退出时调用；调用后不再自动写盘/监听外部修改。
+  void dispose() {
+    _writeEffect?.call();
+    _writeEffect = null;
+    _watcher?.dispose();
+    _watcher = null;
+    _watching = false;
+  }
+
   void _writeFile() {
     if (writeToDisk()) {
       _lastWriteMs = DateTime.now().millisecondsSinceEpoch;
@@ -62,7 +79,7 @@ abstract class FileSignalStore {
   void _startWatch() {
     if (_watching) return;
     _watching = true;
-    watchFileChanges(
+    _watcher = watchFileChanges(
       path,
       reload,
       ignoreOwnWrites: () {
