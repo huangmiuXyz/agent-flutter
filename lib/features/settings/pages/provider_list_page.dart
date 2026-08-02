@@ -36,6 +36,7 @@ class ProviderListPage extends HookWidget {
     final configPath = ConfigStore.instance.configPath;
     final providers = useState<List<api.ProviderSummary>>([]);
     final loading = useState(true);
+    final searchQuery = useState('');
 
     // 订阅 config 变化，数据变更后自动重新拉取提供商列表
     final configVersion = useExistingSignal(ConfigStore.instance.data).value;
@@ -62,15 +63,19 @@ class ProviderListPage extends HookWidget {
       return null;
     }, [configVersion, configPath]);
 
-    if (loading.value) {
+    // 仅首次加载显示全屏 spinner；后续刷新保留列表，避免搜索框失焦
+    if (loading.value && providers.value.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return _buildList(providers.value, configPath);
+    return _buildList(providers.value, configPath, searchQuery);
   }
 
-  Widget _buildList(List<api.ProviderSummary> providers, String configPath) {
-    final searchQuery = useState('');
+  Widget _buildList(
+    List<api.ProviderSummary> providers,
+    String configPath,
+    ValueNotifier<String> searchQuery,
+  ) {
     final query = searchQuery.value.trim().toLowerCase();
 
     // ── Memoized filtering ──
@@ -117,7 +122,9 @@ class ProviderListPage extends HookWidget {
     }
 
     return ContentFrame(
-      scrollable: sections.isEmpty,
+      // 固定非滚动：虚拟化列表自行管理滚动；若随 sections 翻转会导致
+      // 子树重建，搜索框失焦。
+      scrollable: false,
       child: AppBigList(
         count: total,
         countLabel: '个提供商',

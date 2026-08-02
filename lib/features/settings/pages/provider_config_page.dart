@@ -70,7 +70,8 @@ class _ConfigForm extends HookWidget {
   Widget build(BuildContext context) {
     final apiKeyCtrl = useTextEditingController();
     final endpointCtrl = useTextEditingController(text: provider.baseUrl ?? '');
-    // 联网搜索：服务端搜索工具（仅对支持的协议生效，如 OpenAI Responses）
+    // 联网搜索：服务端搜索工具（仅对支持的协议生效，如 OpenAI Responses / Anthropic）
+    // openai_compatible（chat completions）不提供服务端联网搜索，禁用该选项
     final webSearch = useState(false);
     // 协议类型：默认按提供商名推断，可从现有配置检测实际所在段
     final protocol = useState<String?>(protocolForProvider(provider.name));
@@ -154,7 +155,8 @@ class _ConfigForm extends HookWidget {
           if (apiKeyCtrl.text.isNotEmpty) {
             cfg['api_key'] = apiKeyCtrl.text;
           }
-          if (webSearch.value) {
+          // openai_compatible 不支持服务端联网搜索，不写入（并清理历史残留）
+          if (webSearch.value && newProtocol != 'openai_compatible') {
             cfg['web_search'] = true;
           } else {
             cfg.remove('web_search');
@@ -201,7 +203,13 @@ class _ConfigForm extends HookWidget {
           placeholder: '选择 API 协议',
           value: protocol.value,
           options: protocolOptions,
-          onChanged: (v) => protocol.value = v,
+          onChanged: (v) {
+            protocol.value = v;
+            // 切换到 openai_compatible 时联网搜索不可用，清空勾选避免误保存
+            if (v == 'openai_compatible') {
+              webSearch.value = false;
+            }
+          },
         ),
         AppField(
           label: 'API Key',
@@ -217,7 +225,8 @@ class _ConfigForm extends HookWidget {
         AppSwitch(
           value: webSearch.value,
           onChanged: (v) => webSearch.value = v,
-          label: '启用联网搜索（服务端执行，仅部分协议支持）',
+          disabled: protocol.value == 'openai_compatible',
+          label: '启用联网搜索（服务端执行，仅 Anthropic / OpenAI Responses 协议支持）',
         ),
       ],
     );

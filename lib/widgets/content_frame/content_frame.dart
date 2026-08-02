@@ -33,31 +33,29 @@ class ContentFrame extends StatelessWidget {
       child: SizedBox(width: readingWidth, child: child),
     );
 
-    if (!scrollable) {
-      // Pass through bounded height so inner [Expanded] / [ListView.builder]
-      // can virtualize. Without this, [Align] with loose constraints would
-      // make the child measure itself, losing the viewport height.
-      //
-      // Only the height is forced: forcing the width would defeat [Align]'s
-      // horizontal centering of the reading-width content (the Padding would
-      // fill the full width and pin its child to the left edge).
-      return LayoutBuilder(
-        builder: (ctx, constraints) {
-          return Align(
-            alignment: Alignment.topCenter,
-            child: SizedBox(
-              height: constraints.maxHeight.isFinite
-                  ? constraints.maxHeight
-                  : null,
-              child: padded,
-            ),
-          );
-        },
-      );
-    }
-
-    return SingleChildScrollView(
-      child: Align(alignment: Alignment.topCenter, child: padded),
+    // Always keep the same widget structure: toggling [scrollable] must not
+    // destroy the subtree (which would lose TextField focus, scroll position,
+    // etc. when a page flips between virtualized and static content).
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final body = scrollable ? SingleChildScrollView(child: padded) : padded;
+        // Pass through bounded height so inner [Expanded] / [ListView.builder]
+        // can virtualize. Without this, [Align] with loose constraints would
+        // make the child measure itself, losing the viewport height.
+        //
+        // Only the height is forced: forcing the width would defeat [Align]'s
+        // horizontal centering of the reading-width content (the Padding would
+        // fill the full width and pin its child to the left edge).
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            height: constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : null,
+            child: body,
+          ),
+        );
+      },
     );
   }
 }
