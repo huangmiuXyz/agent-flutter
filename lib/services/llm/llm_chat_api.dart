@@ -5,7 +5,7 @@
 /// 调用方应先订阅 [EngineClient.subscribeSession] 再调用本 API。
 library;
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/chat.dart' as api;
 
 import 'llm_shared.dart';
 

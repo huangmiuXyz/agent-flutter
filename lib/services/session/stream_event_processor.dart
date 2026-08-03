@@ -5,7 +5,7 @@ library;
 
 import 'dart:convert';
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/rust_bridge/events.dart';
 
 import 'part_types.dart';

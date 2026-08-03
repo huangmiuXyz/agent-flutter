@@ -3,7 +3,7 @@
 /// Mirrors [api.ProviderSummary] with extra client-side state.
 library;
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/widgets/select/app_select.dart';
 
 /// Thin wrapper around [api.ProviderSummary] with display helpers.

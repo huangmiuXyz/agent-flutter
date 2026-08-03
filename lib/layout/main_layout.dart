@@ -14,7 +14,8 @@ import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/mcp.dart' as api;
+import 'package:agent/rust_bridge/api/skills.dart' as api;
 
 /// 设置面板单例标记：同一窗口内只允许一个设置弹窗，避免叠加多个。
 bool _settingsPanelOpen = false;

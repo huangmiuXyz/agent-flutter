@@ -1,7 +1,7 @@
 /// 单个会话的内存状态模型
 library;
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 
 import 'part_types.dart';
 

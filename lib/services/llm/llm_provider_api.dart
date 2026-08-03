@@ -1,7 +1,8 @@
 /// LLM 提供商与模型 API
 library;
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/providers.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 
 import 'llm_shared.dart';
 

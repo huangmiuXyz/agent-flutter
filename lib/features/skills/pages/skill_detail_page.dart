@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/skills/models/skill_info.dart';
-import 'package:agent/rust_bridge/api.dart' as bridge;
+import 'package:agent/rust_bridge/api/skills.dart' as bridge;
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';

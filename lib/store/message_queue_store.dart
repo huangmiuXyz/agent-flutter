@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:nanoid/nanoid.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/steer.dart' as api;
 import 'package:agent/store/session_store.dart';
 
 /// 队列中的一条消息（仅用于 UI 展示，数据来自 Rust）

@@ -10,7 +10,7 @@ import 'package:signals/signals.dart';
 
 import 'package:agent/features/skills/models/skill_info.dart';
 import 'package:agent/store/config_store.dart';
-import 'package:agent/rust_bridge/api.dart' as bridge;
+import 'package:agent/rust_bridge/api/types.dart' as bridge;
 
 /// SkillStore 单例 — 所有技能相关的状态集中管理。
 class SkillStore {

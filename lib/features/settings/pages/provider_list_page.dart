@@ -6,7 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';

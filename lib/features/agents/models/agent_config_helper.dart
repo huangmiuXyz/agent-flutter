@@ -4,7 +4,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:agent/rust_bridge/api.dart' as bridge;
+import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 
 /// 从全局 config.json 提取可选的配置片段，供创建/编辑智能体时使用。
 ///

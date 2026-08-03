@@ -22,7 +22,7 @@ import 'package:agent/features/skills/models/skill_info.dart';
 import 'package:agent/features/skills/pages/skill_detail_page.dart';
 import 'package:agent/features/skills/pages/skill_list_page.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
-import 'package:agent/rust_bridge/api.dart' as bridge;
+import 'package:agent/rust_bridge/api/skills.dart' as bridge;
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/list/app_list.dart';
 

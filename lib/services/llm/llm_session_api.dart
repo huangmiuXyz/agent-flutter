@@ -4,7 +4,10 @@
 /// 事件订阅通过 [EngineClient.subscribeSession] 完成。
 library;
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/engine.dart' as api;
+import 'package:agent/rust_bridge/api/messages.dart' as api;
+import 'package:agent/rust_bridge/api/sessions.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 
 import 'llm_shared.dart';
 

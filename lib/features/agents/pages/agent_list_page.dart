@@ -13,7 +13,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
-import 'package:agent/rust_bridge/api.dart' as bridge;
+import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/list/app_big_list.dart';

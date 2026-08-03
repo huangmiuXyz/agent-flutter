@@ -10,7 +10,7 @@ library;
 
 import 'dart:async';
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/engine.dart' as api;
 import 'package:agent/rust_bridge/events.dart';
 
 /// 前端工具 handler 函数签名。

@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/session/part_types.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';

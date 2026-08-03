@@ -11,7 +11,7 @@ import 'package:signals/signals.dart';
 import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/rust_bridge/agent.dart' as bridge;
-import 'package:agent/rust_bridge/api.dart' as bridge_api;
+import 'package:agent/rust_bridge/api/agents.dart' as bridge_api;
 import 'package:agent/store/config_store.dart';
 
 /// AgentStore 单例 — 所有智能体相关的状态集中管理。

@@ -12,7 +12,8 @@ library;
 import 'dart:async';
 
 import 'package:signals_flutter/signals_flutter.dart';
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/steer.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/rust_bridge/events.dart';
 
 import 'package:agent/services/engine/engine_client.dart';

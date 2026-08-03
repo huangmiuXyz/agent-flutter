@@ -5,7 +5,7 @@
 /// 统一在此定义，拼写错误可在编译期暴露，判断逻辑只维护一份。
 library;
 
-import 'package:agent/rust_bridge/api.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api;
 
 class PartTypes {
   PartTypes._();
