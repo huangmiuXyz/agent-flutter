@@ -27,6 +27,10 @@ String _formatSessionTime(int timestampMs) {
 }
 
 /// 左侧面板 — 会话列表
+///
+/// 两级结构：主会话平铺，其子会话（子智能体创建，`parentSessionId` 非空）
+/// 缩进显示在主会话下面，可展开/折叠（默认展开）。子会话同样支持
+/// 点击切换、重命名与删除；删除主会话时由 Rust 侧级联删除其子会话。
 class SessionList extends HookWidget {
   const SessionList({
     super.key,
@@ -46,6 +50,9 @@ class SessionList extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 折叠的主会话 id 集合（默认全部展开）
+    final collapsed = useState<Set<String>>(<String>{});
+
     // 加载会话列表
     useEffect(() {
       SessionStore.instance.loadSessions();
@@ -80,71 +87,154 @@ class SessionList extends HookWidget {
           );
         }
 
-        final sorted = List<api.SessionInfo>.from(sessions)
+        // 分组：主会话 + 各自子会话（均按更新时间倒序）
+        final parents = sessions
+            .where((s) => s.parentSessionId == null)
+            .toList()
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        final childrenByParent = <String, List<api.SessionInfo>>{};
+        for (final s in sessions.where((s) => s.parentSessionId != null)) {
+          childrenByParent.putIfAbsent(s.parentSessionId!, () => []).add(s);
+        }
+        for (final list in childrenByParent.values) {
+          list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        }
+
+        final items = <Widget>[];
+        for (final parent in parents) {
+          final children =
+              childrenByParent[parent.id] ?? const <api.SessionInfo>[];
+          items.add(
+            _buildSessionItem(
+              context: context,
+              session: parent,
+              selectedId: selectedId,
+              selectMode: selectMode,
+              selectedIds: selectedIds,
+              onToggleSelection: _toggleSelection,
+              expandable: children.isNotEmpty,
+              collapsed: collapsed.value.contains(parent.id),
+              onToggleExpand: () {
+                final next = Set<String>.from(collapsed.value);
+                if (!next.add(parent.id)) {
+                  next.remove(parent.id);
+                }
+                collapsed.value = next;
+              },
+            ),
+          );
+          if (!collapsed.value.contains(parent.id)) {
+            for (final child in children) {
+              items.add(
+                _buildSessionItem(
+                  context: context,
+                  session: child,
+                  selectedId: selectedId,
+                  selectMode: selectMode,
+                  selectedIds: selectedIds,
+                  onToggleSelection: _toggleSelection,
+                  child: true,
+                ),
+              );
+            }
+          }
+        }
 
         return SingleChildScrollView(
           child: AppList(
             size: AppListSize.small,
             containerPadding: EdgeInsets.zero,
             itemGap: 0,
-            children: sorted.map((session) {
-              final isSelected = session.id == selectedId;
-              final isChecked = selectedIds.contains(session.id);
-
-              return AppListItem(
-                key: ValueKey(session.id),
-                // 选择模式下显示复选框图标
-                icon: selectMode
-                    ? (isChecked ? 'checkSquare2' : 'square')
-                    : null,
-                label: session.name,
-                labelWidget: _SessionNameField(session: session),
-                trailing: _formatSessionTime(session.updatedAt),
-                active: selectMode ? isChecked : isSelected,
-                intrinsicHeight: true,
-                itemRadius: BorderRadius.zero,
-                onTap: selectMode
-                    ? () => _toggleSelection(session.id)
-                    : () {
-                        // 立即更新选中态，让 UI 先切换，不等待数据加载
-                        SessionStore.instance.selectedId.value = session.id;
-                        SessionStore.instance.switchTo(session.id);
-                      },
-                // 选择模式下隐藏悬停操作按钮，避免干扰
-                hoverActions: selectMode
-                    ? null
-                    : [
-                        Transform.translate(
-                          offset: const Offset(0, -1),
-                          child: AppIconButton(
-                            icon: 'trash2',
-                            size: ButtonSize.sm,
-                            hoverStyle: false,
-                            tooltip: '删除会话',
-                            onPressed: () async {
-                              final confirmed = await AppDialog.show(
-                                context: context,
-                                title: '删除会话',
-                                child: AppText(
-                                  '确定要删除「${session.name}」吗？此操作不可恢复。',
-                                ),
-                                onOk: () {},
-                              );
-                              if (confirmed == true) {
-                                await SessionStore.instance.deleteSessions([
-                                  session.id,
-                                ]);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-              );
-            }).toList(),
+            children: items,
           ),
         );
       },
+    );
+  }
+
+  /// 构建单个会话列表项（主会话 / 子会话）。
+  Widget _buildSessionItem({
+    required BuildContext context,
+    required api.SessionInfo session,
+    required String? selectedId,
+    required bool selectMode,
+    required Set<String> selectedIds,
+    required ValueChanged<String> onToggleSelection,
+    bool child = false,
+    bool expandable = false,
+    bool collapsed = false,
+    VoidCallback? onToggleExpand,
+  }) {
+    final custom = CustomTheme.of(context);
+    final isSelected = session.id == selectedId;
+    final isChecked = selectedIds.contains(session.id);
+
+    final hoverActions = <Widget>[
+      if (expandable)
+        Transform.translate(
+          offset: const Offset(0, -1),
+          child: AppIconButton(
+            icon: collapsed ? 'chevronRight' : 'chevronDown',
+            size: ButtonSize.sm,
+            hoverStyle: false,
+            tooltip: collapsed ? '展开子任务' : '折叠子任务',
+            onPressed: onToggleExpand,
+          ),
+        ),
+      Transform.translate(
+        offset: const Offset(0, -1),
+        child: AppIconButton(
+          icon: 'trash2',
+          size: ButtonSize.sm,
+          hoverStyle: false,
+          tooltip: '删除会话',
+          onPressed: () async {
+            final confirmed = await AppDialog.show(
+              context: context,
+              title: '删除会话',
+              child: AppText(
+                '确定要删除「${session.name}」吗？此操作不可恢复。',
+              ),
+              onOk: () {},
+            );
+            if (confirmed == true) {
+              await SessionStore.instance.deleteSessions([session.id]);
+            }
+          },
+        ),
+      ),
+    ];
+
+    return AppListItem(
+      key: ValueKey(session.id),
+      // 选择模式下显示复选框图标；子会话显示子任务图标
+      icon: selectMode
+          ? (isChecked ? 'checkSquare2' : 'square')
+          : (child ? 'robot' : null),
+      label: session.name,
+      labelWidget: _SessionNameField(session: session),
+      trailing: _formatSessionTime(session.updatedAt),
+      active: selectMode ? isChecked : isSelected,
+      intrinsicHeight: true,
+      itemRadius: BorderRadius.zero,
+      // 子会话缩进显示在主会话下面
+      itemPadding: child
+          ? EdgeInsets.only(
+              left: 24 + custom.spacing.sm,
+              right: custom.spacing.sm,
+              top: custom.spacing.xs,
+              bottom: custom.spacing.xs,
+            )
+          : null,
+      onTap: selectMode
+          ? () => onToggleSelection(session.id)
+          : () {
+              // 立即更新选中态，让 UI 先切换，不等待数据加载
+              SessionStore.instance.selectedId.value = session.id;
+              SessionStore.instance.switchTo(session.id);
+            },
+      // 选择模式下隐藏悬停操作按钮，避免干扰
+      hoverActions: selectMode ? null : hoverActions,
     );
   }
 

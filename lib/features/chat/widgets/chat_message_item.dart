@@ -10,6 +10,7 @@ import 'package:agent/theme/custom_theme.dart';
 
 import 'package:agent/widgets/text/app_text.dart';
 
+import 'chat_diff_block.dart';
 import 'chat_expandable_part.dart';
 import 'chat_search_part.dart';
 import 'chat_text_part.dart';
@@ -195,8 +196,12 @@ class ChatMessageItem extends HookWidget {
 
     final minPartHeight = custom.controls.chatPartCollapsedHeight;
 
-    // 用户消息：支持点击编辑
-    if (role == 'user') {
+    // 用户消息：支持点击编辑。
+    // 子智能体插入的结果（sub_agent_text）除外——它是系统插入的只读卡片，
+    // 走下方普通 part 渲染（「子智能体插入」样式），不显示为可编辑输入框。
+    final hasSubAgentPart =
+        visibleParts.any((p) => p.partType == PartTypes.subAgentText);
+    if (role == 'user' && !hasSubAgentPart) {
       return _UserMessage(
         sessionId: sessionId,
         msgId: msgId,
@@ -264,6 +269,9 @@ class ChatMessageItem extends HookWidget {
     if (part.partType == PartTypes.webSearch) {
       return part.content.isNotEmpty;
     }
+    if (part.partType == PartTypes.subAgentText) {
+      return part.content.isNotEmpty;
+    }
     // tool_call / tool_call_frag 是同一个调用生命周期内的两种状态，都展示
     return part.partType == PartTypes.toolCall ||
         part.partType == PartTypes.toolCallFrag;
@@ -320,25 +328,60 @@ class ChatMessageItem extends HookWidget {
         titleColor: custom.colors.textSecondary,
         defaultExpanded: isLastExpandable,
       ),
-      PartTypes.toolCall || PartTypes.toolCallFrag => ChatExpandablePart(
-        content: part.content,
-        iconName: 'mousePointer2',
-        title: _toolCallTitle(part.content),
-        titleColor: custom.colors.accent,
-        defaultExpanded: isLastExpandable,
-        resultContent: _lookupResult(part.content),
+      PartTypes.toolCall || PartTypes.toolCallFrag => _buildToolCallPart(
+        part,
+        custom,
+        isLastExpandable: isLastExpandable,
       ),
       PartTypes.toolResult => const SizedBox.shrink(),
       PartTypes.webSearch => ChatSearchPart(content: part.content),
+      PartTypes.subAgentText => _buildSubAgentPart(part, custom),
       _ => const SizedBox.shrink(),
     };
   }
 
-  /// 读取工具调用结果：内嵌在 part 内容里的 `_result`（完成时由 Rust 写入）。
+  /// 子智能体插入的结果：卡片样式（来源标签 + 正文）
+  Widget _buildSubAgentPart(api.PartInfo part, CustomTheme custom) {
+    return Container(
+      padding: EdgeInsets.all(custom.spacing.md),
+      decoration: BoxDecoration(
+        color: custom.colors.cardBackground,
+        borderRadius: custom.radii.md,
+        border: Border.all(color: custom.colors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.account_tree_outlined,
+                size: 14,
+                color: custom.colors.accent,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '子智能体插入',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: custom.colors.accent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ChatTextPart(content: part.content, streaming: false),
+        ],
+      ),
+    );
+  }
+
+  /// 读取工具调用结果：内嵌在 part 内容里的 `tool_result` 字段（完成时由 Rust 写入）。
   String? _lookupResult(String content) {
     try {
       final json = jsonDecode(content) as Map<String, dynamic>;
-      final inlineResult = json['_result'] as String?;
+      final inlineResult = json['tool_result'] as String?;
       if (inlineResult != null && inlineResult.isNotEmpty) {
         return inlineResult;
       }
@@ -346,13 +389,53 @@ class ChatMessageItem extends HookWidget {
     return null;
   }
 
-  String _toolCallTitle(String content) {
+  /// 工具调用卡片：apply_patch 走专用 diff 渲染，其余保持通用样式
+  Widget _buildToolCallPart(
+    api.PartInfo part,
+    CustomTheme custom, {
+    required bool isLastExpandable,
+  }) {
+    final isPatch = _toolCallName(part.content) == 'apply_patch';
+    return ChatExpandablePart(
+      content: part.content,
+      iconName: isPatch ? 'fileCode' : 'mousePointer2',
+      title: isPatch ? '应用补丁' : _toolCallTitle(part.content),
+      titleColor: isPatch ? custom.colors.success : custom.colors.accent,
+      defaultExpanded: isLastExpandable,
+      resultContent: _lookupResult(part.content),
+      argumentsBuilder: isPatch ? _buildPatchDiff : null,
+    );
+  }
+
+  /// 用 diff 代码块渲染 apply_patch 的 patch 参数
+  Widget _buildPatchDiff(BuildContext context, String rawArguments) {
+    // arguments 形如 {"patch": "...", "path": "...", ...}，只取 patch 字段；
+    // 解析失败（流式未完成时常见）则整段当作 diff 处理
+    String diff = rawArguments;
+    try {
+      final json = jsonDecode(rawArguments);
+      if (json is Map<String, dynamic>) {
+        final patch = json['patch'];
+        if (patch is String && patch.isNotEmpty) diff = patch;
+      }
+    } catch (_) {}
+    return ChatDiffBlock(diff: diff);
+  }
+
+  /// 读取工具调用名称（streaming 早期即稳定）
+  String _toolCallName(String content) {
     try {
       final json = jsonDecode(content) as Map<String, dynamic>;
       final function = json['function'] as Map<String, dynamic>?;
       final name = function?['name'] as String?;
-      if (name != null && name.isNotEmpty) return '工具调用: $name';
+      if (name != null && name.isNotEmpty) return name;
     } catch (_) {}
+    return '';
+  }
+
+  String _toolCallTitle(String content) {
+    final name = _toolCallName(content);
+    if (name.isNotEmpty) return '工具调用: $name';
     return '工具调用';
   }
 }

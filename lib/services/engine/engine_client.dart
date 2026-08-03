@@ -33,6 +33,12 @@ class EngineClient {
   /// 每个 session_id 对应的 broadcast controller。
   final Map<String, StreamController<EngineEvent>> _sessionControllers = {};
 
+  /// 已通知过的未订阅 session（避免每次事件都重复触发回调）。
+  final Set<String> _notifiedSessions = {};
+
+  /// 未订阅 session 的首个事件到达时回调（用于刷新会话列表等）。
+  void Function(String sessionId)? onUnknownSession;
+
   /// 工具名 → handler
   final Map<String, FrontendToolHandler> _toolHandlers = {};
 
@@ -126,6 +132,9 @@ class EngineClient {
       final c = _sessionControllers[sid];
       if (c != null && !c.isClosed) {
         c.add(event);
+      } else if (_notifiedSessions.add(sid)) {
+        // 后台新会话（如子智能体创建的子会话）首次有事件 → 通知外部刷新列表
+        onUnknownSession?.call(sid);
       }
     }
 

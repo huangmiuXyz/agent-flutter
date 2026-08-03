@@ -185,7 +185,7 @@ class StreamEventProcessor {
       'id': partId,
       'call_type': 'function',
       'function': {'name': name, 'arguments': arguments},
-      '_result': result,
+      'tool_result': result,
     });
 
     final existing = findPartContent(s, partId);

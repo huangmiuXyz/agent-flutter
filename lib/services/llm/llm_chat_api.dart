@@ -19,6 +19,7 @@ mixin ChatApi on GuardedApi {
     required String prompt,
     String? dbPath,
     String? sessionId,
+    String? workDir,
     String? systemPrompt,
   }) async {
     final result = await guard(
@@ -30,6 +31,7 @@ mixin ChatApi on GuardedApi {
         prompt: prompt,
         dbPath: dbPath,
         sessionId: sessionId,
+        workDir: workDir,
         systemPrompt: systemPrompt,
       ),
     );
@@ -50,6 +52,7 @@ mixin ChatApi on GuardedApi {
     String? userMsgId,
     String? dbPath,
     String? sessionId,
+    String? workDir,
     String? systemPrompt,
   }) =>
       guard(
@@ -62,7 +65,32 @@ mixin ChatApi on GuardedApi {
           userMsgId: userMsgId,
           dbPath: dbPath,
           sessionId: sessionId,
+          workDir: workDir,
           systemPrompt: systemPrompt,
+        ),
+      );
+
+  /// 继续已有会话（流式）：不插入任何新内容，直接重发会话历史。
+  ///
+  /// 用于子智能体异步结果注入后让主智能体基于结果继续生成。
+  /// 行为同 [chatStream] — 事件通过 [EngineClient] 推送。
+  Future<void> chatStreamContinue({
+    required String configPath,
+    required String provider,
+    required String model,
+    required String sessionId,
+    String? dbPath,
+    String? workDir,
+  }) =>
+      guard(
+        '继续会话失败',
+        () => api.chatStreamContinue(
+          configPath: configPath,
+          provider: provider,
+          model: model,
+          dbPath: dbPath,
+          sessionId: sessionId,
+          workDir: workDir,
         ),
       );
 
@@ -76,6 +104,7 @@ mixin ChatApi on GuardedApi {
     required String msgId,
     required String chatText,
     required String sessionId,
+    String? workDir,
     String? dbPath,
   }) =>
       guard(
@@ -87,6 +116,7 @@ mixin ChatApi on GuardedApi {
           msgId: msgId,
           chatText: chatText,
           sessionId: sessionId,
+          workDir: workDir,
           dbPath: dbPath,
         ),
       );

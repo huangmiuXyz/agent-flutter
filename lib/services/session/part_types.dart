@@ -15,6 +15,8 @@ class PartTypes {
   static const toolCall = 'tool_call';
   static const toolCallFrag = 'tool_call_frag';
   static const toolResult = 'tool_result';
+  /// 子智能体插入的结果消息（语义等同 text，仅渲染标记）
+  static const subAgentText = 'sub_agent_text';
 
   /// 服务端联网搜索（web_search_call）— 仅展示，不本地执行
   static const webSearch = 'web_search';

@@ -32,7 +32,13 @@ import 'package:agent/services/session/part_types.dart';
 /// 所有可观察状态都是 [signal]，UI 层通过 [SignalBuilder] 自动追踪依赖。
 class SessionStore {
   static final instance = SessionStore._();
-  SessionStore._();
+  SessionStore._() {
+    // 后台新会话（子智能体创建的子会话等）有事件到达时刷新会话列表，
+    // 让左侧列表立即出现新会话，可切换查看
+    EngineClient.instance.onUnknownSession = (sid) {
+      loadSessions();
+    };
+  }
 
   // ── 响应式状态 ──
 
@@ -329,6 +335,7 @@ class SessionStore {
         userMsgId: userMsgId,
         dbPath: dbPath,
         sessionId: sessionId,
+        workDir: AgentStore.instance.resolveWorkDir(),
       );
     } catch (e) {
       // 启动失败：追加错误消息并清理流状态
@@ -406,6 +413,7 @@ class SessionStore {
         chatText: newPrompt,
         sessionId: sessionId,
         dbPath: dbPath,
+        workDir: AgentStore.instance.resolveWorkDir(),
       );
     } catch (e) {
       StreamEventProcessor.appendPartContent(
@@ -485,17 +493,28 @@ class SessionStore {
       final steerMsgId =
           '${sessionId}_steer_${DateTime.now().millisecondsSinceEpoch}';
       s.messageOrder.add(steerMsgId);
+      // 子智能体插入的结果用特殊 partType 渲染（与 DB 历史 part_type 一致）
+      final partType = event.source == 'sub_agent'
+          ? PartTypes.subAgentText
+          : PartTypes.text;
       s.partsByMsg[steerMsgId] = [
         api.PartInfo(
           id: '${steerMsgId}_part',
           msgId: steerMsgId,
           seq: 0,
-          partType: PartTypes.text,
+          partType: partType,
           content: event.text,
         ),
       ];
       s.messageRoles[steerMsgId] = 'user';
       _emit();
+
+      // 子智能体异步结果注入后自动继续：主会话无活跃流时直接重发历史
+      // （不插入任何新内容，让主智能体基于结果继续生成）
+      if (event.source == 'sub_agent' &&
+          !streamingSessionIds.value.contains(sessionId)) {
+        _autoContinue(sessionId);
+      }
       return;
     }
 
@@ -527,6 +546,28 @@ class SessionStore {
     }
 
     _emit();
+  }
+
+  /// 子智能体结果注入后的自动继续：用该会话最近一次发送的模型，
+  /// 不插入任何内容直接重发会话历史。
+  Future<void> _autoContinue(String sessionId) async {
+    final ctx = _sendContext[sessionId];
+    if (ctx == null) return;
+    final service = LlmService();
+    final dbPath = ConfigStore.instance.dbPath;
+    final configPath = AgentStore.instance.currentConfigPath.value;
+    try {
+      await service.chatStreamContinue(
+        configPath: configPath,
+        provider: ctx.provider,
+        model: ctx.model,
+        dbPath: dbPath,
+        sessionId: sessionId,
+        workDir: AgentStore.instance.resolveWorkDir(),
+      );
+    } catch (_) {
+      // 继续失败不阻断（结果已持久化，用户可手动触发下一条消息）
+    }
   }
 
   /// Done 后从 Rust 队列消费非 steer 消息并自动发送
