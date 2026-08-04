@@ -9,6 +9,12 @@ import 'package:ansi_strip/ansi_strip.dart';
 class CommandRunner {
   static final _oscEndMarker = RegExp(r'\x1B\]633;D;-?\d+(?:\x07|\x1B\\)');
   static final _promptPattern = RegExp(r'^[%$#>]\s*$');
+
+  /// 结束标记匹配窗口大小。
+  ///
+  /// 只对输出尾部窗口做正则匹配，避免大输出（如 `ls -R .`）时每个 chunk
+  /// 都对已累积的完整输出做全量扫描（O(n²)），阻塞 UI isolate。
+  static const _scanWindowSize = 8192;
   final StreamController<String> _outputController =
       StreamController<String>.broadcast();
   final Set<StreamSubscription<String>> _execSubs = {};
@@ -30,6 +36,7 @@ class CommandRunner {
   }) async {
     final completer = Completer<String>();
     final buffer = StringBuffer();
+    var tail = '';
     StreamSubscription<String>? execSub;
     Timer? timeoutTimer;
 
@@ -45,8 +52,13 @@ class CommandRunner {
 
     execSub = _outputController.stream.listen((text) {
       buffer.write(text);
-      final full = buffer.toString();
-      if (_oscEndMarker.hasMatch(full)) {
+      // 只扫描输出尾部窗口（固定大小），跨 chunk 的标记也能命中；
+      // 匹配成功后再做一次全量提取，避免每个 chunk 都 O(n) 复制+扫描。
+      tail += text;
+      if (tail.length > _scanWindowSize) {
+        tail = tail.substring(tail.length - _scanWindowSize);
+      }
+      if (_oscEndMarker.hasMatch(tail)) {
         done();
         if (!completer.isCompleted) {
           final all = buffer.toString();
@@ -60,12 +72,17 @@ class CommandRunner {
             output = all.substring(0, endIdx);
           }
           var cleaned = stripAnsi(output);
-          while (cleaned.contains('\x08')) {
-            final idx = cleaned.indexOf('\x08');
-            cleaned =
-                (idx > 0 ? cleaned.substring(0, idx - 1) : '') +
-                cleaned.substring(idx + 1);
+          // 单遍处理 backspace（\x08）：删除前一个字符，避免
+          // while + substring 在大输出下退化为 O(n²)。
+          final outChars = <String>[];
+          for (final ch in cleaned.split('')) {
+            if (ch == '\x08') {
+              if (outChars.isNotEmpty) outChars.removeLast();
+            } else {
+              outChars.add(ch);
+            }
           }
+          cleaned = outChars.join();
           cleaned = cleaned
               .replaceAll('\r\n', '\n')
               .replaceAll('\r', '\n')
