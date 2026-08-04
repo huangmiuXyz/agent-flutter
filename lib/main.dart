@@ -20,6 +20,7 @@ import 'services/sync/app_sync.dart';
 import 'services/sync/cross_window_sync.dart';
 import 'services/llm/llm_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/ime_composing_tracker.dart';
 
 import 'package:code_forge/code_forge.dart' as code_forge;
 import 'package:marionette_flutter/marionette_flutter.dart';
@@ -48,6 +49,10 @@ void main() async {
       } else {
         WidgetsFlutterBinding.ensureInitialized();
       }
+
+      // 监听 textinput 通道消息，跟踪输入法组合状态
+      // （Enter 发送类快捷键在组合中不应触发发送）
+      ImeComposingTracker.instance.install();
 
       await frb.RustLib.init();
       await code_forge.RustLib.init();

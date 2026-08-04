@@ -7,6 +7,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/session/part_types.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/ime_composing_tracker.dart';
 
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -15,23 +16,6 @@ import 'chat_search_part.dart';
 
 import '../custom_tools_render/chat_diff_block.dart';
 import 'chat_text_part.dart';
-
-/// Intent signalled when user presses Enter (without modifiers) to retry.
-class _RetryIntent extends Intent {
-  const _RetryIntent();
-}
-
-/// Action that invokes the [onSubmit] callback.
-class _RetryAction extends Action<_RetryIntent> {
-  _RetryAction({this.onSubmit});
-
-  final VoidCallback? onSubmit;
-
-  @override
-  void invoke(_RetryIntent intent) {
-    onSubmit?.call();
-  }
-}
 
 /// 用户消息编辑重试回调
 ///
@@ -107,29 +91,44 @@ class _UserMessage extends HookWidget {
           boxShadow: custom.shadows.small,
         ),
         padding: EdgeInsets.all(custom.spacing.sm),
-        child: Shortcuts(
-          shortcuts: {
-            // Enter without modifiers → submit; Shift+Enter passes through as newline
-            SingleActivator(LogicalKeyboardKey.enter): const _RetryIntent(),
+        child: Focus(
+          onKeyEvent: (node, event) {
+            // 无修饰键 Enter → 提交；Shift+Enter 等带修饰键的放行（换行等）
+            if (event is! KeyDownEvent ||
+                event.logicalKey != LogicalKeyboardKey.enter) {
+              return KeyEventResult.ignored;
+            }
+            final keyboard = HardwareKeyboard.instance;
+            if (keyboard.isShiftPressed ||
+                keyboard.isControlPressed ||
+                keyboard.isAltPressed ||
+                keyboard.isMetaPressed) {
+              return KeyEventResult.ignored;
+            }
+            // 输入法（IME）组合中：放行 Enter 让组合内容落下（IME 提交），
+            // 不触发提交编辑。注意不能消费按键（handled）：否则 Windows
+            // 引擎跳过键盘消息翻译链，组合内容无法提交。
+            if (ImeComposingTracker.instance.isComposing) {
+              return KeyEventResult.ignored;
+            }
+            handleSubmit();
+            return KeyEventResult.handled;
           },
-          child: Actions(
-            actions: {_RetryIntent: _RetryAction(onSubmit: handleSubmit)},
-            child: TextField(
-              focusNode: focusNode,
-              controller: ctrl,
-              maxLines: null,
-              style: TextStyle(
-                fontSize: custom.typography.bodySize,
-                fontFamily: custom.typography.fontFamily,
-                color: custom.colors.textPrimary,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                enabledBorder: InputBorder.none,
-              ),
+          child: TextField(
+            focusNode: focusNode,
+            controller: ctrl,
+            maxLines: null,
+            style: TextStyle(
+              fontSize: custom.typography.bodySize,
+              fontFamily: custom.typography.fontFamily,
+              color: custom.colors.textPrimary,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              border: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              enabledBorder: InputBorder.none,
             ),
           ),
         ),

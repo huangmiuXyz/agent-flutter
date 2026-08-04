@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/fleather_utils.dart';
+import 'package:agent/utils/ime_composing_tracker.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// Scroll physics that completely eliminates any bounce/overscroll effect.
@@ -93,6 +94,31 @@ class _ChatFleatherState extends State<ChatFleather> {
   bool get _isEmpty =>
       _controller.document.toPlainText().replaceAll('\n', '').isEmpty;
 
+  /// 处理 Enter：无修饰键时触发发送；
+  /// 输入法组合中放行按键（不发送），让 IME 提交组合内容落下。
+  /// 注意必须返回 ignored：若消费按键，Windows 引擎会跳过
+  /// 键盘消息翻译链，组合内容无法提交。
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.enter) {
+      return KeyEventResult.ignored;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isShiftPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed ||
+        keyboard.isMetaPressed) {
+      // 带修饰键的 Enter（如 Shift+Enter 换行）不拦截
+      return KeyEventResult.ignored;
+    }
+    if (ImeComposingTracker.instance.isComposing) {
+      // 输入法组合中：不触发发送，把 Enter 留给 IME 提交组合内容
+      return KeyEventResult.ignored;
+    }
+    widget.onSubmit?.call();
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
@@ -120,16 +146,8 @@ class _ChatFleatherState extends State<ChatFleather> {
                     overscroll: false,
                     physics: const _NoBounceScrollPhysics(),
                   ),
-                  child: Shortcuts(
-                    shortcuts: {
-                      // Enter without modifiers → send; Shift+Enter passes through
-                      SingleActivator(LogicalKeyboardKey.enter):
-                          const _SubmitIntent(),
-                    },
-                    child: Actions(
-                      actions: {
-                        _SubmitIntent: _SubmitAction(onSubmit: widget.onSubmit),
-                      },
+                    child: Focus(
+                      onKeyEvent: _onKeyEvent,
                       child: FleatherEditor(
                         controller: _controller,
                         focusNode: _focusNode,
@@ -137,7 +155,6 @@ class _ChatFleatherState extends State<ChatFleather> {
                         scrollPhysics: const _NoBounceScrollPhysics(),
                       ),
                     ),
-                  ),
                 ),
                 // Placeholder shown when content is empty
                 if (_isEmpty)
@@ -162,19 +179,4 @@ class _ChatFleatherState extends State<ChatFleather> {
   }
 }
 
-/// Intent signalled when the user presses Enter (without modifiers) to submit.
-class _SubmitIntent extends Intent {
-  const _SubmitIntent();
-}
 
-/// Action that invokes the [onSubmit] callback.
-class _SubmitAction extends Action<_SubmitIntent> {
-  _SubmitAction({this.onSubmit});
-
-  final VoidCallback? onSubmit;
-
-  @override
-  void invoke(_SubmitIntent intent) {
-    onSubmit?.call();
-  }
-}

@@ -16,6 +16,7 @@ import 'package:agent/features/commands/command_store.dart';
 import 'package:agent/features/commands/models/command_info.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/ime_composing_tracker.dart';
 import 'package:agent/widgets/card/app_card.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
@@ -150,10 +151,17 @@ class _CommandPalette extends HookWidget {
           // AppList 键盘导航（autofocus）会把焦点放在列表项上，
           // 仅包搜索条的监听器收不到 Esc 冒泡。
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.escape) {
-              onClose();
-              return KeyEventResult.handled;
+            if (event is KeyDownEvent) {
+              if (event.logicalKey == LogicalKeyboardKey.escape) {
+                onClose();
+                return KeyEventResult.handled;
+              }
+              // 输入法组合中按 Enter：放行按键让组合内容落下（IME 提交），
+              // 不执行命令
+              if (event.logicalKey == LogicalKeyboardKey.enter &&
+                  ImeComposingTracker.instance.isComposing) {
+                return KeyEventResult.ignored;
+              }
             }
             return KeyEventResult.ignored;
           },
