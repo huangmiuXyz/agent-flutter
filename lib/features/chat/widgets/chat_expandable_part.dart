@@ -12,7 +12,7 @@ import 'package:agent/widgets/text/virtual_paragraph_text.dart';
 /// 可展开/收起的 Part 卡片 — 通用组件
 ///
 /// 统一渲染 [tool_call] 和 [tool_result]，展开后显示调用参数和可选的执行结果。
-/// 收起高度由主题 token 控制，展开内容最大高度取视口高度。
+/// 收起高度由主题 token 控制，展开内容按自然高度完整展示，内部不滚动。
 class ChatExpandablePart extends HookWidget {
   /// JSON 序列化的调用内容
   final String content;
@@ -42,6 +42,9 @@ class ChatExpandablePart extends HookWidget {
   /// 展开内容左侧是否显示竖分割线（深度思考保留，工具调用去掉）
   final bool showLeftDivider;
 
+  /// 是否默认展开（工具调用默认展开，深度思考默认收起）
+  final bool initiallyExpanded;
+
   const ChatExpandablePart({
     super.key,
     required this.content,
@@ -52,12 +55,13 @@ class ChatExpandablePart extends HookWidget {
     this.children,
     this.argumentsBuilder,
     this.showLeftDivider = true,
+    this.initiallyExpanded = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final expanded = useState(false);
+    final expanded = useState(initiallyExpanded);
 
     // 解析调用参数 — 统一格式：{id, call_type, function: {name, arguments}, _result?}
     // 保留原始 arguments（供 argumentsBuilder 二次解析），另存格式化文本
@@ -99,14 +103,12 @@ class ChatExpandablePart extends HookWidget {
     }
 
     final collapsedHeight = custom.controls.chatPartCollapsedHeight;
-    // 滚动阈值：展开内容最大高度取视口高度，而非固定主题 token
-    final viewportHeight = MediaQuery.sizeOf(context).height;
 
     final resultAvailable = resultText != null && resultText.isNotEmpty;
     final hasContent = argumentsText.isNotEmpty || resultAvailable;
 
     // argumentsBuilder / children 渲染的是 widget 而非纯文本，
-    // 无法并入 VirtualParagraphText，保留独立滚动区域
+    // 无法并入 VirtualParagraphText，独立渲染（同样不滚动）
     final customWidgetsExist =
         argumentsBuilder != null || (children != null && children!.isNotEmpty);
 
@@ -227,7 +229,6 @@ class ChatExpandablePart extends HookWidget {
                   ),
                   child: Container(
                     width: double.infinity,
-                    constraints: BoxConstraints(maxHeight: viewportHeight),
                     // 工具调用（无分割线）时左侧与上方不留边距，内容完全贴左贴顶
                     padding: EdgeInsets.fromLTRB(
                       showLeftDivider ? custom.spacing.sm : 0,
@@ -241,26 +242,21 @@ class ChatExpandablePart extends HookWidget {
                       children: [
                         // 自定义 widget 内容（apply_patch diff / 附加子内容）
                         if (customWidgetsExist)
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (argumentsBuilder != null)
-                                    argumentsBuilder!(context, rawArguments),
-                                  if (children != null && children!.isNotEmpty)
-                                    for (final child in children!)
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                          top: custom.spacing.sm,
-                                        ),
-                                        child: child,
-                                      ),
-                                ],
-                              ),
-                            ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (argumentsBuilder != null)
+                                argumentsBuilder!(context, rawArguments),
+                              if (children != null && children!.isNotEmpty)
+                                for (final child in children!)
+                                  Padding(
+                                    padding: EdgeInsets.only(
+                                      top: custom.spacing.sm,
+                                    ),
+                                    child: child,
+                                  ),
+                            ],
                           ),
                         // 自定义内容与输出之间的分隔线
                         if (customWidgetsExist && resultAvailable) ...[
@@ -269,18 +265,15 @@ class ChatExpandablePart extends HookWidget {
                           SizedBox(height: custom.spacing.sm),
                         ],
                         // 输入与输出共用同一个 VirtualParagraphText
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: VirtualParagraphText(
-                            text: virtualText,
-                            splitMode: ParagraphSplitMode.newline,
-                            maxHeight: viewportHeight,
-                            fontSize: custom.typography.captionSize,
-                            lineHeight: 18,
-                            paragraphPaddingBlock: 0,
-                            paragraphGap: 4,
-                            paragraphBuilder: paragraphBuilder,
-                          ),
+                        // 不设 maxHeight：内容超高时始终按自然高度收缩渲染，内部不滚动
+                        VirtualParagraphText(
+                          text: virtualText,
+                          splitMode: ParagraphSplitMode.newline,
+                          fontSize: custom.typography.captionSize,
+                          lineHeight: 18,
+                          paragraphPaddingBlock: 0,
+                          paragraphGap: 4,
+                          paragraphBuilder: paragraphBuilder,
                         ),
                       ],
                     ),

@@ -177,6 +177,11 @@ class DiffCodeBlock extends StatelessWidget {
   /// 行归类为增删/上下文，记录文件块语言，统一内容列前缀（对齐缩进）
   static List<_DiffLine> _parse(String diff) {
     final rawLines = diff.split('\n');
+    // 去掉末尾空白行：diff 常以换行结尾，split 会拆出空串，
+    // 若保留会被当作空上下文行渲染成一行空的代码行
+    while (rawLines.isNotEmpty && rawLines.last.trim().isEmpty) {
+      rawLines.removeLast();
+    }
 
     // 模型输出的前缀风格可能不统一：规范格式是 ` 内容`（上下文带 1 空格
     // 前缀）/ `+内容` / `-内容`；也有 `内容` / `- 内容` 的非规范变体。
@@ -299,6 +304,9 @@ class DiffCodeBlock extends StatelessWidget {
       ('*** Update File: ', DiffLineKind.fileUpdate),
       ('*** Delete File: ', DiffLineKind.fileDelete),
       ('*** Move File: ', DiffLineKind.fileMove),
+      // 模型实际输出为 `*** Move to: new/path`（Rust 端 MOVE_TO_MARKER），
+      // 若不识别会被当作上下文代码行渲染
+      ('*** Move to: ', DiffLineKind.fileMove),
     ];
     for (final (marker, kind) in markers) {
       if (raw.startsWith(marker)) {
@@ -317,7 +325,8 @@ class DiffCodeBlock extends StatelessWidget {
         raw.startsWith('*** Add File: ') ||
         raw.startsWith('*** Update File: ') ||
         raw.startsWith('*** Delete File: ') ||
-        raw.startsWith('*** Move File: ');
+        raw.startsWith('*** Move File: ') ||
+        raw.startsWith('*** Move to: ');
   }
 
   /// 去掉行前缀后的内容：符号后若带对齐空格（非规范 `- x`）一并去掉

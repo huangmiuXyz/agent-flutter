@@ -6,7 +6,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/markdown/markdown_preview.dart';
 import 'package:agent/widgets/text/code_block_view.dart';
 
-import '../custom_tools_render/diff_code_block.dart';
+import '../custom_tools_render/chat_diff_block.dart';
 
 /// 文本 Part — 渲染纯文本或 Markdown 内容
 class ChatTextPart extends StatelessWidget {
@@ -53,7 +53,9 @@ class ChatTextPart extends StatelessWidget {
       codeBlockBuilder: (context, language, code, isComplete) {
         final name = language?.toLowerCase();
         if (name == 'diff' || name == 'patch') {
-          return DiffCodeBlock(diff: code);
+          // 走 ChatDiffBlock：纯文件操作（删除/移动）不渲染代码块，
+          // 仅以普通文本显示文件头；有代码内容才渲染 diff 代码块
+          return ChatDiffBlock(diff: code);
         }
         return CodeBlockView(
           code: code,

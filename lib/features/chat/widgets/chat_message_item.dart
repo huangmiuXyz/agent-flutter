@@ -381,6 +381,8 @@ class ChatMessageItem extends HookWidget {
       argumentsBuilder: isPatch ? _buildPatchDiff : null,
       // 工具调用去掉左侧分割线（深度思考保留）
       showLeftDivider: false,
+      // 仅 apply_patch 默认展开便于直接查看 diff，其余工具调用保持收起
+      initiallyExpanded: isPatch,
     );
   }
 
@@ -389,13 +391,22 @@ class ChatMessageItem extends HookWidget {
     // arguments 形如 {"patch": "...", "path": "...", ...}，只取 patch 字段；
     // 解析失败（流式未完成时常见）则整段当作 diff 处理
     String diff = rawArguments;
+    var patchReady = false;
     try {
       final json = jsonDecode(rawArguments);
       if (json is Map<String, dynamic>) {
         final patch = json['patch'];
-        if (patch is String && patch.isNotEmpty) diff = patch;
+        if (patch is String && patch.isNotEmpty) {
+          diff = patch;
+          patchReady = true;
+        }
       }
     } catch (_) {}
+    // 流式早期 arguments 未完整（JSON 解析失败）时不渲染代码块，
+    // 避免把半截 JSON 当作 diff 显示成代码块
+    if (!patchReady) {
+      return const SizedBox.shrink();
+    }
     return ChatDiffBlock(diff: diff);
   }
 
