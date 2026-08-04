@@ -34,16 +34,14 @@ Map<String, dynamic> imageEmbedData({
   required String filename,
   required String label,
   String? displayName,
-}) =>
-    {
-      EmbeddableObject.kTypeKey: kImageEmbedType,
-      EmbeddableObject.kInlineKey: true,
-      'path': path,
-      'filename': filename,
-      'label': label,
-      if (displayName != null && displayName.isNotEmpty)
-        'displayName': displayName,
-    };
+}) => {
+  EmbeddableObject.kTypeKey: kImageEmbedType,
+  EmbeddableObject.kInlineKey: true,
+  'path': path,
+  'filename': filename,
+  'label': label,
+  if (displayName != null && displayName.isNotEmpty) 'displayName': displayName,
+};
 
 /// 从用户消息内容构建编辑文档 delta。
 ///
@@ -318,8 +316,7 @@ class _ChatFleatherState extends State<ChatFleather> {
     final data = node.value.data;
     final path = data['path'] as String? ?? '';
     // 优先显示原始文件名，缺失时回退为存储文件名
-    final displayName =
-        (data['displayName'] as String?)?.isNotEmpty == true
+    final displayName = (data['displayName'] as String?)?.isNotEmpty == true
         ? data['displayName'] as String
         : (data['filename'] as String? ?? '');
     // Fleather 行内 embed 用 WidgetSpan 渲染（底部与文本 baseline 对齐）。
@@ -334,50 +331,55 @@ class _ChatFleatherState extends State<ChatFleather> {
         alignment: Alignment.centerLeft,
         widthFactor: 1,
         heightFactor: 1,
-        child: GestureDetector(
-          onTap: () => _showImagePreview(context, path),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: custom.colors.hover,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: custom.colors.cardBorder),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (path.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(2),
-                    child: Image.file(
-                      File(path),
-                      width: 14,
-                      height: 14,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Icon(
-                        Icons.image_outlined,
-                        size: 14,
-                        color: custom.colors.textSecondary,
+        // 视觉微调：chip 在行内略偏上，向下移动 1px
+        // （占位与行高一致，Transform 只影响绘制，光标位置不受影响）
+        child: Transform.translate(
+          offset: const Offset(0, 1),
+          child: GestureDetector(
+            onTap: () => _showImagePreview(context, path),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: custom.colors.hover,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: custom.colors.cardBorder),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (path.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: Image.file(
+                        File(path),
+                        width: 14,
+                        height: 14,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.image_outlined,
+                          size: 14,
+                          color: custom.colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 3),
+                  // 显示原始文件名（截断超长名）
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    child: Text(
+                      displayName.isEmpty ? '图片' : displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.15,
+                        color: custom.colors.textPrimary,
                       ),
                     ),
                   ),
-                const SizedBox(width: 3),
-                // 显示原始文件名（截断超长名）
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 140),
-                  child: Text(
-                    displayName.isEmpty ? '图片' : displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.15,
-                      color: custom.colors.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
