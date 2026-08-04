@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/markdown/markdown_preview.dart';
+import 'package:agent/widgets/text/code_block_view.dart';
+
+import '../custom_tools_render/diff_code_block.dart';
 
 /// 文本 Part — 渲染纯文本或 Markdown 内容
 class ChatTextPart extends StatelessWidget {
@@ -44,6 +47,19 @@ class ChatTextPart extends StatelessWidget {
         fontSize: custom.typography.bodySize,
         color: custom.colors.textPrimary,
       ),
+      // 代码块统一走自研渲染：diff 语言用 VSCode diff 样式（绿红行背景），
+      // 其余语言用深色代码块（streamdown 默认浅色主题在亮色 UI 下近乎
+      // 无背景，且 flutter_highlight 存在样式丢失问题）
+      codeBlockBuilder: (context, language, code, isComplete) {
+        final name = language?.toLowerCase();
+        if (name == 'diff' || name == 'patch') {
+          return DiffCodeBlock(diff: code);
+        }
+        return CodeBlockView(
+          code: code,
+          language: CodeBlockView.modeForFence(language),
+        );
+      },
     );
   }
 }

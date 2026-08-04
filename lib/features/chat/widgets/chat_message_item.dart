@@ -10,9 +10,10 @@ import 'package:agent/theme/custom_theme.dart';
 
 import 'package:agent/widgets/text/app_text.dart';
 
-import 'chat_diff_block.dart';
 import 'chat_expandable_part.dart';
 import 'chat_search_part.dart';
+
+import '../custom_tools_render/chat_diff_block.dart';
 import 'chat_text_part.dart';
 
 /// Intent signalled when user presses Enter (without modifiers) to retry.
@@ -105,7 +106,7 @@ class _UserMessage extends HookWidget {
           border: Border.all(color: custom.colors.cardBorder, width: 1),
           boxShadow: custom.shadows.small,
         ),
-        padding: EdgeInsets.all(custom.spacing.xs),
+        padding: EdgeInsets.all(custom.spacing.sm),
         child: Shortcuts(
           shortcuts: {
             // Enter without modifiers → submit; Shift+Enter passes through as newline
@@ -148,10 +149,6 @@ class ChatMessageItem extends HookWidget {
   final String role;
   final List<api.PartInfo> parts;
 
-  /// 是否允许自动展开本消息内的最后一个可展开 part。
-  /// 仅在全局最后一条有 expandable part 的消息上为 true。
-  final bool autoExpandLast;
-
   /// 模型名称（仅第一条 assistant 消息有值，其余为 null）
   final String? modelName;
 
@@ -173,7 +170,6 @@ class ChatMessageItem extends HookWidget {
     required this.msgId,
     required this.role,
     required this.parts,
-    this.autoExpandLast = false,
     this.modelName,
     this.onRetry,
     this.dimmed = false,
@@ -227,9 +223,6 @@ class ChatMessageItem extends HookWidget {
 
     // 完全按 parts 原始顺序渲染：不做任何合并/拆分/移动，
     // 每个 part 按自身类型显示（思考、搜索、答案各归其位）。
-    final lastExpandableIndex = _lastExpandablePartIndex(visibleParts);
-    final effectiveLastIdx = autoExpandLast ? lastExpandableIndex : -1;
-
     final partsWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -241,7 +234,6 @@ class ChatMessageItem extends HookWidget {
             visibleParts,
             custom,
             minPartHeight,
-            isLastExpandable: i == effectiveLastIdx,
           ),
       ],
     );
@@ -277,26 +269,14 @@ class ChatMessageItem extends HookWidget {
         part.partType == PartTypes.toolCallFrag;
   }
 
-  /// 找出最后一个可展开 part 的索引（reasoning / tool_call / tool_call_frag）
-  static int _lastExpandablePartIndex(List<api.PartInfo> parts) {
-    int lastIdx = -1;
-    for (int i = 0; i < parts.length; i++) {
-      if (PartTypes.isExpandable(parts[i].partType)) {
-        lastIdx = i;
-      }
-    }
-    return lastIdx;
-  }
-
   Widget _buildPartWithSpacing(
     int index,
     List<api.PartInfo> visibleParts,
     CustomTheme custom,
-    double minPartHeight, {
-    bool isLastExpandable = false,
-  }) {
+    double minPartHeight,
+  ) {
     final part = visibleParts[index];
-    final widget = _buildPart(part, custom, isLastExpandable: isLastExpandable);
+    final widget = _buildPart(part, custom);
     final constrained = Container(
       constraints: BoxConstraints(minHeight: minPartHeight),
       alignment: Alignment.centerLeft,
@@ -313,9 +293,8 @@ class ChatMessageItem extends HookWidget {
 
   Widget _buildPart(
     api.PartInfo part,
-    CustomTheme custom, {
-    bool isLastExpandable = false,
-  }) {
+    CustomTheme custom,
+  ) {
     return switch (part.partType) {
       PartTypes.text => ChatTextPart(
         content: part.content,
@@ -326,12 +305,10 @@ class ChatMessageItem extends HookWidget {
         iconName: 'lightbulb',
         title: '深度思考',
         titleColor: custom.colors.textSecondary,
-        defaultExpanded: isLastExpandable,
       ),
       PartTypes.toolCall || PartTypes.toolCallFrag => _buildToolCallPart(
         part,
         custom,
-        isLastExpandable: isLastExpandable,
       ),
       PartTypes.toolResult => const SizedBox.shrink(),
       PartTypes.webSearch => ChatSearchPart(content: part.content),
@@ -392,18 +369,18 @@ class ChatMessageItem extends HookWidget {
   /// 工具调用卡片：apply_patch 走专用 diff 渲染，其余保持通用样式
   Widget _buildToolCallPart(
     api.PartInfo part,
-    CustomTheme custom, {
-    required bool isLastExpandable,
-  }) {
+    CustomTheme custom,
+  ) {
     final isPatch = _toolCallName(part.content) == 'apply_patch';
     return ChatExpandablePart(
       content: part.content,
       iconName: isPatch ? 'fileCode' : 'mousePointer2',
       title: isPatch ? '应用补丁' : _toolCallTitle(part.content),
       titleColor: isPatch ? custom.colors.success : custom.colors.accent,
-      defaultExpanded: isLastExpandable,
       resultContent: _lookupResult(part.content),
       argumentsBuilder: isPatch ? _buildPatchDiff : null,
+      // 工具调用去掉左侧分割线（深度思考保留）
+      showLeftDivider: false,
     );
   }
 

@@ -5,7 +5,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
-import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/session/part_types.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
@@ -267,11 +266,6 @@ class _MessageList extends StatelessWidget {
 
         if (messageOrder.isEmpty) return const SizedBox.shrink();
 
-        final lastExpandableMsgIndex = _lastExpandableMessageIndex(
-          messageOrder,
-          partsByMsg,
-          messageRoles,
-        );
         final isFirstInTurn = _computeFirstInTurn(messageOrder, messageRoles);
 
         final isStreaming = mgr.streamingSessionIds.value.contains(sessionId);
@@ -372,7 +366,6 @@ class _MessageList extends StatelessWidget {
                 role: role,
                 parts: parts,
                 streaming: isStreaming,
-                autoExpandLast: index == lastExpandableMsgIndex,
                 modelName: isFirstInTurn[index] == true
                     ? messageModels[msgId]
                     : null,
@@ -490,25 +483,5 @@ class _MessageList extends StatelessWidget {
       }
     }
     return result;
-  }
-
-  int _lastExpandableMessageIndex(
-    List<String> messageOrder,
-    Map<String, List<api.PartInfo>> partsByMsg,
-    Map<String, String> messageRoles,
-  ) {
-    for (int i = messageOrder.length - 1; i >= 0; i--) {
-      final mId = messageOrder[i];
-      final parts = partsByMsg[mId] ?? [];
-      if (parts.isEmpty) continue;
-      if (PartTypes.isToolOnly(parts)) {
-        continue;
-      }
-      if (messageRoles[mId] == 'assistant' &&
-          parts.any((p) => PartTypes.isExpandable(p.partType))) {
-        return i;
-      }
-    }
-    return -1;
   }
 }

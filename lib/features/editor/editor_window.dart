@@ -8,8 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:signals/signals.dart';
 import 'package:code_forge/code_forge.dart';
-import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
-    show ExternalLibrary;
 import 'package:re_highlight/re_highlight.dart';
 import 'package:re_highlight/languages/json.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
@@ -17,6 +15,7 @@ import 'package:re_highlight/styles/atom-one-dark.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'language_map.dart';
+import 'rust_init.dart';
 import '../../services/sync/file_watcher.dart';
 import '../../store/code_forge_store.dart';
 
@@ -71,7 +70,7 @@ class _EditorWindowState extends State<EditorWindow> {
 
   Future<void> _initAndOpen() async {
     try {
-      await _ensureRustLibInitialized();
+      await ensureRustLibInitialized();
     } catch (e) {
       debugPrint('code_forge RustLib init error: $e');
     }
@@ -139,40 +138,6 @@ class _EditorWindowState extends State<EditorWindow> {
   }
 
   Mode? get _language => configFor(_currentPath)?.mode;
-
-  Future<void> _ensureRustLibInitialized() async {
-    try {
-      await RustLib.init();
-      return;
-    } on StateError {
-      return;
-    } catch (_) {}
-
-    final libDir = Directory(
-      '.patches/code_forge/rust/target/release',
-    ).absolute.path;
-
-    String libName;
-    if (Platform.isMacOS) {
-      libName = 'libcode_forge.dylib';
-    } else if (Platform.isWindows) {
-      libName = 'code_forge.dll';
-    } else if (Platform.isLinux) {
-      libName = 'libcode_forge.so';
-    } else {
-      throw UnsupportedError(
-        'Unsupported platform: ${Platform.operatingSystem}',
-      );
-    }
-
-    final libPath = '$libDir${Platform.pathSeparator}$libName';
-    if (!File(libPath).existsSync()) {
-      throw FileSystemException('code_forge native library not found', libPath);
-    }
-
-    final lib = ExternalLibrary.open(libPath);
-    await RustLib.init(externalLibrary: lib);
-  }
 
   String _readFile([String? path]) {
     final file = File(path ?? _currentPath);

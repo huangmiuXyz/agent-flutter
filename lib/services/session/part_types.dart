@@ -19,11 +19,8 @@ class PartTypes {
   static const subAgentText = 'sub_agent_text';
 
   /// 服务端联网搜索（web_search_call）— 仅展示，不本地执行
+  /// web_search part 类型
   static const webSearch = 'web_search';
-
-  /// reasoning / tool_call / tool_call_frag 是否属于可展开 part。
-  static bool isExpandable(String type) =>
-      type == reasoning || type == toolCall || type == toolCallFrag;
 
   /// 消息是否只包含工具类 part（纯工具消息在消息列表中不占位）。
   static bool isToolOnly(List<api.PartInfo> parts) => parts.every(

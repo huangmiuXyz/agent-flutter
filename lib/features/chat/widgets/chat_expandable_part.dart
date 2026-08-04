@@ -26,9 +26,6 @@ class ChatExpandablePart extends HookWidget {
   /// 标题颜色
   final Color titleColor;
 
-  /// 是否默认展开
-  final bool defaultExpanded;
-
   /// 可选的工具执行结果（JSON），有值时在展开区显示在参数下方
   final String? resultContent;
 
@@ -42,28 +39,25 @@ class ChatExpandablePart extends HookWidget {
   final Widget Function(BuildContext context, String rawArguments)?
   argumentsBuilder;
 
+  /// 展开内容左侧是否显示竖分割线（深度思考保留，工具调用去掉）
+  final bool showLeftDivider;
+
   const ChatExpandablePart({
     super.key,
     required this.content,
     required this.iconName,
     required this.title,
     required this.titleColor,
-    this.defaultExpanded = true,
     this.resultContent,
     this.children,
     this.argumentsBuilder,
+    this.showLeftDivider = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final expanded = useState(defaultExpanded);
-    // 当 defaultExpanded 变化时同步展开/收起状态
-    // （例如新消息到达后，前一条消息不再是最后一个 expandable part）
-    useEffect(() {
-      expanded.value = defaultExpanded;
-      return null;
-    }, [defaultExpanded]);
+    final expanded = useState(false);
 
     // 解析调用参数 — 统一格式：{id, call_type, function: {name, arguments}, _result?}
     // 保留原始 arguments（供 argumentsBuilder 二次解析），另存格式化文本
@@ -213,19 +207,34 @@ class ChatExpandablePart extends HookWidget {
               custom.spacing.xs,
             ),
             child: Padding(
-              padding: EdgeInsets.only(left: 6),
+              padding: EdgeInsets.only(
+                left: showLeftDivider ? 6 : 0,
+              ),
               child: Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    left: BorderSide(color: custom.colors.separator, width: 1),
-                  ),
-                ),
+                decoration: showLeftDivider
+                    ? BoxDecoration(
+                        border: Border(
+                          left: BorderSide(
+                            color: custom.colors.separator,
+                            width: 1,
+                          ),
+                        ),
+                      )
+                    : null,
                 child: Padding(
-                  padding: EdgeInsets.only(left: custom.spacing.sm),
+                  padding: EdgeInsets.only(
+                    left: showLeftDivider ? custom.spacing.sm : 0,
+                  ),
                   child: Container(
                     width: double.infinity,
                     constraints: BoxConstraints(maxHeight: viewportHeight),
-                    padding: EdgeInsets.all(custom.spacing.sm),
+                    // 工具调用（无分割线）时左侧与上方不留边距，内容完全贴左贴顶
+                    padding: EdgeInsets.fromLTRB(
+                      showLeftDivider ? custom.spacing.sm : 0,
+                      showLeftDivider ? custom.spacing.sm : 0,
+                      custom.spacing.sm,
+                      custom.spacing.sm,
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
