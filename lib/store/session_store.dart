@@ -23,6 +23,7 @@ import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/message_queue_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/services/session/session_state.dart';
 import 'package:agent/services/session/stream_event_processor.dart';
 import 'package:agent/services/session/part_types.dart';
@@ -379,7 +380,9 @@ class SessionStore {
         'err_${DateTime.now().millisecondsSinceEpoch}',
         '[错误] $e',
       );
-      _clearStreaming(sessionId);
+      if (_clearStreaming(sessionId)) {
+        _notifyCompletion(sessionId, error: '$e');
+      }
     }
     // 流式事件由 _ensureSessionSubscription 注册的 listener 异步应用
   }
@@ -473,7 +476,9 @@ class SessionStore {
         'err_${DateTime.now().millisecondsSinceEpoch}',
         '[错误] $e',
       );
-      _clearStreaming(sessionId);
+      if (_clearStreaming(sessionId)) {
+        _notifyCompletion(sessionId, error: '$e');
+      }
     }
   }
 
@@ -526,7 +531,10 @@ class SessionStore {
     }
 
     if (event is EngineEvent_Done) {
-      _clearStreaming(sessionId);
+      // 流结束 → 弹窗通知（仅对前端可见的流，取消过的流已在上面提前返回）
+      if (_clearStreaming(sessionId)) {
+        _notifyCompletion(sessionId);
+      }
       _emit();
 
       // Done 后消费队列中的非 steer 消息（自动发出下一条）
@@ -576,7 +584,9 @@ class SessionStore {
         'err_${DateTime.now().millisecondsSinceEpoch}',
         '[错误] ${event.message}',
       );
-      _clearStreaming(sessionId);
+      if (_clearStreaming(sessionId)) {
+        _notifyCompletion(sessionId, error: event.message);
+      }
       _emit();
       return;
     }
@@ -635,13 +645,32 @@ class SessionStore {
     await sendPrompt(text, sessionId: sessionId);
   }
 
-  /// 清理指定 session 的流式状态
-  void _clearStreaming(String sessionId) {
-    if (!streamingSessionIds.value.contains(sessionId)) return;
+  /// 清理指定 session 的流式状态；返回该 session 是否确有活跃流（用于触发完成通知）
+  bool _clearStreaming(String sessionId) {
+    if (!streamingSessionIds.value.contains(sessionId)) return false;
     streamingSessionIds.value = {
       for (final id in streamingSessionIds.value)
         if (id != sessionId) id,
     };
+    return true;
+  }
+
+  /// 流结束 → 弹出完成通知；[error] 非空时按错误样式展示。
+  void _notifyCompletion(String sessionId, {String? error}) {
+    NotificationStore.instance.notify(
+      sessionId: sessionId,
+      title: error == null ? '回复完成' : '回复出错',
+      message: error ?? _sessionName(sessionId),
+      isError: error != null,
+    );
+  }
+
+  /// 会话显示名：优先取列表中的名称，列表未加载时回退为 sessionId。
+  String _sessionName(String sessionId) {
+    for (final s in sessionList.value) {
+      if (s.id == sessionId) return s.name;
+    }
+    return sessionId;
   }
 
   SessionState _ensureState(String sessionId) {

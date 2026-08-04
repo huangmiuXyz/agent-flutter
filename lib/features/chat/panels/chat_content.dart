@@ -217,28 +217,55 @@ class ChatContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: SignalBuilder(
-            builder: (_) {
-              final displayId = SessionStore.instance.displayedSessionId.value;
-              return displayId != null
-                  ? _MessageList(sessionId: displayId)
-                  : const SizedBox.shrink();
-            },
-          ),
-        ),
-        Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: readingWidth,
-            child: const MessageQueuePanel(),
-          ),
-        ),
-        const AppDivider(extent: 1, thickness: 1),
-        const ChatInput(),
-      ],
+    return SignalBuilder(
+      builder: (_) {
+        final displayId = SessionStore.instance.displayedSessionId.value;
+        // 没有任何消息时输入框全屏显示（新会话/空会话）
+        final hasMessages =
+            displayId != null &&
+            (SessionStore
+                    .instance
+                    .sessions
+                    .value[displayId]
+                    ?.messageOrder
+                    .isNotEmpty ??
+                false);
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final maxH = constraints.maxHeight;
+            return Column(
+              children: [
+                if (hasMessages) ...[
+                  Expanded(child: _MessageList(sessionId: displayId)),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: readingWidth,
+                      child: const MessageQueuePanel(),
+                    ),
+                  ),
+                  const AppDivider(extent: 1, thickness: 1),
+                ],
+                // 固定 key + 显式高度：空会话时占满可用高度（全屏输入），
+                // 有消息时收缩为固定高度；两种模式同为 SizedBox(key)，
+                // 切换时元素复用，输入框焦点不丢。
+                // 注：Column 的非 flex 子级主轴约束无界，因此全屏高度
+                // 必须由这里显式给出，不能靠内部 Expanded 自动撑满。
+                SizedBox(
+                  key: const ValueKey('inputSlot'),
+                  height: hasMessages
+                      ? null
+                      : (maxH.isFinite
+                            ? maxH
+                            : MediaQuery.sizeOf(context).height),
+                  child: ChatInput(fullHeight: !hasMessages),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

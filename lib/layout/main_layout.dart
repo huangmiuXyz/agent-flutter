@@ -13,6 +13,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
+import 'package:agent/widgets/notification/stream_completion_notifications.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/rust_bridge/api/mcp.dart' as api;
 import 'package:agent/rust_bridge/api/skills.dart' as api;
@@ -183,7 +184,13 @@ class MainLayout extends StatelessWidget {
             ),
           ),
         ),
-        body: Stack(children: [child, const _McpInitSnackBar()]),
+        body: Stack(
+          children: [
+            child,
+            const _McpInitSnackBar(),
+            const StreamCompletionNotifications(),
+          ],
+        ),
         bottomNavigationBar: footer,
       );
     }
@@ -233,7 +240,13 @@ class MainLayout extends StatelessWidget {
           ),
         ),
       ),
-      body: Stack(children: [child, const _McpInitSnackBar()]),
+      body: Stack(
+        children: [
+          child,
+          const _McpInitSnackBar(),
+          const StreamCompletionNotifications(),
+        ],
+      ),
       bottomNavigationBar: footer,
     );
   }

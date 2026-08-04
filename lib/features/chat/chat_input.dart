@@ -25,7 +25,7 @@ class ChatInput extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final physicalHeight = 120.0 / MediaQuery.of(context).devicePixelRatio;
+    final physicalHeight = 160.0 / MediaQuery.of(context).devicePixelRatio;
     final width = readingWidth;
     final controller = useMemoized(() => FleatherController());
     final sending = useState(false);
@@ -33,8 +33,9 @@ class ChatInput extends HookWidget {
     final focusNode = useMemoized(() => FocusNode());
 
     // 快捷键/命令折叠终端面板时，把光标聚焦到聊天输入框
-    final chatFocusCount =
-        useExistingSignal(XtermStore.instance.chatFocusRequestCount);
+    final chatFocusCount = useExistingSignal(
+      XtermStore.instance.chatFocusRequestCount,
+    );
     useEffect(() {
       if (chatFocusCount.value > 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -46,7 +47,11 @@ class ChatInput extends HookWidget {
       return null;
     }, [chatFocusCount.value]);
 
-    useEffect(() => () => focusNode.dispose(), []);
+    useEffect(
+      () =>
+          () => focusNode.dispose(),
+      [],
+    );
 
     Future<void> send() async {
       final compose = extractChatCompose(controller);
@@ -66,6 +71,11 @@ class ChatInput extends HookWidget {
       } finally {
         sending.value = false;
       }
+
+      // 发送完成后重新聚焦输入框（含点击发送按钮的场景）
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) focusNode.requestFocus();
+      });
     }
 
     /// 选择图片并插入 Fleather 文档（复制到 File 目录后按原始名引用）
@@ -110,6 +120,8 @@ class ChatInput extends HookWidget {
                 controller: controller,
                 focusNode: focusNode,
                 onSubmit: send,
+                // 空文档时显示占位提示
+                placeholder: 'Enter 键发送信息',
               ),
             ),
             SizedBox(
