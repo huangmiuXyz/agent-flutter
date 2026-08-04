@@ -163,8 +163,8 @@ class _ControlledSidebar extends HookWidget {
 ///
 /// Left panel | Chat + Terminal | Right panel (性能检测面板)。
 /// 右面板在 `flutter run`（debug/release 均显示），打包后隐藏。
-class ChatDemo extends StatelessWidget {
-  const ChatDemo({super.key});
+class ChatPage extends StatelessWidget {
+  const ChatPage({super.key});
 
   @override
   Widget build(BuildContext context) {
