@@ -231,37 +231,41 @@ class ChatContent extends StatelessWidget {
                     .isNotEmpty ??
                 false);
 
+        // 有消息时无需 LayoutBuilder（避免 resize 时级联重建），
+        // 空会话时才需要 LayoutBuilder 获取 maxHeight 给全屏输入框
+        if (hasMessages) {
+          return Column(
+            key: const ValueKey('chat_with_messages'),
+            children: [
+              Expanded(child: _MessageList(sessionId: displayId)),
+              Align(
+                alignment: Alignment.topCenter,
+                child: SizedBox(
+                  width: readingWidth,
+                  child: const MessageQueuePanel(),
+                ),
+              ),
+              const AppDivider(extent: 1, thickness: 1),
+              const SizedBox(
+                key: ValueKey('inputSlot'),
+                child: ChatInput(fullHeight: false),
+              ),
+            ],
+          );
+        }
+
         return LayoutBuilder(
+          key: const ValueKey('chat_empty'),
           builder: (context, constraints) {
             final maxH = constraints.maxHeight;
-            return Column(
-              children: [
-                if (hasMessages) ...[
-                  Expanded(child: _MessageList(sessionId: displayId)),
-                  Align(
-                    alignment: Alignment.topCenter,
-                    child: SizedBox(
-                      width: readingWidth,
-                      child: const MessageQueuePanel(),
-                    ),
-                  ),
-                  const AppDivider(extent: 1, thickness: 1),
-                ],
-                // 固定 key + 显式高度：空会话时占满可用高度（全屏输入），
-                // 有消息时收缩为固定高度；两种模式同为 SizedBox(key)，
-                // 切换时元素复用，输入框焦点不丢。
-                // 注：Column 的非 flex 子级主轴约束无界，因此全屏高度
-                // 必须由这里显式给出，不能靠内部 Expanded 自动撑满。
-                SizedBox(
-                  key: const ValueKey('inputSlot'),
-                  height: hasMessages
-                      ? null
-                      : (maxH.isFinite
-                            ? maxH
-                            : MediaQuery.sizeOf(context).height),
-                  child: ChatInput(fullHeight: !hasMessages),
-                ),
-              ],
+            // 注：Column 的非 flex 子级主轴约束无界，因此全屏高度
+            // 必须由这里显式给出，不能靠内部 Expanded 自动撑满。
+            return SizedBox(
+              key: const ValueKey('inputSlot'),
+              height: maxH.isFinite
+                  ? maxH
+                  : MediaQuery.sizeOf(context).height,
+              child: ChatInput(fullHeight: true),
             );
           },
         );
@@ -424,73 +428,83 @@ class _MessageList extends StatelessWidget {
               return messageItem;
             }
 
+            // ── ViewHeight 从 LayoutBuilder 捕获，_LatestTurnLayout 通过
+            // ValueListenableBuilder 监听高度变化，resize 时只重建最后一条
+            // item，前面 N-1 条稳定不动。
+            final viewHeight = useRef(ValueNotifier<double>(0));
+
+            final hasLatestTurn = latestUserIndex >= 0;
+            final itemCount = hasLatestTurn
+                ? latestUserIndex + 1
+                : messageOrder.length;
+
+            final listView = ListView.builder(
+              controller: scrollController,
+              physics: savedMaxExtent.value != null
+                  ? _KeepAtBottomPhysics(
+                      savedMaxExtent: savedMaxExtent.value,
+                    )
+                  : null,
+              padding: EdgeInsets.only(
+                top: 0,
+                bottom: hasLatestTurn ? 0 : _listBottomSpacing,
+              ),
+              itemCount: itemCount,
+              itemBuilder: (context, index) {
+                if (!hasLatestTurn || index < latestUserIndex) {
+                  return buildMessage(index);
+                }
+
+                final assistantMessages = <Widget>[
+                  for (int i = latestUserIndex + 1;
+                      i < messageOrder.length;
+                      i++)
+                    buildMessage(i),
+                  if (isStreaming &&
+                      latestUserIndex == messageOrder.length - 1)
+                    const _StandaloneStreamingIndicator(),
+                  const SizedBox(height: _listBottomSpacing),
+                ];
+
+                return ValueListenableBuilder<double>(
+                  valueListenable: viewHeight.value,
+                  builder: (context, height, _) {
+                    final minLatestHeight = latestUserIndex > 0
+                        ? height
+                        : height - custom.spacing.sm;
+                    return _LatestTurnLayout(
+                      minHeight: minLatestHeight,
+                      user: buildMessage(
+                        latestUserIndex,
+                        showStreamingIndicator: false,
+                      ),
+                      assistant: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: assistantMessages,
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+
             return LayoutBuilder(
               builder: (context, constraints) {
-                final hasLatestTurn = latestUserIndex >= 0;
-                final itemCount = hasLatestTurn
-                    ? latestUserIndex + 1
-                    : messageOrder.length;
-
+                // 每次布局更新高度通知器（resize 拖拽时触发），
+                // ValueListenableBuilder 会单独重建 _LatestTurnLayout
+                viewHeight.value.value = constraints.maxHeight;
                 return Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
                     width: readingWidth,
                     child: Opacity(
                       opacity: isListVisible.value ? 1.0 : 0.0,
-                      // 点击消息列表空白区域时取消输入焦点（图片标签等子级
-                      // 手势优先，不受影响）
                       child: GestureDetector(
                         behavior: HitTestBehavior.translucent,
                         onTap: () =>
                             FocusManager.instance.primaryFocus?.unfocus(),
-                        child: ListView.builder(
-                          controller: scrollController,
-                          physics: savedMaxExtent.value != null
-                              ? _KeepAtBottomPhysics(
-                                  savedMaxExtent: savedMaxExtent.value,
-                                )
-                              : null,
-                          padding: EdgeInsets.only(
-                            top: 0,
-                            bottom: hasLatestTurn ? 0 : _listBottomSpacing,
-                          ),
-                          itemCount: itemCount,
-                          itemBuilder: (context, index) {
-                            if (!hasLatestTurn || index < latestUserIndex) {
-                              return buildMessage(index);
-                            }
-
-                            final assistantMessages = <Widget>[
-                              for (
-                                int i = latestUserIndex + 1;
-                                i < messageOrder.length;
-                                i++
-                              )
-                                buildMessage(i),
-                              if (isStreaming &&
-                                  latestUserIndex == messageOrder.length - 1)
-                                const _StandaloneStreamingIndicator(),
-                              const SizedBox(height: _listBottomSpacing),
-                            ];
-
-                            final minLatestHeight = latestUserIndex > 0
-                                ? constraints.maxHeight
-                                : constraints.maxHeight - custom.spacing.sm;
-
-                            return _LatestTurnLayout(
-                              minHeight: minLatestHeight,
-                              user: buildMessage(
-                                latestUserIndex,
-                                showStreamingIndicator: false,
-                              ),
-                              assistant: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: assistantMessages,
-                              ),
-                            );
-                          },
-                        ),
+                        child: listView,
                       ),
                     ),
                   ),

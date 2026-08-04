@@ -225,18 +225,30 @@ class ResizeBox extends HookWidget {
           Row(
             children: [
               if (direction == ResizeDirection.right) sizedChild(),
-              if (direction == ResizeDirection.left) Expanded(child: other),
+              if (direction == ResizeDirection.left)
+                Expanded(
+                  child: RepaintBoundary(child: other),
+                ),
               if (direction == ResizeDirection.left) sizedChild(),
-              if (direction == ResizeDirection.right) Expanded(child: other),
+              if (direction == ResizeDirection.right)
+                Expanded(
+                  child: RepaintBoundary(child: other),
+                ),
             ],
           )
         else
           Column(
             children: [
               if (direction == ResizeDirection.bottom) sizedChild(),
-              if (direction == ResizeDirection.top) Expanded(child: other),
+              if (direction == ResizeDirection.top)
+                Expanded(
+                  child: RepaintBoundary(child: other),
+                ),
               if (direction == ResizeDirection.top) sizedChild(),
-              if (direction == ResizeDirection.bottom) Expanded(child: other),
+              if (direction == ResizeDirection.bottom)
+                Expanded(
+                  child: RepaintBoundary(child: other),
+                ),
             ],
           ),
 
