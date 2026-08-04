@@ -22,6 +22,9 @@ class PartTypes {
   /// web_search part 类型
   static const webSearch = 'web_search';
 
+  /// 用户消息中的图片附件（content 为 `File/` 目录下的文件名）
+  static const image = 'image';
+
   /// 消息是否只包含工具类 part（纯工具消息在消息列表中不占位）。
   static bool isToolOnly(List<api.PartInfo> parts) => parts.every(
     (p) => p.partType == toolResult || p.partType == toolCallFrag,

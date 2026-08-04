@@ -373,7 +373,7 @@ class _MessageList extends StatelessWidget {
                 onFocusChanged: (focused) {
                   focusedMsgId.value = focused ? msgId : null;
                 },
-                onRetry: (msgId, newContent) {
+                onRetry: (msgId, newContent, imagePaths, imageNames) {
                   final mgr = SessionStore.instance;
                   mgr.retryMessage(
                     sessionId: sessionId,
@@ -381,6 +381,8 @@ class _MessageList extends StatelessWidget {
                     newPrompt: newContent,
                     provider: ConfigStore.instance.currentProvider.value,
                     model: ConfigStore.instance.currentModel.value,
+                    imagePaths: imagePaths,
+                    imageNames: imageNames,
                   );
                 },
               );
@@ -408,53 +410,60 @@ class _MessageList extends StatelessWidget {
                     width: readingWidth,
                     child: Opacity(
                       opacity: isListVisible.value ? 1.0 : 0.0,
-                      child: ListView.builder(
-                        controller: scrollController,
-                        physics: savedMaxExtent.value != null
-                            ? _KeepAtBottomPhysics(
-                                savedMaxExtent: savedMaxExtent.value,
+                      // 点击消息列表空白区域时取消输入焦点（图片标签等子级
+                      // 手势优先，不受影响）
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        child: ListView.builder(
+                          controller: scrollController,
+                          physics: savedMaxExtent.value != null
+                              ? _KeepAtBottomPhysics(
+                                  savedMaxExtent: savedMaxExtent.value,
+                                )
+                              : null,
+                          padding: EdgeInsets.only(
+                            top: 0,
+                            bottom: hasLatestTurn ? 0 : _listBottomSpacing,
+                          ),
+                          itemCount: itemCount,
+                          itemBuilder: (context, index) {
+                            if (!hasLatestTurn || index < latestUserIndex) {
+                              return buildMessage(index);
+                            }
+
+                            final assistantMessages = <Widget>[
+                              for (
+                                int i = latestUserIndex + 1;
+                                i < messageOrder.length;
+                                i++
                               )
-                            : null,
-                        padding: EdgeInsets.only(
-                          top: 0,
-                          bottom: hasLatestTurn ? 0 : _listBottomSpacing,
+                                buildMessage(i),
+                              if (isStreaming &&
+                                  latestUserIndex == messageOrder.length - 1)
+                                const _StandaloneStreamingIndicator(),
+                              const SizedBox(height: _listBottomSpacing),
+                            ];
+
+                            final minLatestHeight = latestUserIndex > 0
+                                ? constraints.maxHeight
+                                : constraints.maxHeight - custom.spacing.sm;
+
+                            return _LatestTurnLayout(
+                              minHeight: minLatestHeight,
+                              user: buildMessage(
+                                latestUserIndex,
+                                showStreamingIndicator: false,
+                              ),
+                              assistant: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: assistantMessages,
+                              ),
+                            );
+                          },
                         ),
-                        itemCount: itemCount,
-                        itemBuilder: (context, index) {
-                          if (!hasLatestTurn || index < latestUserIndex) {
-                            return buildMessage(index);
-                          }
-
-                          final assistantMessages = <Widget>[
-                            for (
-                              int i = latestUserIndex + 1;
-                              i < messageOrder.length;
-                              i++
-                            )
-                              buildMessage(i),
-                            if (isStreaming &&
-                                latestUserIndex == messageOrder.length - 1)
-                              const _StandaloneStreamingIndicator(),
-                            const SizedBox(height: _listBottomSpacing),
-                          ];
-
-                          final minLatestHeight = latestUserIndex > 0
-                              ? constraints.maxHeight
-                              : constraints.maxHeight - custom.spacing.sm;
-
-                          return _LatestTurnLayout(
-                            minHeight: minLatestHeight,
-                            user: buildMessage(
-                              latestUserIndex,
-                              showStreamingIndicator: false,
-                            ),
-                            assistant: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: assistantMessages,
-                            ),
-                          );
-                        },
                       ),
                     ),
                   ),

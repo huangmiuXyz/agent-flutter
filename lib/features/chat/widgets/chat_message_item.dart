@@ -1,17 +1,21 @@
 import 'dart:convert';
 
+import 'package:fleather/fleather.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/rust_bridge/api/types.dart' as api;
+import 'package:agent/services/image_store.dart';
 import 'package:agent/services/session/part_types.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/ime_composing_tracker.dart';
-
+import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 import 'chat_expandable_part.dart';
+import 'chat_image_part.dart';
 import 'chat_search_part.dart';
 
 import '../custom_tools_render/chat_diff_block.dart';
@@ -19,10 +23,18 @@ import 'chat_text_part.dart';
 
 /// 用户消息编辑重试回调
 ///
-/// [msgId] 要重试的消息 ID，[newContent] 编辑后的文本。
-typedef OnRetryMessage = void Function(String msgId, String newContent);
+/// [msgId] 要重试的消息 ID，[newContent] 编辑后的文本（含 `[图片N]` 引用标记），
+/// [imagePaths] 编辑后的图片附件（绝对路径，按文档顺序），
+/// [imageNames] 与 [imagePaths] 一一对应的原始文件名。
+typedef OnRetryMessage = void Function(
+  String msgId,
+  String newContent,
+  List<String> imagePaths,
+  List<String> imageNames,
+);
 
-/// 用户消息 — 支持点击编辑，回车重试
+/// 用户消息 — 基于 Fleather 的可编辑富文本消息，图片以 `[图片N]` 标签内嵌，
+/// 支持增删图片，回车重试。
 class _UserMessage extends HookWidget {
   final String sessionId;
   final String msgId;
@@ -44,8 +56,6 @@ class _UserMessage extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ctrl = useTextEditingController();
-
     // 找到第一个 text part 的内容作为初始值
     final textPart = visibleParts.cast<api.PartInfo?>().firstWhere(
       (p) => p!.partType == PartTypes.text,
@@ -54,25 +64,95 @@ class _UserMessage extends HookWidget {
     final initialText = textPart != null
         ? ChatTextPart.extractDisplayText(textPart.content)
         : '';
+    final imageParts = visibleParts
+        .where((p) => p.partType == PartTypes.image)
+        .toList();
+    // image part content 为 `{"file": 存储名, "name": 原始名}` JSON，
+    // 兼容旧数据（content 直接是存储文件名）
+    final storedNames = <String>[];
+    final displayNames = <String>[];
+    for (final part in imageParts) {
+      final content = part.content;
+      String stored = content;
+      String display = '';
+      try {
+        final json = jsonDecode(content);
+        if (json is Map<String, dynamic>) {
+          stored = json['file'] as String? ?? content;
+          display = json['name'] as String? ?? '';
+        }
+      } catch (_) {}
+      storedNames.add(stored);
+      displayNames.add(display.isEmpty ? stored : display);
+    }
+    final imagePaths = storedNames
+        .map((n) => ImageStore.instance.resolvePath(n))
+        .toList(growable: false);
 
-    useEffect(() {
-      ctrl.text = initialText;
-      return null;
-    }, [initialText]);
-
+    final controller = useMemoized(() => FleatherController());
     final focusNode = useFocusNode();
+    // 图片按钮仅在编辑框聚焦时显示
+    final isFocused = useState(false);
+
+    // 文档内容变化（重试后 parts 更新）时重建文档
+    final docKey = '$initialText|${storedNames.join(',')}|${displayNames.join(',')}';
+    useEffect(() {
+      controller.clear();
+      controller.compose(
+        buildUserMessageDelta(
+          text: initialText,
+          imagePaths: imagePaths,
+          storedNames: storedNames,
+          displayNames: displayNames,
+          // clear() 后文档已含结尾换行，不再追加，避免多出一个空行
+          trailingNewline: false,
+        ),
+        source: ChangeSource.local,
+      );
+      return null;
+    }, [docKey]);
 
     useEffect(() {
-      void onFocus() => onFocusChanged?.call(focusNode.hasFocus);
+      void onFocus() {
+        isFocused.value = focusNode.hasFocus;
+        onFocusChanged?.call(focusNode.hasFocus);
+      }
+
       focusNode.addListener(onFocus);
       return () => focusNode.removeListener(onFocus);
     }, [focusNode, onFocusChanged]);
 
     void handleSubmit() {
-      final newText = ctrl.text.trim();
-      if (newText.isEmpty) return;
+      final compose = extractChatCompose(controller);
+      final newText = compose.text.replaceAll('\n', '').trim();
+      if (newText.isEmpty && compose.imagePaths.isEmpty) return;
       focusNode.unfocus();
-      onRetry?.call(msgId, newText);
+      onRetry?.call(msgId, newText, compose.imagePaths, compose.imageNames);
+    }
+
+    /// 添加图片：复制到 File 目录后插入标签
+    Future<void> pickImages() async {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      for (final file in result.files) {
+        final src = file.path;
+        if (src == null) continue;
+        try {
+          final img = await ImageStore.instance.importImage(src);
+          insertImageTag(
+            controller,
+            img.path,
+            img.storedName,
+            displayName: img.displayName,
+          );
+        } catch (_) {
+          // 复制失败跳过该图片，不影响其余图片
+        }
+      }
+      focusNode.requestFocus();
     }
 
     final messagePadding = EdgeInsets.symmetric(
@@ -91,46 +171,41 @@ class _UserMessage extends HookWidget {
           boxShadow: custom.shadows.small,
         ),
         padding: EdgeInsets.all(custom.spacing.sm),
-        child: Focus(
-          onKeyEvent: (node, event) {
-            // 无修饰键 Enter → 提交；Shift+Enter 等带修饰键的放行（换行等）
-            if (event is! KeyDownEvent ||
-                event.logicalKey != LogicalKeyboardKey.enter) {
-              return KeyEventResult.ignored;
-            }
-            final keyboard = HardwareKeyboard.instance;
-            if (keyboard.isShiftPressed ||
-                keyboard.isControlPressed ||
-                keyboard.isAltPressed ||
-                keyboard.isMetaPressed) {
-              return KeyEventResult.ignored;
-            }
-            // 输入法（IME）组合中：放行 Enter 让组合内容落下（IME 提交），
-            // 不触发提交编辑。注意不能消费按键（handled）：否则 Windows
-            // 引擎跳过键盘消息翻译链，组合内容无法提交。
-            if (ImeComposingTracker.instance.isComposing) {
-              return KeyEventResult.ignored;
-            }
-            handleSubmit();
-            return KeyEventResult.handled;
-          },
-          child: TextField(
-            focusNode: focusNode,
-            controller: ctrl,
-            maxLines: null,
-            style: TextStyle(
-              fontSize: custom.typography.bodySize,
-              fontFamily: custom.typography.fontFamily,
-              color: custom.colors.textPrimary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: ChatFleather(
+                controller: controller,
+                focusNode: focusNode,
+                onSubmit: handleSubmit,
+                // 消息编辑：按内容自适应高度，不占满父级
+                expands: false,
+                // 紧凑：去掉段落上下间距，贴近原 TextField 高度
+                compact: true,
+                // 行高由字体自然决定，保证单行文本垂直居中（不强制 strut 行高）
+                strutStyle: StrutStyle(fontSize: custom.typography.bodySize),
+                // 编辑消息不显示输入框占位文案
+                placeholder: null,
+              ),
             ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              border: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              enabledBorder: InputBorder.none,
-            ),
-          ),
+            SizedBox(height: custom.spacing.xs),
+            // 仅聚焦时显示图片按钮，避免干扰消息浏览
+            if (isFocused.value)
+              Row(
+                children: [
+                  AppIconButton(
+                    icon: 'image',
+                    size: ButtonSize.sm,
+                    backgroundColor: custom.colors.hover,
+                    tooltip: '添加图片',
+                    onPressed: pickImages,
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
     );
@@ -263,6 +338,9 @@ class ChatMessageItem extends HookWidget {
     if (part.partType == PartTypes.subAgentText) {
       return part.content.isNotEmpty;
     }
+    if (part.partType == PartTypes.image) {
+      return part.content.isNotEmpty;
+    }
     // tool_call / tool_call_frag 是同一个调用生命周期内的两种状态，都展示
     return part.partType == PartTypes.toolCall ||
         part.partType == PartTypes.toolCallFrag;
@@ -305,6 +383,7 @@ class ChatMessageItem extends HookWidget {
         title: '深度思考',
         titleColor: custom.colors.textSecondary,
       ),
+      PartTypes.image => ChatImagePart(content: part.content),
       PartTypes.toolCall || PartTypes.toolCallFrag => _buildToolCallPart(
         part,
         custom,

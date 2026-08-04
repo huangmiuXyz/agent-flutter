@@ -6,25 +6,32 @@ import 'package:flutter/material.dart';
 /// quotes, code blocks, and inline code).
 ///
 /// Also applies [strutStyle] if provided.
+///
+/// [compact] 为 true 时去掉各文本块的上下间距（用于消息编辑等紧凑场景）。
 FleatherThemeData buildFleatherTheme(
   BuildContext context, {
   String? fontFamily,
   StrutStyle? strutStyle,
+  bool compact = false,
 }) {
   final fallback = FleatherThemeData.fallback(context);
-  if (fontFamily == null && strutStyle == null) return fallback;
+  if (fontFamily == null && strutStyle == null && !compact) {
+    return fallback;
+  }
 
   // Apply strutStyle first if given
   final base = strutStyle != null
       ? fallback.copyWith(strutStyle: strutStyle)
       : fallback;
-  if (fontFamily == null) return base;
+  if (fontFamily == null && !compact) return base;
 
   // Helper to apply fontFamily to a TextBlockTheme
   TextBlockTheme apply(TextBlockTheme t) => TextBlockTheme(
-    style: t.style.copyWith(fontFamily: fontFamily),
-    spacing: t.spacing,
-    lineSpacing: t.lineSpacing,
+    style: t.style.copyWith(
+      fontFamily: fontFamily ?? t.style.fontFamily,
+    ),
+    spacing: compact ? VerticalSpacing.zero() : t.spacing,
+    lineSpacing: compact ? VerticalSpacing.zero() : t.lineSpacing,
     decoration: t.decoration,
   );
 

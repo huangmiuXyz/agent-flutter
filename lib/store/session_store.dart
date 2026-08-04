@@ -10,7 +10,9 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:path/path.dart' as p;
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api/steer.dart' as api;
 import 'package:agent/rust_bridge/api/types.dart' as api;
@@ -212,17 +214,28 @@ class SessionStore {
   /// 发送用户输入 —— [ChatInput] 与消息队列「Send Now」的统一入口。
   ///
   /// 行为：
-  /// 1. 当前会话流式输出中 → 自动入队，等回复结束后发送
+  /// 1. 当前会话流式输出中 → 自动入队，等回复结束后发送（仅纯文本；
+  ///    带图片的消息不可入队，返回 false 由 UI 保留输入内容）
   /// 2. 跟随当前智能体的模型配置（[AgentStore.resolveModel]）
   /// 3. 无会话时自动创建
   ///
-  /// 返回是否真正发出（文本为空或模型未配置时返回 false）。
-  Future<bool> sendPrompt(String text, {String? sessionId}) async {
+  /// 返回是否真正发出（文本与图片均为空或模型未配置时返回 false）。
+  Future<bool> sendPrompt(
+    String text, {
+    String? sessionId,
+    List<String> imagePaths = const [],
+    List<String> imageNames = const [],
+  }) async {
     final trimmed = text.replaceAll('\n', '').trim();
-    if (trimmed.isEmpty) return false;
+    if (trimmed.isEmpty && imagePaths.isEmpty) return false;
 
     final sid = sessionId ?? selectedId.value;
     if (sid != null && streamingSessionIds.value.contains(sid)) {
+      if (imagePaths.isNotEmpty) {
+        // 队列只支持文本：流式输出中带图片的消息直接返回 false，
+        // 输入框内容与图片保留，等当前回复结束后再发
+        return false;
+      }
       // 流式输出中 → 入队，等待当前回复结束后自动发送
       MessageQueueStore.instance.enqueue(trimmed);
       MessageQueueStore.instance.expand();
@@ -238,6 +251,8 @@ class SessionStore {
       provider: resolved.provider,
       model: resolved.model,
       prompt: trimmed,
+      imagePaths: imagePaths,
+      imageNames: imageNames,
     );
     return true;
   }
@@ -274,11 +289,17 @@ class SessionStore {
   }
 
   /// 发送消息 — 触发后端 chat_stream，事件通过订阅异步到达。
+  ///
+  /// [imagePaths] 为已复制到 `File/` 目录的图片绝对路径，[imageNames]
+  /// 为对应的原始文件名（一一对应）；本地立即显示，后端持久化
+  /// image part 存 JSON `{"file": 存储名, "name": 原始名}`。
   Future<void> sendMessage({
     required String sessionId,
     required String provider,
     required String model,
     required String prompt,
+    List<String> imagePaths = const [],
+    List<String> imageNames = const [],
   }) async {
     final service = LlmService();
     final dbPath = ConfigStore.instance.dbPath;
@@ -297,6 +318,18 @@ class SessionStore {
         partType: PartTypes.text,
         content: prompt,
       ),
+      // 图片 parts：与后端 DB 一致，存 {file, name} JSON
+      for (int i = 0; i < imagePaths.length; i++)
+        api.PartInfo(
+          id: '${userMsgId}_img_$i',
+          msgId: userMsgId,
+          seq: i + 1,
+          partType: PartTypes.image,
+          content: jsonEncode({
+            'file': p.basename(imagePaths[i]),
+            'name': imageNames.length > i ? imageNames[i] : '',
+          }),
+        ),
     ];
     s.messageRoles[userMsgId] = 'user';
 
@@ -336,6 +369,8 @@ class SessionStore {
         dbPath: dbPath,
         sessionId: sessionId,
         workDir: AgentStore.instance.resolveWorkDir(),
+        imagePaths: imagePaths,
+        imageNames: imageNames,
       );
     } catch (e) {
       // 启动失败：追加错误消息并清理流状态
@@ -351,28 +386,43 @@ class SessionStore {
 
   /// 重试（编辑）用户消息
   ///
-  /// 更新指定用户消息的文本内容，通过 Rust 后端重试 API 重新请求 LLM。
+  /// 更新指定用户消息的内容（文本 + 图片附件），
+  /// 通过 Rust 后端重试 API 重新请求 LLM。
   Future<void> retryMessage({
     required String sessionId,
     required String msgId,
     required String newPrompt,
     required String provider,
     required String model,
+    List<String> imagePaths = const [],
+    List<String> imageNames = const [],
   }) async {
     final service = LlmService();
     final dbPath = ConfigStore.instance.dbPath;
     final configPath = AgentStore.instance.currentConfigPath.value;
     final s = _ensureState(sessionId);
 
-    // 1. 更新本地用户消息的文本内容
-    final parts = s.partsByMsg[msgId];
-    if (parts != null) {
-      for (int i = 0; i < parts.length; i++) {
-        if (parts[i].partType == PartTypes.text) {
-          parts[i] = parts[i].copyWith(content: newPrompt);
-        }
-      }
-    }
+    // 1. 重建本地用户消息 parts：文本 + 图片（按文档顺序，存 {file, name} JSON）
+    s.partsByMsg[msgId] = [
+      api.PartInfo(
+        id: '${msgId}_part',
+        msgId: msgId,
+        seq: 0,
+        partType: PartTypes.text,
+        content: newPrompt,
+      ),
+      for (int i = 0; i < imagePaths.length; i++)
+        api.PartInfo(
+          id: '${msgId}_img_$i',
+          msgId: msgId,
+          seq: i + 1,
+          partType: PartTypes.image,
+          content: jsonEncode({
+            'file': p.basename(imagePaths[i]),
+            'name': imageNames.length > i ? imageNames[i] : '',
+          }),
+        ),
+    ];
 
     _emit();
 
@@ -414,6 +464,8 @@ class SessionStore {
         sessionId: sessionId,
         dbPath: dbPath,
         workDir: AgentStore.instance.resolveWorkDir(),
+        imagePaths: imagePaths,
+        imageNames: imageNames,
       );
     } catch (e) {
       StreamEventProcessor.appendPartContent(

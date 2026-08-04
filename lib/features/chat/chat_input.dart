@@ -1,4 +1,5 @@
 import 'package:fleather/fleather.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
@@ -7,6 +8,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/agents/widgets/agent_selector.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
 import 'package:agent/features/chat/chat_fleather.dart';
+import 'package:agent/services/image_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/store/xterm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -47,20 +49,48 @@ class ChatInput extends HookWidget {
     useEffect(() => () => focusNode.dispose(), []);
 
     Future<void> send() async {
-      final text = controller.document
-          .toPlainText()
-          .replaceAll('\n', '')
-          .trim();
-      if (text.isEmpty) return;
+      final compose = extractChatCompose(controller);
+      final text = compose.text.replaceAll('\n', '').trim();
+      if (text.isEmpty && compose.imagePaths.isEmpty) return;
 
       sending.value = true;
       try {
-        // 统一入口：流式输出中自动入队；模型未配置时保留输入框内容
-        final ok = await SessionStore.instance.sendPrompt(text);
+        // 统一入口：流式输出中自动入队（带图片时不可入队，返回 false
+        // 并保留输入内容）；模型未配置时保留输入框内容
+        final ok = await SessionStore.instance.sendPrompt(
+          text,
+          imagePaths: compose.imagePaths,
+          imageNames: compose.imageNames,
+        );
         if (ok) controller.clear();
       } finally {
         sending.value = false;
       }
+    }
+
+    /// 选择图片并插入 Fleather 文档（复制到 File 目录后按原始名引用）
+    Future<void> pickImages() async {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      for (final file in result.files) {
+        final src = file.path;
+        if (src == null) continue;
+        try {
+          final img = await ImageStore.instance.importImage(src);
+          insertImageTag(
+            controller,
+            img.path,
+            img.storedName,
+            displayName: img.displayName,
+          );
+        } catch (_) {
+          // 复制失败跳过该图片，不影响其余图片
+        }
+      }
+      focusNode.requestFocus();
     }
 
     return Padding(
@@ -85,8 +115,15 @@ class ChatInput extends HookWidget {
             SizedBox(
               height: custom.spacing.lg,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  // 图片上传按钮固定在左侧
+                  AppIconButton(
+                    icon: 'image',
+                    size: ButtonSize.sm,
+                    tooltip: '上传图片',
+                    onPressed: pickImages,
+                  ),
+                  const Spacer(),
                   AgentSelector(),
                   SizedBox(width: custom.spacing.xs),
                   ModelSelector(),

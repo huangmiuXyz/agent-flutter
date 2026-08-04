@@ -54,6 +54,8 @@ mixin ChatApi on GuardedApi {
     String? sessionId,
     String? workDir,
     String? systemPrompt,
+    List<String> imagePaths = const [],
+    List<String> imageNames = const [],
   }) =>
       guard(
         '启动流式聊天失败',
@@ -67,6 +69,8 @@ mixin ChatApi on GuardedApi {
           sessionId: sessionId,
           workDir: workDir,
           systemPrompt: systemPrompt,
+          imagePaths: imagePaths,
+          imageNames: imageNames,
         ),
       );
 
@@ -97,6 +101,7 @@ mixin ChatApi on GuardedApi {
   /// 重试（编辑）用户消息：替换内容后重新流式请求 LLM。
   ///
   /// 行为同 [chatStream] — 事件通过 [EngineClient] 推送。
+  /// [imagePaths] 为编辑后的图片附件（绝对路径，已复制到 `File/` 目录）。
   Future<void> chatRetry({
     required String configPath,
     required String provider,
@@ -106,6 +111,8 @@ mixin ChatApi on GuardedApi {
     required String sessionId,
     String? workDir,
     String? dbPath,
+    List<String> imagePaths = const [],
+    List<String> imageNames = const [],
   }) =>
       guard(
         '重试失败',
@@ -118,6 +125,8 @@ mixin ChatApi on GuardedApi {
           sessionId: sessionId,
           workDir: workDir,
           dbPath: dbPath,
+          imagePaths: imagePaths,
+          imageNames: imageNames,
         ),
       );
 }
