@@ -265,12 +265,15 @@ class ChatExpandablePart extends HookWidget {
                           SizedBox(height: custom.spacing.sm),
                         ],
                         // 输入与输出共用同一个 VirtualParagraphText
-                        // 不设 maxHeight：内容超高时始终按自然高度收缩渲染，内部不滚动
+                        // 短内容按自然高度完整展示；超过 chatPartExpandedMaxHeight 时
+                        // 虚拟滚动（只构建可见段落），避免大输出（如 `ls -R .`）
+                        // 一次性构建数十万段落导致 UI 卡死。
                         VirtualParagraphText(
                           text: virtualText,
                           splitMode: ParagraphSplitMode.newline,
                           fontSize: custom.typography.captionSize,
                           lineHeight: 18,
+                          maxHeight: custom.controls.chatPartExpandedMaxHeight,
                           paragraphPaddingBlock: 0,
                           paragraphGap: 4,
                           paragraphBuilder: paragraphBuilder,
