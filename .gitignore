@@ -63,3 +63,6 @@ app.*.map.json
 /android/app/release
 # Rust build artifacts (code_forge patches)
 .patches/code_forge/rust/target/
+
+# Runtime data (logs / SQLite DB)
+/data/

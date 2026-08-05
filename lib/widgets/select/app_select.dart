@@ -21,11 +21,15 @@ class AppSelectOption<T> {
   /// Whether this item can be selected. Defaults to `true`.
   final bool enabled;
 
+  /// 分组名：同组选项显示在同一个分组标题下；null = 不分组。
+  final String? group;
+
   const AppSelectOption({
     required this.value,
     required this.label,
     this.icon,
     this.enabled = true,
+    this.group,
   });
 }
 
@@ -72,6 +76,52 @@ class AppSelect<T> extends HookWidget {
     this.menuMaxHeight = 300,
   });
 
+  /// Build the dropdown menu items, grouping by [AppSelectOption.group].
+  ///
+  /// 同一分组名的选项渲染在 [AppListGroup]（带分组标题）下；
+  /// `group == null` 的选项平铺渲染。
+  List<Widget> _buildMenuItems(
+    CustomTheme custom,
+    bool enabled,
+    ValueChanged<AppSelectOption<T>> onSelect,
+  ) {
+    final Map<String?, List<AppSelectOption<T>>> groups = {};
+    for (final option in options) {
+      groups.putIfAbsent(option.group, () => []).add(option);
+    }
+
+    final result = <Widget>[];
+    for (final entry in groups.entries) {
+      final items = [
+        for (final option in entry.value)
+          AppListItem(
+            label: option.label,
+            icon: option.icon,
+            active: option.value == value,
+            disabled: !option.enabled || !enabled,
+            labelVariant: AppTextVariant.body,
+            intrinsicHeight: true,
+            onTap: option.enabled && enabled
+                ? () => onSelect(option)
+                : null,
+          ),
+      ];
+      if (entry.key != null) {
+        result.add(
+          AppListGroup(
+            title: entry.key,
+            padding: EdgeInsets.zero,
+            itemGap: 0,
+            children: items,
+          ),
+        );
+      } else {
+        result.addAll(items);
+      }
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isOpen = useState(false);
@@ -103,11 +153,15 @@ class AppSelect<T> extends HookWidget {
       final fieldPos = fieldBox?.localToGlobal(Offset.zero);
       final fieldBottom = (fieldPos?.dy ?? 0) + (fieldBox?.size.height ?? 0);
       final spaceBelow = screenHeight - fieldBottom;
+      final groupedCount = options
+          .where((o) => o.group != null)
+          .map((o) => o.group)
+          .toSet()
+          .length;
       final estimatedMenuHeight =
-          (options.length * custom.controls.mediumHeight).clamp(
-            0,
-            menuMaxHeight,
-          );
+          (options.length * custom.controls.mediumHeight +
+                  groupedCount * custom.controls.smallHeight)
+              .clamp(0.0, menuMaxHeight);
       final showAbove = spaceBelow < estimatedMenuHeight;
 
       late OverlayEntry entry;
@@ -149,23 +203,14 @@ class AppSelect<T> extends HookWidget {
                           containerPadding: EdgeInsets.all(
                             custom.spacing.xs,
                           ),
-                          children: [
-                            for (final option in options)
-                              AppListItem(
-                                label: option.label,
-                                icon: option.icon,
-                                active: option.value == value,
-                                disabled: !option.enabled || !enabled,
-                                labelVariant: AppTextVariant.body,
-                                intrinsicHeight: true,
-                                onTap: option.enabled && enabled
-                                    ? () {
-                                        isOpen.value = false;
-                                        onChanged?.call(option.value);
-                                      }
-                                    : null,
-                              ),
-                          ],
+                          children: _buildMenuItems(
+                            custom,
+                            enabled,
+                            (option) {
+                              isOpen.value = false;
+                              onChanged?.call(option.value);
+                            },
+                          ),
                         ),
                       ),
                     ),

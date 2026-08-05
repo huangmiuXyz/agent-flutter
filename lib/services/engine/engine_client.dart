@@ -41,6 +41,9 @@ class EngineClient {
   /// 未订阅 session 的首个事件到达时回调（用于刷新会话列表等）。
   void Function(String sessionId)? onUnknownSession;
 
+  /// 无 session 归属的全局事件回调（如标题生成状态快照 [EngineEvent_TitleGeneratingState]）。
+  void Function(EngineEvent event)? onGlobalEvent;
+
   /// 工具名 → handler
   final Map<String, FrontendToolHandler> _toolHandlers = {};
 
@@ -138,6 +141,9 @@ class EngineClient {
         // 后台新会话（如子智能体创建的子会话）首次有事件 → 通知外部刷新列表
         onUnknownSession?.call(sid);
       }
+    } else {
+      // 全量快照类事件（无单一 sessionId）→ 走全局回调
+      onGlobalEvent?.call(event);
     }
 
     if (event is EngineEvent_FrontendToolCall) {
@@ -157,6 +163,7 @@ class EngineClient {
     if (event is EngineEvent_FrontendToolCall) return event.sessionId;
     if (event is EngineEvent_QueueState) return event.sessionId;
     if (event is EngineEvent_SteerInjected) return event.sessionId;
+    if (event is EngineEvent_SessionRenamed) return event.sessionId;
     return null;
   }
 

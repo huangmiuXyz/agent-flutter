@@ -10,6 +10,7 @@ import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 ///
 /// 返回一个 map，只包含 UI 上允许用户选择的字段：
 /// - default_model
+/// - title_model
 /// - mcpServers
 /// - skills
 Map<String, dynamic> extractImportableConfig(Map<String, dynamic> globalConfig) {
@@ -17,6 +18,9 @@ Map<String, dynamic> extractImportableConfig(Map<String, dynamic> globalConfig) 
 
   if (globalConfig.containsKey('default_model')) {
     result['default_model'] = globalConfig['default_model'];
+  }
+  if (globalConfig.containsKey('title_model')) {
+    result['title_model'] = globalConfig['title_model'];
   }
   if (globalConfig.containsKey('mcpServers')) {
     result['mcpServers'] = globalConfig['mcpServers'];
@@ -64,6 +68,29 @@ class AgentConfigHelper {
     if (dm is Map) {
       final p = dm['provider'] as String? ?? '';
       final m = dm['model'] as String? ?? '';
+      if (p.isNotEmpty && m.isNotEmpty) return (provider: p, model: m);
+    }
+    return null;
+  }
+
+  /// 取出配置中的 title_model；未配置时回退 default_model，均无则 null。
+  static ({String provider, String model})? titleModel(
+    Map<String, dynamic> cfg,
+  ) {
+    final explicit = explicitTitleModel(cfg);
+    if (explicit != null) return explicit;
+    return defaultModel(cfg);
+  }
+
+  /// 仅取出配置中显式的 title_model（不做回退），供编辑页回显：
+  /// 用户未配置时显示"未设置"，而不是显示回退后的 default_model。
+  static ({String provider, String model})? explicitTitleModel(
+    Map<String, dynamic> cfg,
+  ) {
+    final tm = cfg['title_model'];
+    if (tm is Map) {
+      final p = tm['provider'] as String? ?? '';
+      final m = tm['model'] as String? ?? '';
       if (p.isNotEmpty && m.isNotEmpty) return (provider: p, model: m);
     }
     return null;

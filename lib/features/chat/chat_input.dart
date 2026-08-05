@@ -69,7 +69,8 @@ class ChatInput extends HookWidget {
         );
         if (ok) controller.clear();
       } finally {
-        sending.value = false;
+        // 异步完成时组件可能已销毁，避免在已 dispose 的 notifier 上赋值
+        if (context.mounted) sending.value = false;
       }
 
       // 发送完成后重新聚焦输入框（含点击发送按钮的场景）

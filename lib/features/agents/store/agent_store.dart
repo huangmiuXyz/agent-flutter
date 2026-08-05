@@ -24,8 +24,11 @@ class AgentStore {
   /// 所有智能体列表（信号，保留顺序：全局智能体置顶）
   final agents = signal(<AgentInfo>[]);
 
-  /// 当前选中的智能体 ID
-  final currentAgentId = signal<String>(kGlobalAgentId);
+  /// 当前选中的智能体 ID（初始化时从 config.json 恢复上次选中，未设置则回退全局）
+  final currentAgentId = signal<String>(() {
+    final saved = ConfigStore.instance.persistedAgentId.value;
+    return saved.isNotEmpty ? saved : kGlobalAgentId;
+  }());
 
   /// 当前选中的智能体（计算信号）
   late final currentAgent = computed(() {
@@ -76,12 +79,15 @@ class AgentStore {
     // 当前选中的智能体已被删除（或列表重扫后不存在）→ 回退到全局智能体
     if (agents.value.every((a) => a.id != currentAgentId.value)) {
       currentAgentId.value = kGlobalAgentId;
+      // 同步清理持久化的选中记录，避免下次启动又指向已删除的智能体
+      ConfigStore.instance.updateCurrentAgent(kGlobalAgentId);
     }
   }
 
-  /// 切换到指定智能体。
+  /// 切换到指定智能体（与切换模型一致，选中状态写回 config.json）。
   void select(String id) {
     currentAgentId.value = id;
+    ConfigStore.instance.updateCurrentAgent(id);
   }
 
   /// 解析聊天应使用的 (provider, model)。

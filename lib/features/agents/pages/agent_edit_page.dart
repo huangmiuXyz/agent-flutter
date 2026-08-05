@@ -18,7 +18,6 @@ import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/settings/models/mcp_server_info.dart';
-import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 import 'package:agent/rust_bridge/api/builtin_tools.dart' as bridge;
@@ -35,7 +34,7 @@ import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/field/app_file_path_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_multi_select.dart';
-import 'package:agent/widgets/select/app_select.dart';
+import 'package:agent/widgets/select/app_provider_model_select.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 智能体编辑页。[agent] 为 null 时是创建模式。
@@ -76,6 +75,9 @@ class AgentEditPage extends HookWidget {
     final workDirController = useTextEditingController();
     final selectedProvider = useState<String?>(null);
     final selectedModel = useState<String?>(null);
+    // 标题生成模型（可选；未配置时 Rust 端回退使用 default_model）
+    final selectedTitleProvider = useState<String?>(null);
+    final selectedTitleModel = useState<String?>(null);
     final selectedMcp = useState<Set<String>>({});
     final selectedSkills = useState<Set<String>>({});
     final selectedTools = useState<Set<String>>({});
@@ -83,12 +85,6 @@ class AgentEditPage extends HookWidget {
     final enabled = useState(true);
     final saving = useState(false);
     final loaded = useState(false);
-
-    // ── 全局可选项：provider → models 映射（来自全局 language_models）──
-    final providerModels = useMemoized(
-      () => parseProviderModels(configStore.data.value),
-      [configStore.data.value],
-    );
 
     // ── 全局 MCP 服务器列表 ──
     final mcpServers = useMemoized(
@@ -132,6 +128,10 @@ class AgentEditPage extends HookWidget {
         final dm = AgentConfigHelper.defaultModel(cfg);
         selectedProvider.value = dm?.provider;
         selectedModel.value = dm?.model;
+        // 标题生成模型：仅回显显式配置，未配置保持"未设置"
+        final tm = AgentConfigHelper.explicitTitleModel(cfg);
+        selectedTitleProvider.value = tm?.provider;
+        selectedTitleModel.value = tm?.model;
         final mcp = cfg['mcpServers'];
         if (mcp is Map<String, dynamic>) {
           selectedMcp.value = mcp.keys.toSet();
@@ -179,7 +179,7 @@ class AgentEditPage extends HookWidget {
         }
 
         if (isGlobal) {
-          // 全局智能体：只更新 default_model、work_dir、builtinTools
+          // 全局智能体：只更新 default_model、title_model、work_dir、builtinTools
           if (selectedProvider.value != null && selectedModel.value != null) {
             cfg['default_model'] = {
               'provider': selectedProvider.value,
@@ -188,6 +188,7 @@ class AgentEditPage extends HookWidget {
           } else {
             cfg.remove('default_model');
           }
+          _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
           final workDir = workDirController.text.trim();
           if (workDir.isNotEmpty) {
             cfg['work_dir'] = workDir;
@@ -215,6 +216,7 @@ class AgentEditPage extends HookWidget {
           } else {
             cfg.remove('default_model');
           }
+          _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
           final workDir = workDirController.text.trim();
           if (workDir.isNotEmpty) {
             cfg['work_dir'] = workDir;
@@ -277,14 +279,23 @@ class AgentEditPage extends HookWidget {
       }
     }
 
-    final providerOptions = [
-      for (final p in providerModels.keys)
-        AppSelectOption(value: p, label: p),
-    ];
-    final modelOptions = [
-      for (final m in providerModels[selectedProvider.value] ?? const <String>[])
-        AppSelectOption<String>(value: m, label: m),
-    ];
+    // 把 AppProviderModelSelect 的复合键回填到 provider/model 状态；空值清除选择
+    void applyModelSelection(
+      ValueNotifier<String?> providerState,
+      ValueNotifier<String?> modelState,
+      String? raw,
+    ) {
+      if (raw == null || raw.isEmpty) {
+        providerState.value = null;
+        modelState.value = null;
+        return;
+      }
+      final decoded = AppProviderModelSelect.decodeKey(raw);
+      if (decoded != null) {
+        providerState.value = decoded.$1;
+        modelState.value = decoded.$2;
+      }
+    }
 
     return AppFormPage(
       breadcrumbItems: [
@@ -329,25 +340,35 @@ class AgentEditPage extends HookWidget {
             controller: descController,
           ),
         ],
-        AppSelect<String>(
-          label: '提供商',
-          placeholder: '从全局已有模型中选择',
-          value: selectedProvider.value,
-          options: providerOptions,
-          onChanged: (v) {
-            selectedProvider.value = v;
-            selectedModel.value = null;
-          },
+        // ── 默认模型（与聊天页同款分组，样式与其他 select 一致）──
+        AppProviderModelSelect(
+          label: '默认模型',
+          placeholder: '选择默认模型',
+          value: selectedProvider.value != null && selectedModel.value != null
+              ? AppProviderModelSelect.encodeKey(
+                  selectedProvider.value!,
+                  selectedModel.value!,
+                )
+              : null,
+          allowClear: true,
+          onChanged: (v) =>
+              applyModelSelection(selectedProvider, selectedModel, v),
         ),
-        AppSelect<String>(
-          label: '模型',
-          placeholder: selectedProvider.value == null
-              ? '先选择提供商'
-              : '选择模型',
-          value: selectedModel.value,
-          options: modelOptions,
-          disabled: selectedProvider.value == null,
-          onChanged: (v) => selectedModel.value = v,
+        // ── 标题生成模型（可选）──
+        // 会话自动生成标题时使用；留空则 Rust 端回退使用上面的默认模型
+        AppProviderModelSelect(
+          label: '标题生成模型（可选）',
+          placeholder: '留空则使用默认模型',
+          value: selectedTitleProvider.value != null &&
+                  selectedTitleModel.value != null
+              ? AppProviderModelSelect.encodeKey(
+                  selectedTitleProvider.value!,
+                  selectedTitleModel.value!,
+                )
+              : null,
+          allowClear: true,
+          onChanged: (v) =>
+              applyModelSelection(selectedTitleProvider, selectedTitleModel, v),
         ),
         if (!isGlobal)
           AppMultiSelect<String>(
@@ -403,6 +424,23 @@ class AgentEditPage extends HookWidget {
           ),
       ],
     );
+  }
+
+  /// 写入 title_model 字段：选过则写入，未选则移除（Rust 端回退 default_model）。
+  void _writeTitleModel(
+    Map<String, dynamic> cfg,
+    ValueNotifier<String?> selectedTitleProvider,
+    ValueNotifier<String?> selectedTitleModel,
+  ) {
+    if (selectedTitleProvider.value != null &&
+        selectedTitleModel.value != null) {
+      cfg['title_model'] = {
+        'provider': selectedTitleProvider.value,
+        'model': selectedTitleModel.value,
+      };
+    } else {
+      cfg.remove('title_model');
+    }
   }
 
   Future<void> _handleDelete(BuildContext context) async {

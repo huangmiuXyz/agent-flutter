@@ -32,6 +32,8 @@ class ConfigStore extends JsonFileSignalStore {
     'mcpServers': <Map<String, dynamic>>[],
     'skills': <String, dynamic>{},
     'work_dir': '',
+    // 最近选中的智能体 ID（空字符串 = 未设置，回退全局智能体）
+    'current_agent': '',
   };
 
   /// 与默认值合并，default_model 也要合并子键。
@@ -71,6 +73,16 @@ class ConfigStore extends JsonFileSignalStore {
   /// 更新工作目录
   void updateWorkDir(String path) {
     mutate((data) => data['work_dir'] = path);
+  }
+
+  /// 持久化的最近选中智能体 ID，空字符串表示未设置（回退全局）
+  late final persistedAgentId = computed<String>(() {
+    return data.value['current_agent'] as String? ?? '';
+  });
+
+  /// 更新最近选中的智能体 ID（与模型切换一样写回 config.json）
+  void updateCurrentAgent(String id) {
+    mutate((data) => data['current_agent'] = id);
   }
 
   // ── 类型化更新（避免各页面重复 parse / 写回）──

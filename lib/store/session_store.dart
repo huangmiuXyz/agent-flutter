@@ -12,6 +12,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:signals_flutter/signals_flutter.dart';
 import 'package:agent/rust_bridge/api/steer.dart' as api;
@@ -41,6 +42,12 @@ class SessionStore {
     EngineClient.instance.onUnknownSession = (sid) {
       loadSessions();
     };
+    // 全局事件（无 sessionId 归属）：标题生成状态快照 → 直接替换集合
+    EngineClient.instance.onGlobalEvent = (event) {
+      if (event is EngineEvent_TitleGeneratingState) {
+        titleGeneratingIds.value = event.sessionIds.toSet();
+      }
+    };
   }
 
   // ── 响应式状态 ──
@@ -60,6 +67,9 @@ class SessionStore {
 
   /// 当前正在流式输出的会话 ID 集合
   final streamingSessionIds = signal(<String>{});
+
+  /// 标题自动生成中的会话 ID 集合（TitleGenerating → SessionRenamed 之间）
+  final titleGeneratingIds = signal(<String>{});
 
   // ── 内部 ──
 
@@ -575,6 +585,15 @@ class SessionStore {
           !streamingSessionIds.value.contains(sessionId)) {
         _autoContinue(sessionId);
       }
+      return;
+    }
+
+    if (event is EngineEvent_SessionRenamed) {
+      // Rust 端标题生成成功 → 刷新会话列表显示新名称
+      debugPrint(
+        '[SessionRenamed] session=${event.sessionId} name=${event.name}',
+      );
+      loadSessions();
       return;
     }
 

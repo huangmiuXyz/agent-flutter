@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
@@ -9,34 +7,13 @@ import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/layout/main_layout.dart' show showSettingsDialog;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/select/app_provider_model_select.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 模型选择器 — 从 config.json 读取已激活的模型，按提供商分组展示
 class ModelSelector extends HookWidget {
   const ModelSelector({super.key});
-
-  /// 编码 (provider, model) 复合键。
-  ///
-  /// 不同提供商可能提供相同模型 ID，选项值必须同时携带提供商信息，
-  /// 否则选中/回显时无法区分具体是哪个提供商的模型。
-  static String encodeKey(String provider, String model) =>
-      jsonEncode([provider, model]);
-
-  /// 解码 [encodeKey] 生成的复合键，非法输入返回 null。
-  static (String, String)? decodeKey(String key) {
-    try {
-      final decoded = jsonDecode(key);
-      if (decoded is List && decoded.length == 2) {
-        final provider = decoded[0] as String?;
-        final model = decoded[1] as String?;
-        if (provider != null && provider.isNotEmpty && model != null) {
-          return (provider, model);
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +33,7 @@ class ModelSelector extends HookWidget {
           {
             'name': name,
             // 选项值携带 (provider, model)，允许同名模型出现在多个提供商分组
-            'value': encodeKey(p.key, name),
+            'value': AppProviderModelSelect.encodeKey(p.key, name),
             'group': p.key,
             // 悬停齿轮：直达该模型所属提供商的配置页（不改变当前选中）
             'hoverIcon': 'settings',
@@ -74,12 +51,15 @@ class ModelSelector extends HookWidget {
     // 避免同名模型在不同提供商下同时被打勾/显示错乱
     final currentValue =
         currentProvider.value.isNotEmpty && currentModel.value.isNotEmpty
-            ? encodeKey(currentProvider.value, currentModel.value)
+            ? AppProviderModelSelect.encodeKey(
+                currentProvider.value,
+                currentModel.value,
+              )
             : null;
 
     void onModelChanged(dynamic val) {
       if (val is! String) return;
-      final decoded = decodeKey(val);
+      final decoded = AppProviderModelSelect.decodeKey(val);
       if (decoded == null) return;
       final (provider, model) = decoded;
       ConfigStore.instance.mutate((m) {

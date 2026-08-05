@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-import 'package:signals_flutter/signals_flutter.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/store/session_store.dart';
@@ -270,15 +270,40 @@ class _SessionNameField extends HookWidget {
       return null;
     }, [session.name]);
 
-    return InlineField(
-      controller: controller,
-      size: FieldSize.sm,
-      onSubmitted: (newName) async {
-        if (newName.trim().isEmpty || newName.trim() == session.name) {
-          return;
-        }
-        await SessionStore.instance.renameSession(session.id, newName.trim());
-      },
+    // 标题自动生成中 → 名称后显示 loading
+    final generating = useExistingSignal(
+      SessionStore.instance.titleGeneratingIds,
+    ).value.contains(session.id);
+    final custom = CustomTheme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: InlineField(
+            controller: controller,
+            size: FieldSize.sm,
+            onSubmitted: (newName) async {
+              if (newName.trim().isEmpty || newName.trim() == session.name) {
+                return;
+              }
+              await SessionStore.instance
+                  .renameSession(session.id, newName.trim());
+            },
+          ),
+        ),
+        if (generating)
+          Padding(
+            padding: EdgeInsets.only(left: custom.spacing.xs),
+            child: SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: custom.colors.accent,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

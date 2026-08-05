@@ -79,6 +79,10 @@ class PanelSelector<T> extends HookWidget {
   /// Minimum width of the dropdown menu.
   final double menuMinWidth;
 
+  /// 是否拉满父级宽度并将内容左对齐（表单场景用，与输入框对齐）；
+  /// 默认 false：内容宽度 + 居中（工具栏按钮风格）。
+  final bool fullWidth;
+
   const PanelSelector({
     super.key,
     this.value,
@@ -88,6 +92,7 @@ class PanelSelector<T> extends HookWidget {
     this.onChanged,
     this.onBeforeOpen,
     this.menuMinWidth = 160,
+    this.fullWidth = false,
   });
 
   /// All flat options extracted from [data] (ignoring group info).
@@ -269,6 +274,26 @@ class PanelSelector<T> extends HookWidget {
       isOpen.value = true;
     }
 
+    // 按钮内容：文本 + chevron；fullWidth 时左对齐拉满，否则居中紧凑
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppText(
+          selectedLabel ?? placeholder ?? '',
+          variant: AppTextVariant.caption,
+          color: selectedLabel != null
+              ? custom.colors.textPrimary
+              : custom.colors.textSecondary,
+        ),
+        SizedBox(width: custom.spacing.xs),
+        AppIcon(
+          isOpen.value ? 'chevronUp' : 'chevronDown',
+          size: custom.typography.captionSize,
+          color: custom.colors.textSecondary,
+        ),
+      ],
+    );
+
     return CompositedTransformTarget(
       link: layerLink,
       child: MouseRegion(
@@ -279,6 +304,7 @@ class PanelSelector<T> extends HookWidget {
           onTap: enabled ? onTap : null,
           child: Container(
             key: buttonKey,
+            width: fullWidth ? double.infinity : null,
             height: custom.controls.smallHeight,
             padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
             decoration: BoxDecoration(
@@ -287,26 +313,7 @@ class PanelSelector<T> extends HookWidget {
                   : Colors.transparent,
               borderRadius: custom.radii.xs,
             ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppText(
-                    selectedLabel ?? placeholder ?? '',
-                    variant: AppTextVariant.caption,
-                    color: selectedLabel != null
-                        ? custom.colors.textPrimary
-                        : custom.colors.textSecondary,
-                  ),
-                  SizedBox(width: custom.spacing.xs),
-                  AppIcon(
-                    isOpen.value ? 'chevronUp' : 'chevronDown',
-                    size: custom.typography.captionSize,
-                    color: custom.colors.textSecondary,
-                  ),
-                ],
-              ),
-            ),
+            child: fullWidth ? content : Center(child: content),
           ),
         ),
       ),
