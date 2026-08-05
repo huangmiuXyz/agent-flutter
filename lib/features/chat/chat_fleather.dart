@@ -259,7 +259,12 @@ class _ChatFleatherState extends State<ChatFleather> {
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
+    // 仅 dispose 内部创建的 controller；外部传入的由创建方负责
+    // （ChatInput 在 useEffect cleanup 中 dispose），避免外部持有者
+    // 在异步回调中继续使用已销毁的 controller。
+    if (widget.controller == null) {
+      _controller.dispose();
+    }
     if (widget.focusNode == null) {
       _focusNode.dispose();
     }

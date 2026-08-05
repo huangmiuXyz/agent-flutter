@@ -52,6 +52,11 @@ class ChatInput extends HookWidget {
           () => focusNode.dispose(),
       [],
     );
+    // controller 由本组件创建并负责 dispose（ChatFleather 只 dispose 内部创建的）
+    useEffect(
+      () => () => controller.dispose(),
+      [],
+    );
 
     Future<void> send() async {
       final compose = extractChatCompose(controller);
@@ -67,7 +72,8 @@ class ChatInput extends HookWidget {
           imagePaths: compose.imagePaths,
           imageNames: compose.imageNames,
         );
-        if (ok) controller.clear();
+        // 异步完成时组件可能已销毁（controller 已被 dispose），跳过清空
+        if (ok && context.mounted) controller.clear();
       } finally {
         // 异步完成时组件可能已销毁，避免在已 dispose 的 notifier 上赋值
         if (context.mounted) sending.value = false;
