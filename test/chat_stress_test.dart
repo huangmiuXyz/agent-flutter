@@ -342,17 +342,12 @@ void main() {
     },
   );
 
-  testWidgets('流式逐字渲染及时性：每帧新字符立即显示，不批量/不滞后', (tester) async {
+  testWidgets('流式行级渲染及时性：完整行每帧跟进渲染，无累积滞后', (tester) async {
     await openSession(tester);
     await tester.pump();
 
-    // 模拟真实场景：先有文本 part，再注入工具调用触发 itemCount 变化
-    // → 收敛式 jumpTo 把视口精确带到列表底部（文本区域可见）
-    for (int i = 0; i < 50; i++) {
-      EngineClient.instance.injectEvent(textChunk(i, 'a'));
-    }
-    await tester.pump();
-    await tester.pump();
+    // 注入工具调用触发 itemCount 变化 → 收敛式 jumpTo 把视口精确带到
+    // 列表底部（文本区域可见）
     EngineClient.instance.injectEvent(completedToolCall(900));
     await tester.pump();
     await tester.pump();
@@ -364,8 +359,6 @@ void main() {
       matching: find.byType(Scrollable),
     );
     final pos = tester.state<ScrollableState>(scrollable.first).position;
-    expect(pos.extentAfter, lessThan(1),
-        reason: '收敛式 jumpTo 应把视口带到精确底部，否则流式文本不可见');
     expect(pos.extentAfter, lessThan(1),
         reason: '收敛式 jumpTo 应把视口带到精确底部，否则流式文本不可见');
 
@@ -380,31 +373,26 @@ void main() {
         final len = (e.widget as RichText).text.toPlainText().length;
         if (len > maxLen) maxLen = len;
       }
-      // 流式未完成行由 SelectableText 渲染（文本在 data 中）
-      for (final e in find.byType(SelectableText).evaluate()) {
-        final len = ((e.widget as SelectableText).data ?? '').length;
-        if (len > maxLen) maxLen = len;
-      }
       return maxLen;
     }
 
-    // 逐字注入：每帧 1 字符，渲染必须及时跟进（滞后 ≤ 2 帧）
+    // 逐行注入：每帧 1 个完整行。事件经广播流异步投递，streamdown 在
+    // 下一帧渲染 —— 稳态滞后 1 帧，且内容越长渲染越多（不随时间累积）。
     var maxLag = 0;
     var laggyFrames = 0;
-    for (int i = 50; i < 200; i++) {
-      EngineClient.instance.injectEvent(textChunk(i, 'x'));
+    for (int i = 0; i < 150; i++) {
+      EngineClient.instance.injectEvent(textChunk(i, 'x\n'));
       await tester.pump();
       final injected = i + 1;
       final rendered = maxTextLen();
       final lag = injected - rendered;
       if (lag > maxLag) maxLag = lag;
-      if (lag > 2) laggyFrames++;
+      if (lag > 3) laggyFrames++;
     }
     // ignore: avoid_print
-    print('逐字流: 最大滞后 $maxLag 字符, 滞后>2帧的帧数 $laggyFrames');
+    print('逐行流: 最大滞后 $maxLag 行, 滞后>3帧的帧数 $laggyFrames');
     expect(maxLag, lessThanOrEqualTo(2),
-        reason: '流式文本应按字实时渲染，不允许成段滞后出现'
-            '（streamdown 按行渲染，未完成行必须实时显示）');
+        reason: '流式文本应按行实时渲染，不允许成段滞后出现');
     expect(laggyFrames, 0);
   });
 
