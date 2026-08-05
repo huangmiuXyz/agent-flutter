@@ -270,12 +270,22 @@ class ChatMessageItem extends HookWidget {
     // identity 缓存已构建的 widget：未变化的 part 返回相同 widget 实例，
     // Flutter updateChild 对相同实例直接跳过子树重建 —— 工具调用卡片等
     // 大批量 part 在流式期间不再每帧重复解析/构建（曾导致严重卡顿）。
-    // 缓存键 = (part 实例, 是否最后一项)，间距（底部 padding）随位置变化。
+    // 缓存键 = (part 实例, 是否最后一项, streaming)：间距（底部 padding）
+    // 随位置变化；streaming 在 Done/Error 后翻转（part 实例不变），
+    // 必须纳入键，否则文本 part 会停留在流式增量渲染态（最后一行
+    // 永远以纯文本显示，代码围栏不再闭合）。
     final partCache = useRef<Map<Object, Widget>>({});
     // 主题切换时缓存失效（缓存树内引用的是旧主题样式）
     final cacheTheme = useRef<CustomTheme?>(null);
     if (!identical(cacheTheme.value, custom)) {
       cacheTheme.value = custom;
+      partCache.value.clear();
+    }
+    // streaming 翻转时整体失效：文本 part 的渲染模式随 streaming 切换，
+    // 旧态条目（part 实例未变）永远不会被命中，只占内存
+    final cacheStreaming = useRef<bool>(false);
+    if (cacheStreaming.value != streaming) {
+      cacheStreaming.value = streaming;
       partCache.value.clear();
     }
 
@@ -374,7 +384,7 @@ class ChatMessageItem extends HookWidget {
     // 缓存查找：part 实例与位置未变 → 复用整个（含薄壳的）widget 实例，
     // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘
     return partCache.putIfAbsent(
-      (part, isLast),
+      (part, isLast, streaming),
       () => _buildPartWithSpacingInner(part, custom, minPartHeight, isLast),
     );
   }

@@ -39,6 +39,18 @@ class ChatTextPart extends HookWidget {
   Widget build(BuildContext context) {
     final text = extractDisplayText(content);
 
+    // ── hooks（必须在所有提前返回之前调用）──
+    // flutter_hooks 要求每次 build 的 hook 调用顺序一致；streaming 在
+    // Done/Error 后翻转，同一 element 会在流式/非流式分支间切换，
+    // 若 hook 放在提前返回之后会破坏顺序触发断言。
+    final controllerRef = useRef<MarkdownPreviewController?>(null);
+    final flushedRef = useRef('');
+    // 卸载时释放最后一个 controller（streamdown 会自行取消订阅，
+    // 这里只需关闭 StreamController；替换场景在下方即时 dispose）
+    useEffect(() {
+      return () => controllerRef.value?.dispose();
+    }, []);
+
     if (text.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -84,12 +96,6 @@ class ChatTextPart extends HookWidget {
     final flushed = lastNl >= 0 ? text.substring(0, lastNl + 1) : '';
     final pendingLine = lastNl >= 0 ? text.substring(lastNl + 1) : text;
 
-    final controllerRef = useRef<MarkdownPreviewController?>(null);
-    final flushedRef = useRef('');
-    // controller 整体替换时触发重建（新 controller → stream 引用变化 →
-    // Streamdown 重建管线并重新订阅）
-    final replaceTick = useState(0);
-
     final controller = controllerRef.value ??= MarkdownPreviewController();
     final prevFlushed = flushedRef.value;
     if (flushed.length > prevFlushed.length &&
@@ -98,11 +104,14 @@ class ChatTextPart extends HookWidget {
       controller.append(flushed.substring(prevFlushed.length));
       flushedRef.value = flushed;
     } else if (flushed != prevFlushed) {
-      // 非追加（整体替换/截断）：新建 controller，内容走订阅前缓冲
+      // 非追加（整体替换/截断）：新建 controller，内容走订阅前缓冲。
+      // controller.stream 是稳定实例，引用变化会让 Streamdown 的
+      // didUpdateWidget 重建管线并重新订阅，无需额外重建信号；
+      // 旧 controller 的订阅在同帧被取消，这里直接释放其资源。
       final fresh = MarkdownPreviewController()..append(flushed);
       controllerRef.value = fresh;
       flushedRef.value = flushed;
-      replaceTick.value++;
+      controller.dispose();
     }
 
     return Column(
