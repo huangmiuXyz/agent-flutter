@@ -65,6 +65,8 @@ class SessionList extends HookWidget {
         final sessions = mgr.sessionList.value;
         final loading = mgr.sessionListLoading.value;
         final selectedId = mgr.selectedId.value;
+        // 订阅流式状态：生成中会话的悬停按钮需要切换为「停止对话」
+        final streamingIds = mgr.streamingSessionIds.value;
         final custom = CustomTheme.of(context);
 
         if (loading) {
@@ -111,6 +113,7 @@ class SessionList extends HookWidget {
               selectedId: selectedId,
               selectMode: selectMode,
               selectedIds: selectedIds,
+              streamingIds: streamingIds,
               onToggleSelection: _toggleSelection,
               expandable: children.isNotEmpty,
               collapsed: collapsed.value.contains(parent.id),
@@ -132,6 +135,7 @@ class SessionList extends HookWidget {
                   selectedId: selectedId,
                   selectMode: selectMode,
                   selectedIds: selectedIds,
+                  streamingIds: streamingIds,
                   onToggleSelection: _toggleSelection,
                   child: true,
                 ),
@@ -159,6 +163,7 @@ class SessionList extends HookWidget {
     required String? selectedId,
     required bool selectMode,
     required Set<String> selectedIds,
+    required Set<String> streamingIds,
     required ValueChanged<String> onToggleSelection,
     bool child = false,
     bool expandable = false,
@@ -168,6 +173,8 @@ class SessionList extends HookWidget {
     final custom = CustomTheme.of(context);
     final isSelected = session.id == selectedId;
     final isChecked = selectedIds.contains(session.id);
+    // 对话生成中：悬停操作从「删除」切换为「停止对话」
+    final isGenerating = streamingIds.contains(session.id);
 
     final hoverActions = <Widget>[
       if (expandable)
@@ -181,28 +188,41 @@ class SessionList extends HookWidget {
             onPressed: onToggleExpand,
           ),
         ),
-      Transform.translate(
-        offset: const Offset(0, -1),
-        child: AppIconButton(
-          icon: 'trash2',
-          size: ButtonSize.sm,
-          hoverStyle: false,
-          tooltip: '删除会话',
-          onPressed: () async {
-            final confirmed = await AppDialog.show(
-              context: context,
-              title: '删除会话',
-              child: AppText(
-                '确定要删除「${session.name}」吗？此操作不可恢复。',
-              ),
-              onOk: () {},
-            );
-            if (confirmed == true) {
-              await SessionStore.instance.deleteSessions([session.id]);
-            }
-          },
+      if (isGenerating)
+        // 生成中：停止按钮替代删除按钮
+        Transform.translate(
+          offset: const Offset(0, -1),
+          child: AppIconButton(
+            icon: 'square',
+            size: ButtonSize.sm,
+            hoverStyle: false,
+            tooltip: '停止对话',
+            onPressed: () => SessionStore.instance.cancelStreaming(session.id),
+          ),
+        )
+      else
+        Transform.translate(
+          offset: const Offset(0, -1),
+          child: AppIconButton(
+            icon: 'trash2',
+            size: ButtonSize.sm,
+            hoverStyle: false,
+            tooltip: '删除会话',
+            onPressed: () async {
+              final confirmed = await AppDialog.show(
+                context: context,
+                title: '删除会话',
+                child: AppText(
+                  '确定要删除「${session.name}」吗？此操作不可恢复。',
+                ),
+                onOk: () {},
+              );
+              if (confirmed == true) {
+                await SessionStore.instance.deleteSessions([session.id]);
+              }
+            },
+          ),
         ),
-      ),
     ];
 
     return AppListItem(
