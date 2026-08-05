@@ -264,6 +264,21 @@ class ChatMessageItem extends HookWidget {
       return const SizedBox.shrink();
     }
 
+    // ── part widget 实例缓存 ──
+    // 流式输出中每帧都会重建本条消息；parts 列表是同一个 List 实例，
+    // 只有内容变化的 part 会被 copyWith 替换为新实例。因此按 part 实例
+    // identity 缓存已构建的 widget：未变化的 part 返回相同 widget 实例，
+    // Flutter updateChild 对相同实例直接跳过子树重建 —— 工具调用卡片等
+    // 大批量 part 在流式期间不再每帧重复解析/构建（曾导致严重卡顿）。
+    // 缓存键 = (part 实例, 是否最后一项)，间距（底部 padding）随位置变化。
+    final partCache = useRef<Map<Object, Widget>>({});
+    // 主题切换时缓存失效（缓存树内引用的是旧主题样式）
+    final cacheTheme = useRef<CustomTheme?>(null);
+    if (!identical(cacheTheme.value, custom)) {
+      cacheTheme.value = custom;
+      partCache.value.clear();
+    }
+
     final minPartHeight = custom.controls.chatPartCollapsedHeight;
 
     // 用户消息：支持点击编辑。
@@ -308,6 +323,7 @@ class ChatMessageItem extends HookWidget {
             visibleParts,
             custom,
             minPartHeight,
+            partCache.value,
           ),
       ],
     );
@@ -351,21 +367,39 @@ class ChatMessageItem extends HookWidget {
     List<api.PartInfo> visibleParts,
     CustomTheme custom,
     double minPartHeight,
+    Map<Object, Widget> partCache,
   ) {
     final part = visibleParts[index];
+    final isLast = index == visibleParts.length - 1;
+    // 缓存查找：part 实例与位置未变 → 复用整个（含薄壳的）widget 实例，
+    // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘
+    return partCache.putIfAbsent(
+      (part, isLast),
+      () => _buildPartWithSpacingInner(part, custom, minPartHeight, isLast),
+    );
+  }
+
+  Widget _buildPartWithSpacingInner(
+    api.PartInfo part,
+    CustomTheme custom,
+    double minPartHeight,
+    bool isLast,
+  ) {
     final widget = _buildPart(part, custom);
     final constrained = Container(
       constraints: BoxConstraints(minHeight: minPartHeight),
       alignment: Alignment.centerLeft,
       child: widget,
     );
-    if (index < visibleParts.length - 1) {
+    // 重绘隔离：part 未变化时跳过 paint，大幅降低重绘成本
+    final isolated = RepaintBoundary(child: constrained);
+    if (!isLast) {
       return Padding(
         padding: EdgeInsets.only(bottom: custom.spacing.sm),
-        child: constrained,
+        child: isolated,
       );
     }
-    return constrained;
+    return isolated;
   }
 
   Widget _buildPart(

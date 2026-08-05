@@ -29,9 +29,25 @@ import 'package:agent/theme/app_tokens.dart';
 /// }
 /// ```
 class MarkdownPreviewController {
-  final StreamController<String> _controller =
-      StreamController<String>.broadcast();
+  late final StreamController<String> _controller;
   final StringBuffer _buffer = StringBuffer();
+
+  /// 订阅建立前 append 的增量缓存：broadcast 流不会重放历史事件，
+  /// 首个监听者出现时（Streamdown 挂载订阅）一次性重放，避免丢内容。
+  final List<String> _pending = [];
+  bool _replaying = false;
+
+  MarkdownPreviewController() {
+    _controller = StreamController<String>.broadcast(onListen: () {
+      if (_replaying) return;
+      _replaying = true;
+      for (final chunk in _pending) {
+        _controller.add(chunk);
+      }
+      _pending.clear();
+      _replaying = false;
+    });
+  }
 
   /// The stream that feeds markdown chunks to the widget.
   Stream<String> get stream => _controller.stream;
@@ -46,7 +62,11 @@ class MarkdownPreviewController {
   void append(String chunk) {
     if (!_controller.isClosed) {
       _buffer.write(chunk);
-      _controller.add(chunk);
+      if (_controller.hasListener) {
+        _controller.add(chunk);
+      } else {
+        _pending.add(chunk);
+      }
     }
   }
 

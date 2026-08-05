@@ -10,6 +10,8 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:agent/rust_bridge/api/engine.dart' as api;
 import 'package:agent/rust_bridge/events.dart';
 
@@ -157,6 +159,13 @@ class EngineClient {
     if (event is EngineEvent_SteerInjected) return event.sessionId;
     return null;
   }
+
+  /// 测试用事件注入入口 — 模拟 Rust 引擎推送的事件（走与真实事件相同的路由）。
+  ///
+  /// 集成/压力测试中无需初始化 Rust 运行时，直接注入 [EngineEvent] 即可
+  /// 驱动 [SessionStore] 与 UI 走完整生产链路。
+  @visibleForTesting
+  void injectEvent(EngineEvent event) => _onEvent(event);
 
   Future<void> _dispatchToolCall(EngineEvent_FrontendToolCall event) async {
     final handler = _toolHandlers[event.toolName];

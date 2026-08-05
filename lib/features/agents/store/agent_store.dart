@@ -44,11 +44,18 @@ class AgentStore {
   // ── 方法 ──
 
   /// 从 Rust 重新扫描智能体列表并加载。
+  ///
+  /// 引擎不可用（Rust 未初始化/扫描失败）时静默保持现有列表，
+  /// 避免引擎异常时聊天页直接崩溃。
   Future<void> refresh() async {
-    final discovered = await bridge_api.listAgents(
-      configPath: ConfigStore.instance.configPath,
-    );
-    load(discovered);
+    try {
+      final discovered = await bridge_api.listAgents(
+        configPath: ConfigStore.instance.configPath,
+      );
+      load(discovered);
+    } catch (_) {
+      // 扫描失败不影响现有列表与聊天功能
+    }
   }
 
   /// 加载 Rust 扫描结果，替换全部智能体列表。

@@ -1,14 +1,11 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
+import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/session/part_types.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
-import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';
@@ -87,127 +84,6 @@ class _StandaloneStreamingIndicator extends StatelessWidget {
   }
 }
 
-/// 最新一轮先按自然高度布局用户消息，再让助手区域填满视口剩余高度。
-class _LatestTurnLayout extends MultiChildRenderObjectWidget {
-  final double minHeight;
-
-  _LatestTurnLayout({
-    required this.minHeight,
-    required Widget user,
-    required Widget assistant,
-  }) : super(children: [user, assistant]);
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _RenderLatestTurnLayout(minHeight);
-  }
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    covariant _RenderLatestTurnLayout renderObject,
-  ) {
-    renderObject.minHeight = minHeight;
-  }
-}
-
-class _LatestTurnParentData extends ContainerBoxParentData<RenderBox> {}
-
-class _RenderLatestTurnLayout extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _LatestTurnParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _LatestTurnParentData> {
-  _RenderLatestTurnLayout(this._minHeight);
-
-  double _minHeight;
-
-  set minHeight(double value) {
-    if (_minHeight == value) return;
-    _minHeight = value;
-    markNeedsLayout();
-  }
-
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _LatestTurnParentData) {
-      child.parentData = _LatestTurnParentData();
-    }
-  }
-
-  BoxConstraints _constraintsForChild(
-    BoxConstraints constraints, {
-    double minHeight = 0,
-  }) {
-    return BoxConstraints(
-      minWidth: constraints.minWidth,
-      maxWidth: constraints.maxWidth,
-      minHeight: minHeight,
-      maxHeight: double.infinity,
-    );
-  }
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) {
-    final user = firstChild;
-    final assistant = user == null ? null : childAfter(user);
-    if (user == null || assistant == null) {
-      return constraints.constrain(Size.zero);
-    }
-
-    final userSize = user.getDryLayout(_constraintsForChild(constraints));
-    final assistantMinHeight = math.max(0.0, _minHeight - userSize.height);
-    final assistantSize = assistant.getDryLayout(
-      _constraintsForChild(constraints, minHeight: assistantMinHeight),
-    );
-
-    return constraints.constrain(
-      Size(
-        math.max(userSize.width, assistantSize.width),
-        userSize.height + assistantSize.height,
-      ),
-    );
-  }
-
-  @override
-  void performLayout() {
-    final user = firstChild;
-    final assistant = user == null ? null : childAfter(user);
-    if (user == null || assistant == null) {
-      size = constraints.constrain(Size.zero);
-      return;
-    }
-
-    user.layout(_constraintsForChild(constraints), parentUsesSize: true);
-    final assistantMinHeight = math.max(0.0, _minHeight - user.size.height);
-    assistant.layout(
-      _constraintsForChild(constraints, minHeight: assistantMinHeight),
-      parentUsesSize: true,
-    );
-
-    final userParentData = user.parentData! as _LatestTurnParentData;
-    final assistantParentData = assistant.parentData! as _LatestTurnParentData;
-    userParentData.offset = Offset.zero;
-    assistantParentData.offset = Offset(0, user.size.height);
-
-    size = constraints.constrain(
-      Size(
-        math.max(user.size.width, assistant.size.width),
-        user.size.height + assistant.size.height,
-      ),
-    );
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
-  }
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    return defaultHitTestChildren(result, position: position);
-  }
-}
-
 /// 聊天内容区 — 消息列表 + 队列面板 + 输入框
 ///
 /// 流式输出中按 Enter 发送的消息自动进入队列，
@@ -282,8 +158,6 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final custom = CustomTheme.of(context);
-
     return SignalBuilder(
       builder: (_) {
         final mgr = SessionStore.instance;
@@ -326,30 +200,71 @@ class _MessageList extends StatelessWidget {
               return () => scrollController.removeListener(onScroll);
             }, [scrollController]);
 
-            // ── 切换 session：先隐藏 → jumpTo 底部 → 再显示 ──
+            /// 收敛式跳到底部：ListView 懒加载时 maxScrollExtent 是估算值
+            /// （只基于已布局的 item），一次 jumpTo 到不了真实底部；
+            /// 跳完后布局更新、估算值修正，递归再跳直到真正到底
+            /// （extentAfter == 0）。这样最新内容（流式文本/新 part）
+            /// 始终在视口内逐字渲染，而不是在视口外积累后整段出现。
+            void jumpToBottomRecursive(int depth) {
+              if (!scrollController.hasClients || depth <= 0) return;
+              final p = scrollController.position;
+              scrollController.jumpTo(p.maxScrollExtent);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!scrollController.hasClients) return;
+                if (scrollController.position.extentAfter > 0.5) {
+                  jumpToBottomRecursive(depth - 1);
+                }
+              });
+            }
+
+            // ── 切换 session：先隐藏 → 收敛跳到底部 → 再显示 ──
             useEffect(() {
               isListVisible.value = false;
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!scrollController.hasClients) return;
-                scrollController.jumpTo(
-                  scrollController.position.maxScrollExtent,
-                );
+                jumpToBottomRecursive(3);
                 isListVisible.value = true;
               });
               return null;
             }, [sessionId]);
+            // 让 ListView 在 part 粒度上虚拟化。若把整轮打包进单个 item
+            // （旧 _LatestTurnLayout 方案），一轮内数百/上千个 parts（工具
+            // 调用卡片等）每帧全量构建+布局，虚拟滚动完全失效 ——
+            // 实测 1000 张卡片时每帧 ~140ms。拍平后视口外的卡片不构建。
+            final focusedIndex = focusedMsgId.value == null
+                ? -1
+                : messageOrder.indexOf(focusedMsgId.value!);
+
+            final hasLatestTurn = latestUserIndex >= 0;
+            final flattenedParts = hasLatestTurn
+                ? <(int, int)>[
+                    for (int m = latestUserIndex + 1;
+                        m < messageOrder.length;
+                        m++)
+                      for (int p = 0;
+                          p < (partsByMsg[messageOrder[m]]?.length ?? 0);
+                          p++)
+                        (m, p),
+                  ]
+                : const <(int, int)>[];
+            // 最新一轮只有用户消息（无任何 assistant 内容）时，末尾显示独立 loading
+            final standaloneIndicator = hasLatestTurn &&
+                isStreaming &&
+                latestUserIndex == messageOrder.length - 1;
+            final itemCount = !hasLatestTurn
+                ? messageOrder.length
+                : latestUserIndex +
+                    1 +
+                    flattenedParts.length +
+                    (standaloneIndicator ? 1 : 0);
 
             // ── 新消息/流式：只滚动到底部，不隐藏 ──
             useEffect(() {
               if (!isListVisible.value) return null;
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!scrollController.hasClients) return;
-                scrollController.jumpTo(
-                  scrollController.position.maxScrollExtent,
-                );
+                jumpToBottomRecursive(3);
               });
               return null;
-            }, [messageOrder.length]);
+            }, [itemCount]);
 
             // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
@@ -366,16 +281,22 @@ class _MessageList extends StatelessWidget {
                 if (scrollController.position.extentAfter <= 0) {
                   savedMaxExtent.value =
                       scrollController.position.maxScrollExtent;
+                  // 文本增长（无新 part，itemCount 不变不触发 jumpTo）时，
+                  // 若懒加载估算偏差把最新内容/loading 推出视口，
+                  // 下一帧收敛跳底恢复贴底。仅在用户贴底时安排，
+                  // 用户滚动离开底部后（extentAfter > 0）不再打扰。
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!scrollController.hasClients) return;
+                    if (scrollController.position.extentAfter > 0.5) {
+                      jumpToBottomRecursive(2);
+                    }
+                  });
                 }
               };
               return () {
                 SessionStore.instance.onBeforeEmit = null;
               };
             }, [sessionId, scrollController]);
-
-            final focusedIndex = focusedMsgId.value == null
-                ? -1
-                : messageOrder.indexOf(focusedMsgId.value!);
 
             Widget buildMessage(
               int index, {
@@ -428,15 +349,53 @@ class _MessageList extends StatelessWidget {
               return messageItem;
             }
 
-            // ── ViewHeight 从 LayoutBuilder 捕获，_LatestTurnLayout 通过
-            // ValueListenableBuilder 监听高度变化，resize 时只重建最后一条
-            // item，前面 N-1 条稳定不动。
-            final viewHeight = useRef(ValueNotifier<double>(0));
-
-            final hasLatestTurn = latestUserIndex >= 0;
-            final itemCount = hasLatestTurn
-                ? latestUserIndex + 1
-                : messageOrder.length;
+            /// 最新轮拍平后的单个 part 项（视口外的 part 由 ListView 跳过构建）
+            Widget buildFlattenedPartItem(
+              int msgIndex,
+              api.PartInfo part, {
+              required bool isFirstPartOfMsg,
+              required bool isLastItem,
+            }) {
+              final msgId = messageOrder[msgIndex];
+              final role = messageRoles[msgId] ?? '';
+              Widget item = ChatMessageItem(
+                key: ValueKey('${msgId}_${part.id}'),
+                sessionId: sessionId,
+                msgId: msgId,
+                role: role,
+                parts: [part],
+                streaming: isStreaming,
+                modelName: isFirstPartOfMsg ? messageModels[msgId] : null,
+                dimmed: focusedIndex >= 0 && msgIndex > focusedIndex,
+                onFocusChanged: (focused) {
+                  focusedMsgId.value = focused ? msgId : null;
+                },
+                onRetry: (msgId, newContent, imagePaths, imageNames) {
+                  final mgr = SessionStore.instance;
+                  mgr.retryMessage(
+                    sessionId: sessionId,
+                    msgId: msgId,
+                    newPrompt: newContent,
+                    provider: ConfigStore.instance.currentProvider.value,
+                    model: ConfigStore.instance.currentModel.value,
+                    imagePaths: imagePaths,
+                    imageNames: imageNames,
+                  );
+                },
+              );
+              if (isLastItem) {
+                // 先包 _StreamingMessage（loading 距内容 20px，与历史结构一致），
+                // 再包底部间距 —— 顺序反了会把 loading 推到内容下方 60px 处
+                if (isStreaming) {
+                  item = _StreamingMessage(child: item);
+                }
+                item = Padding(
+                  padding: const EdgeInsets.only(bottom: _listBottomSpacing),
+                  child: item,
+                );
+              }
+              return item;
+            }
 
             final listView = ListView.builder(
               controller: scrollController,
@@ -451,49 +410,40 @@ class _MessageList extends StatelessWidget {
               ),
               itemCount: itemCount,
               itemBuilder: (context, index) {
+                // 最新轮之前的历史消息：消息级 item
                 if (!hasLatestTurn || index < latestUserIndex) {
                   return buildMessage(index);
                 }
-
-                final assistantMessages = <Widget>[
-                  for (int i = latestUserIndex + 1;
-                      i < messageOrder.length;
-                      i++)
-                    buildMessage(i),
-                  if (isStreaming &&
-                      latestUserIndex == messageOrder.length - 1)
-                    const _StandaloneStreamingIndicator(),
-                  const SizedBox(height: _listBottomSpacing),
-                ];
-
-                return ValueListenableBuilder<double>(
-                  valueListenable: viewHeight.value,
-                  builder: (context, height, _) {
-                    final minLatestHeight = latestUserIndex > 0
-                        ? height
-                        : height - custom.spacing.sm;
-                    return _LatestTurnLayout(
-                      minHeight: minLatestHeight,
-                      user: buildMessage(
-                        latestUserIndex,
-                        showStreamingIndicator: false,
-                      ),
-                      assistant: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: assistantMessages,
-                      ),
-                    );
-                  },
+                // 最新轮的用户消息：单独 item（loading 指示器不挂在用户消息上）
+                if (index == latestUserIndex) {
+                  return buildMessage(
+                    latestUserIndex,
+                    showStreamingIndicator: false,
+                  );
+                }
+                // 最新轮的 assistant parts：拍平后每个 part 一个 item，
+                // ListView 只构建视口内（+cacheExtent）的部分 —— part 级虚拟化
+                final flatIdx = index - latestUserIndex - 1;
+                if (flatIdx < flattenedParts.length) {
+                  final (msgIndex, partIndex) = flattenedParts[flatIdx];
+                  final part = partsByMsg[messageOrder[msgIndex]]![partIndex];
+                  return buildFlattenedPartItem(
+                    msgIndex,
+                    part,
+                    isFirstPartOfMsg: partIndex == 0,
+                    isLastItem: index == itemCount - 1,
+                  );
+                }
+                // 独立流式指示器（最新一轮只有用户消息，无 assistant 内容）
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: _listBottomSpacing),
+                  child: _StandaloneStreamingIndicator(),
                 );
               },
             );
 
             return LayoutBuilder(
               builder: (context, constraints) {
-                // 每次布局更新高度通知器（resize 拖拽时触发），
-                // ValueListenableBuilder 会单独重建 _LatestTurnLayout
-                viewHeight.value.value = constraints.maxHeight;
                 return Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
