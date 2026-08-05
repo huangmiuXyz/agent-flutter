@@ -5,6 +5,7 @@
 /// - default_model（从全局已有模型列表中选择）
 /// - MCP 服务器（从全局已有 mcpServers 列表中勾选）
 /// - 技能启禁（从已扫描到的全局技能中勾选）
+/// - 运行环境提示词开关（injectEnvPrompt）
 /// - work_dir（可选）
 /// - 底部操作栏：[从全局导入] [删除] [取消] [保存]
 library;
@@ -35,6 +36,7 @@ import 'package:agent/widgets/field/app_file_path_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_multi_select.dart';
 import 'package:agent/widgets/select/app_provider_model_select.dart';
+import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 智能体编辑页。[agent] 为 null 时是创建模式。
@@ -83,6 +85,7 @@ class AgentEditPage extends HookWidget {
     final selectedTools = useState<Set<String>>({});
     final builtinToolOptions = useState<List<bridge.BuiltinToolOption>>([]);
     final enabled = useState(true);
+    final injectEnvPrompt = useState(true);
     final saving = useState(false);
     final loaded = useState(false);
 
@@ -124,6 +127,7 @@ class AgentEditPage extends HookWidget {
         nameController.text = cfg['name'] as String? ?? agent!.name;
         descController.text = cfg['description'] as String? ?? '';
         enabled.value = AgentConfigHelper.enabled(cfg);
+        injectEnvPrompt.value = AgentConfigHelper.injectEnvPrompt(cfg);
         workDirController.text = AgentConfigHelper.workDir(cfg);
         final dm = AgentConfigHelper.defaultModel(cfg);
         selectedProvider.value = dm?.provider;
@@ -200,6 +204,7 @@ class AgentEditPage extends HookWidget {
           cfg['builtinTools'] = {
             for (final id in selectedTools.value) id: {'enabled': true},
           };
+          _writeInjectEnvPrompt(cfg, injectEnvPrompt);
         } else {
           cfg['name'] = name;
           cfg['description'] = descController.text.trim();
@@ -241,6 +246,7 @@ class AgentEditPage extends HookWidget {
           cfg['builtinTools'] = {
             for (final id in selectedTools.value) id: {'enabled': true},
           };
+          _writeInjectEnvPrompt(cfg, injectEnvPrompt);
 
           // 自包含：拷贝 provider 列表与模型凭证（聊天时按此配置寻址 LLM）
           cfg['provider'] = global['provider'] ?? <String>[];
@@ -406,6 +412,14 @@ class AgentEditPage extends HookWidget {
             ],
             onChanged: (v) => selectedTools.value = v,
           ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: AppSwitch(
+            value: injectEnvPrompt.value,
+            onChanged: (v) => injectEnvPrompt.value = v,
+            label: '注入运行环境提示词（平台 / 终端 / 工作目录）',
+          ),
+        ),
         AppFilePathField(
           controller: workDirController,
           label: 'work_dir（可选）',
@@ -424,6 +438,18 @@ class AgentEditPage extends HookWidget {
           ),
       ],
     );
+  }
+
+  /// 写入 injectEnvPrompt 字段：关闭时写 false，开启时移除（Rust 端默认注入）。
+  void _writeInjectEnvPrompt(
+    Map<String, dynamic> cfg,
+    ValueNotifier<bool> injectEnvPrompt,
+  ) {
+    if (!injectEnvPrompt.value) {
+      cfg['injectEnvPrompt'] = false;
+    } else {
+      cfg.remove('injectEnvPrompt');
+    }
   }
 
   /// 写入 title_model 字段：选过则写入，未选则移除（Rust 端回退 default_model）。

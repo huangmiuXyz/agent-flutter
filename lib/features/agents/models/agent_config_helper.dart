@@ -132,6 +132,10 @@ class AgentConfigHelper {
   static int maxToolCallRounds(Map<String, dynamic> cfg) =>
       cfg['max_tool_call_rounds'] as int? ?? 100;
 
+  /// 取出是否注入「运行环境」提示词（`injectEnvPrompt`），缺省 true。
+  static bool injectEnvPrompt(Map<String, dynamic> cfg) =>
+      cfg['injectEnvPrompt'] as bool? ?? true;
+
   /// 将配置序列化为缩进 JSON（写回配置文件用）。
   static String encode(Map<String, dynamic> cfg) =>
       '${const JsonEncoder.withIndent('  ').convert(cfg)}\n';
