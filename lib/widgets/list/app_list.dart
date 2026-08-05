@@ -634,6 +634,10 @@ class AppListItem extends HookWidget {
   /// Override the label text variant.
   final AppTextVariant? labelVariant;
 
+  /// 限制 label 显示的最大行数；非 null 时超出部分以省略号截断。
+  /// null（默认）= 不限制行数，保持原有换行行为。
+  final int? labelMaxLines;
+
   /// When provided, replaces the default [AppText] label with a custom widget.
   /// The widget is placed inside an [Expanded] and inherits the item's foreground color.
   final Widget? labelWidget;
@@ -670,6 +674,7 @@ class AppListItem extends HookWidget {
     this.iconLabelGap,
     this.trailingWidget,
     this.labelVariant,
+    this.labelMaxLines,
     this.labelWidget,
     this.intrinsicHeight,
     this.onHover,
@@ -762,6 +767,10 @@ class AppListItem extends HookWidget {
                         label,
                         variant: effectiveLabelVariant,
                         color: foreground,
+                        maxLines: labelMaxLines,
+                        overflow: labelMaxLines != null
+                            ? TextOverflow.ellipsis
+                            : null,
                       ),
                 ),
                 // Build trailing content with hover actions floating on top

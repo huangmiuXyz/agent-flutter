@@ -22,6 +22,7 @@ class _NoScrollbarBehavior extends ScrollBehavior {
 class AppCard extends StatelessWidget {
   final Widget child;
   final double? minWidth;
+  final double? maxWidth;
   final double? maxHeight;
   final double? stepWidth;
   final EdgeInsetsGeometry? padding;
@@ -35,6 +36,7 @@ class AppCard extends StatelessWidget {
     super.key,
     required this.child,
     this.minWidth,
+    this.maxWidth,
     this.maxHeight,
     this.stepWidth,
     this.padding,
@@ -63,6 +65,7 @@ class AppCard extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(
           minWidth: minWidth ?? 0,
+          maxWidth: maxWidth ?? double.infinity,
           maxHeight: maxHeight ?? double.infinity,
         ),
         child: Container(

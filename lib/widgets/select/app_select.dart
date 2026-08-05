@@ -63,6 +63,10 @@ class AppSelect<T> extends HookWidget {
   /// Maximum height of the dropdown menu.
   final double menuMaxHeight;
 
+  /// 下拉面板的最大宽度；null（默认）= 跟随输入框宽度，不限制。
+  /// 内容超过该宽度时由菜单项以省略号截断显示。
+  final double? menuMaxWidth;
+
   const AppSelect({
     super.key,
     this.value,
@@ -74,6 +78,7 @@ class AppSelect<T> extends HookWidget {
     required this.options,
     this.onChanged,
     this.menuMaxHeight = 300,
+    this.menuMaxWidth,
   });
 
   /// Build the dropdown menu items, grouping by [AppSelectOption.group].
@@ -97,6 +102,7 @@ class AppSelect<T> extends HookWidget {
           AppListItem(
             label: option.label,
             icon: option.icon,
+            labelMaxLines: 1,
             active: option.value == value,
             disabled: !option.enabled || !enabled,
             labelVariant: AppTextVariant.body,
@@ -191,25 +197,30 @@ class AppSelect<T> extends HookWidget {
                   : Alignment.topLeft,
               child: Material(
                 color: Colors.transparent,
-                child: SizedBox(
-                  width: dropdownWidth,
-                  child: AppCard(
-                    padding: EdgeInsets.zero,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: menuMaxHeight),
-                      child: SingleChildScrollView(
-                        child: AppList(
-                          size: AppListSize.small,
-                          containerPadding: EdgeInsets.all(
-                            custom.spacing.xs,
-                          ),
-                          children: _buildMenuItems(
-                            custom,
-                            enabled,
-                            (option) {
-                              isOpen.value = false;
-                              onChanged?.call(option.value);
-                            },
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: menuMaxWidth ?? double.infinity,
+                  ),
+                  child: SizedBox(
+                    width: dropdownWidth,
+                    child: AppCard(
+                      padding: EdgeInsets.zero,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: menuMaxHeight),
+                        child: SingleChildScrollView(
+                          child: AppList(
+                            size: AppListSize.small,
+                            containerPadding: EdgeInsets.all(
+                              custom.spacing.xs,
+                            ),
+                            children: _buildMenuItems(
+                              custom,
+                              enabled,
+                              (option) {
+                                isOpen.value = false;
+                                onChanged?.call(option.value);
+                              },
+                            ),
                           ),
                         ),
                       ),

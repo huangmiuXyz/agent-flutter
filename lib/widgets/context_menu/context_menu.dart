@@ -81,6 +81,7 @@ class ContextMenu {
   static Offset? _lastPosition;
   static List<MenuItem>? _lastItems;
   static double? _lastMinWidth;
+  static double? _lastMaxWidth;
   static double? _lastMaxHeight;
   static bool _lastAutoFocus = true;
   static LayerLink? _lastLink;
@@ -113,6 +114,7 @@ class ContextMenu {
     required Offset position,
     required List<MenuItem> items,
     double? minWidth,
+    double? maxWidth,
     double? maxHeight,
     bool autoFocus = true,
     LayerLink? link,
@@ -124,6 +126,7 @@ class ContextMenu {
     _lastPosition = position;
     _lastItems = items;
     _lastMinWidth = minWidth;
+    _lastMaxWidth = maxWidth;
     _lastMaxHeight = maxHeight;
     _lastAutoFocus = autoFocus;
     _lastLink = link;
@@ -150,6 +153,7 @@ class ContextMenu {
         position: _lastPosition!,
         items: _lastItems!,
         minWidth: _lastMinWidth,
+        maxWidth: _lastMaxWidth,
         maxHeight: _lastMaxHeight,
         link: _lastLink,
         autoFocus: _lastAutoFocus,
@@ -196,6 +200,7 @@ class _MenuOverlay extends HookWidget {
   final Offset position;
   final List<MenuItem> items;
   final double? minWidth;
+  final double? maxWidth;
   final double? maxHeight;
   final bool autoFocus;
   final LayerLink? link;
@@ -208,6 +213,7 @@ class _MenuOverlay extends HookWidget {
     required this.items,
     required this.onDismiss,
     this.minWidth,
+    this.maxWidth,
     this.maxHeight,
     this.autoFocus = true,
     this.link,
@@ -267,6 +273,7 @@ class _MenuOverlay extends HookWidget {
             key: menuKey.value,
             items: items,
             minWidth: minWidth,
+            maxWidth: maxWidth,
             maxHeight: maxHeight,
             autoFocus: autoFocus,
             onDismiss: onDismiss,
@@ -326,6 +333,7 @@ class _MenuOverlay extends HookWidget {
 class _MenuPanel extends HookWidget {
   final List<MenuItem> items;
   final double? minWidth;
+  final double? maxWidth;
   final double? maxHeight;
   final bool autoFocus;
   final VoidCallback onDismiss;
@@ -335,6 +343,7 @@ class _MenuPanel extends HookWidget {
     required this.items,
     required this.onDismiss,
     this.minWidth,
+    this.maxWidth,
     this.maxHeight,
     this.autoFocus = true,
   });
@@ -396,6 +405,7 @@ class _MenuPanel extends HookWidget {
       return AppListItem(
         icon: item.icon,
         label: item.label,
+        labelMaxLines: 1,
         trailing: hasSubmenu ? null : item.shortcut,
         disabled: !item.enabled,
         active: item.selected,
@@ -503,6 +513,7 @@ class _MenuPanel extends HookWidget {
 
     return AppCard(
       minWidth: minWidth ?? custom.controls.contextMenuMinWidth,
+      maxWidth: maxWidth,
       maxHeight: maxMenuHeight,
       backgroundColor: custom.colors.menuBackground,
       border: Border.all(color: custom.colors.menuBorder, width: 1),

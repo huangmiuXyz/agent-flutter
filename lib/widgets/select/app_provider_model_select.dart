@@ -13,6 +13,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/select/app_select.dart';
 
 /// 表单用模型选择器（[AppSelect] 样式 + 提供商分组）。
@@ -65,6 +66,7 @@ class AppProviderModelSelect extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
     // 监听全局配置变化，确保选项在跨窗口同步后刷新
     useExistingSignal(ConfigStore.instance.data);
     final allData = ConfigStore.instance.data.value;
@@ -86,6 +88,7 @@ class AppProviderModelSelect extends HookWidget {
       placeholder: placeholder,
       value: value,
       options: options,
+      menuMaxWidth: custom.controls.contextMenuMaxWidth,
       onChanged: onChanged,
     );
   }

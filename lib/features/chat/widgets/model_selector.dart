@@ -17,6 +17,7 @@ class ModelSelector extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
     final currentProvider =
         useExistingSignal(ConfigStore.instance.currentProvider);
     final currentModel = useExistingSignal(ConfigStore.instance.currentModel);
@@ -75,6 +76,7 @@ class ModelSelector extends HookWidget {
       value: currentValue,
       placeholder: '选择模型',
       data: items,
+      menuMaxWidth: custom.controls.contextMenuMaxWidth,
       onChanged: onModelChanged,
     );
   }

@@ -21,6 +21,9 @@ class ReactiveAppSelect<T> extends ReactiveFormField<T, T> {
   /// Maximum height of the dropdown menu.
   final double menuMaxHeight;
 
+  /// Maximum width of the dropdown menu; null = follow the field width.
+  final double? menuMaxWidth;
+
   ReactiveAppSelect({
     super.key,
     required super.formControlName,
@@ -32,6 +35,7 @@ class ReactiveAppSelect<T> extends ReactiveFormField<T, T> {
     this.label,
     this.size = FieldSize.md,
     this.menuMaxHeight = 300,
+    this.menuMaxWidth,
   }) : super(
           builder: (ReactiveFormFieldState<T, T> field) {
             final state = field;
@@ -46,6 +50,7 @@ class ReactiveAppSelect<T> extends ReactiveFormField<T, T> {
               size: w.size,
               options: w.options,
               menuMaxHeight: w.menuMaxHeight,
+              menuMaxWidth: w.menuMaxWidth,
               onChanged: (value) {
                 state.didChange(value);
               },

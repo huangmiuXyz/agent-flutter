@@ -183,6 +183,7 @@ class AppControls {
     // Context menu
     this.contextMenuMinWidth = 128,
     this.contextMenuSubmenuWidth = 192,
+    this.contextMenuMaxWidth = 320,
     // Tab bar
     this.tabAddButtonWidth = 28,
     // Execute panel
@@ -205,6 +206,7 @@ class AppControls {
   final double dialogWidth;
   final double contextMenuMinWidth;
   final double contextMenuSubmenuWidth;
+  final double contextMenuMaxWidth;
   final double tabAddButtonWidth;
   final double executePanelHeight;
   final double footerHeight;
@@ -231,6 +233,11 @@ class AppControls {
         contextMenuSubmenuWidth: lerpDouble(
           a.contextMenuSubmenuWidth,
           b.contextMenuSubmenuWidth,
+          t,
+        )!,
+        contextMenuMaxWidth: lerpDouble(
+          a.contextMenuMaxWidth,
+          b.contextMenuMaxWidth,
           t,
         )!,
         tabAddButtonWidth: lerpDouble(

@@ -79,6 +79,10 @@ class PanelSelector<T> extends HookWidget {
   /// Minimum width of the dropdown menu.
   final double menuMinWidth;
 
+  /// 下拉面板的最大宽度；null（默认）= 不限制。
+  /// 内容超过该宽度时由菜单项以省略号截断显示。
+  final double? menuMaxWidth;
+
   /// 是否拉满父级宽度并将内容左对齐（表单场景用，与输入框对齐）；
   /// 默认 false：内容宽度 + 居中（工具栏按钮风格）。
   final bool fullWidth;
@@ -92,6 +96,7 @@ class PanelSelector<T> extends HookWidget {
     this.onChanged,
     this.onBeforeOpen,
     this.menuMinWidth = 160,
+    this.menuMaxWidth,
     this.fullWidth = false,
   });
 
@@ -222,6 +227,7 @@ class PanelSelector<T> extends HookWidget {
           context,
           position: lastPosition.value!,
           minWidth: menuMinWidth,
+          maxWidth: menuMaxWidth,
           link: layerLink,
           alignRight: lastAlignRight.value,
           items: buildMenuItems(),
@@ -263,6 +269,7 @@ class PanelSelector<T> extends HookWidget {
         context,
         position: position,
         minWidth: menuMinWidth,
+        maxWidth: menuMaxWidth,
         link: layerLink,
         alignRight: alignRight,
         items: buildMenuItems(),
