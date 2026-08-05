@@ -317,7 +317,12 @@ class _MessageList extends StatelessWidget {
                 msgId: msgId,
                 role: role,
                 parts: parts,
-                streaming: isStreaming,
+                // 历史消息（含最新轮的用户消息）一律静态渲染：streaming
+                // 只对正在流式的 assistant 消息（buildFlattenedPartItem）
+                // 生效。若按会话级 isStreaming 传值，每次发送新消息都会
+                // 让全部历史消息切到流式模式 —— Streamdown 重建管线后
+                // 异步重放全文，产生 1-2 帧空白，表现为发送时界面闪烁。
+                streaming: false,
                 modelName: isFirstInTurn[index] == true
                     ? messageModels[msgId]
                     : null,
