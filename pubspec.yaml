@@ -21,7 +21,8 @@ dependencies:
   ansi_strip: ^0.1.1+1
   desktop_drop: ^0.7.1
   flutter_rust_bridge: 2.12.0
-  streamdown: ^0.1.1
+  streamdown:
+    path: .patches/streamdown
   fleather: ^1.27.0
   signals: ^7.1.0
   signals_flutter: ^7.1.0

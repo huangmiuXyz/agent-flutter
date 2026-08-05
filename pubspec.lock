@@ -980,10 +980,9 @@ packages:
   streamdown:
     dependency: "direct main"
     description:
-      name: streamdown
-      sha256: fe430a33ddc45f0653eb74846e93a03d42ca8ea3d8a590a2e87b5a2428a63e20
-      url: "https://pub.dev"
-    source: hosted
+      path: ".patches/streamdown"
+      relative: true
+    source: path
     version: "0.1.1"
   string_scanner:
     dependency: transitive

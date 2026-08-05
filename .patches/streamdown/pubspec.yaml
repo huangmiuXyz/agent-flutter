@@ -1,0 +1,35 @@
+name: streamdown
+description: Flicker-free streaming markdown renderer for Flutter AI apps. Drop-in replacement for flutter_markdown with no flash on partial code fences, tables, or LaTeX.
+version: 0.1.1
+homepage: https://github.com/jayu1023/streamdown
+repository: https://github.com/jayu1023/streamdown
+issue_tracker: https://github.com/jayu1023/streamdown/issues
+
+topics:
+  - ai
+  - markdown
+  - streaming
+  - llm
+  - openai
+
+screenshots:
+  - description: 'Split-screen demo — flutter_markdown (left) vs streamdown (right) on the same OpenAI-style stream.'
+    path: example/screenshots/split_screen_demo.gif
+
+environment:
+  sdk: ^3.9.2
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_highlight: ^0.7.0
+  url_launcher: ^6.3.0
+  flutter_math_fork: ^0.7.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:

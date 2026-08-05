@@ -88,9 +88,9 @@ class ChatTextPart extends HookWidget {
     }
 
     // ── 流式增量渲染 ──
-    // streamdown 的流式管线按行渲染：完整行随到达立即渲染，正在输入中
-    // 的未完成行（无换行）由 tokenizer 缓冲，换行后才显示 —— 不单独
-    // 渲染「未完成行」，避免出现未渲染/游离的文本行。
+    // streamdown 的流式管线按行渲染：完整行随到达立即渲染；正在输入中
+    // 的未完成行（无换行）由 tokenizer 缓冲，并通过 provisional 渲染
+    // 即时显示（随内容增长原位替换），换行后按真实 markdown 语义定型。
     final controller = controllerRef.value ??= MarkdownPreviewController();
     final prevText = textRef.value;
     if (text.length > prevText.length && text.startsWith(prevText)) {

@@ -1,0 +1,27 @@
+name: streamdown_example
+description: Example app for the streamdown package — six runnable scenarios.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # The package under test, pulled via path so changes flow through immediately.
+  streamdown:
+    path: ../
+
+  # The baseline we're replacing in the headline comparison scenario.
+  flutter_markdown: ^0.7.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
