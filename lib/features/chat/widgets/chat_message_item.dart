@@ -352,6 +352,8 @@ class ChatMessageItem extends HookWidget {
 
   bool _isVisiblePart(api.PartInfo part) {
     if (part.partType == PartTypes.toolResult) return false;
+    // 工具返回的图片消息：仅模型上下文可见，前端不渲染
+    if (part.partType == PartTypes.toolImage) return false;
     if (part.partType == PartTypes.text) {
       return part.content.isNotEmpty;
     }

@@ -25,6 +25,9 @@ class PartTypes {
   /// 用户消息中的图片附件（content 为 `File/` 目录下的文件名）
   static const image = 'image';
 
+  /// 工具返回的图片消息（仅模型上下文可见，前端不渲染）
+  static const toolImage = 'tool_image';
+
   /// 消息是否只包含工具类 part（纯工具消息在消息列表中不占位）。
   static bool isToolOnly(List<api.PartInfo> parts) => parts.every(
     (p) => p.partType == toolResult || p.partType == toolCallFrag,
