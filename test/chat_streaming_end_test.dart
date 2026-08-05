@@ -76,4 +76,25 @@ void main() {
     await pumpChatTextPart(tester, content: '已完成行\n未完成\n', streaming: true);
     expect(find.textContaining('未完成'), findsWidgets);
   });
+
+  testWidgets('第一条消息完成后再切回流式（第二条消息流式中），内容不应消失', (tester) async {
+    const content = '第一条回复\n第二段\n';
+
+    // 第一条消息流式中
+    await pumpChatTextPart(tester, content: content, streaming: true);
+    expect(find.textContaining('第一条回复'), findsWidgets);
+
+    // 第一条消息流式结束（Done）→ 全量渲染
+    await pumpChatTextPart(tester, content: content, streaming: false);
+    expect(find.textContaining('第二段'), findsWidgets);
+
+    // 第二条消息开始流式 → 整个会话 streaming=true，本条消息切回流式模式。
+    // 复用了旧 controller（内容相同无增量），Streamdown 重建管线后重新
+    // 订阅旧 stream —— 广播流不重放历史事件，内容会丢失。
+    await pumpChatTextPart(tester, content: content, streaming: true);
+    expect(find.textContaining('第一条回复'), findsWidgets,
+        reason: '切回流式模式后内容不应消失');
+    expect(find.textContaining('第二段'), findsWidgets,
+        reason: '切回流式模式后已渲染内容应保持可见');
+  });
 }

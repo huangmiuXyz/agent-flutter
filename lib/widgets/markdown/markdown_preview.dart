@@ -32,19 +32,22 @@ class MarkdownPreviewController {
   late final StreamController<String> _controller;
   final StringBuffer _buffer = StringBuffer();
 
-  /// 订阅建立前 append 的增量缓存：broadcast 流不会重放历史事件，
-  /// 首个监听者出现时（Streamdown 挂载订阅）一次性重放，避免丢内容。
-  final List<String> _pending = [];
+  /// 是否正在重放（防止 onListen 重入）。
   bool _replaying = false;
 
   MarkdownPreviewController() {
     _controller = StreamController<String>.broadcast(onListen: () {
+      // 广播流不重放历史事件。每次 0→1 个监听者（Streamdown 重建管线
+      // 后重新订阅）都必须拿到完整内容：订阅前 append 的、以及此前
+      // 已投递过但新管线从未见过的，都累积在 _buffer 里，一次性重放。
+      // 否则完成态消息在下一轮会话流式中被切回流式模式时（复用旧
+      // controller、无新增量），新管线收不到任何事件 → 内容消失。
       if (_replaying) return;
       _replaying = true;
-      for (final chunk in _pending) {
-        _controller.add(chunk);
+      final full = _buffer.toString();
+      if (full.isNotEmpty) {
+        _controller.add(full);
       }
-      _pending.clear();
       _replaying = false;
     });
   }
@@ -64,9 +67,8 @@ class MarkdownPreviewController {
       _buffer.write(chunk);
       if (_controller.hasListener) {
         _controller.add(chunk);
-      } else {
-        _pending.add(chunk);
       }
+      // 无监听者时内容已写入 _buffer，订阅时由 onListen 整体重放
     }
   }
 
