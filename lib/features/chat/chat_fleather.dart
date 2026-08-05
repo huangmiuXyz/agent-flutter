@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fleather/fleather.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -338,8 +339,10 @@ class _ChatFleatherState extends State<ChatFleather> {
         heightFactor: 1,
         // 视觉微调：chip 在行内略偏上，向下移动 1px
         // （占位与行高一致，Transform 只影响绘制，光标位置不受影响）
+        // Windows 文本基线位置与 macOS 不同（DirectWrite vs CoreText），
+        // 同一偏移下 chip 在 Windows 视觉偏下，按平台区分偏移量。
         child: Transform.translate(
-          offset: const Offset(0, 1),
+          offset: _imageChipOffset(),
           child: GestureDetector(
             onTap: () => _showImagePreview(context, path),
             child: Container(
@@ -390,6 +393,19 @@ class _ChatFleatherState extends State<ChatFleather> {
         ),
       ),
     );
+  }
+
+  /// 平台相关的 chip 垂直偏移（仅影响绘制，不影响光标/布局）。
+  ///
+  /// macOS 保持原偏移；Windows 文本基线整体偏低，chip 视觉偏下，
+  /// 需要上移补偿（数值按实际观感微调）。
+  Offset _imageChipOffset() {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.windows:
+        return const Offset(0, -1);
+      default:
+        return const Offset(0, 1);
+    }
   }
 
   void _showImagePreview(BuildContext context, String path) {
