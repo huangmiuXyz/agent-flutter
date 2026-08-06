@@ -38,7 +38,7 @@ class _KeepAtBottomPhysics extends ScrollPhysics {
   }) {
     if (savedMaxExtent != null) {
       final growth = newPosition.maxScrollExtent - savedMaxExtent!;
-      if (growth.abs() > 0.5) {
+      if (growth.abs() > 0) {
         // 用户在底部 → 滚到新底部
         return newPosition.maxScrollExtent;
       }
@@ -185,9 +185,7 @@ class ChatContent extends StatelessWidget {
             // 必须由这里显式给出，不能靠内部 Expanded 自动撑满。
             return SizedBox(
               key: const ValueKey('inputSlot'),
-              height: maxH.isFinite
-                  ? maxH
-                  : MediaQuery.sizeOf(context).height,
+              height: maxH.isFinite ? maxH : MediaQuery.sizeOf(context).height,
               child: ChatInput(fullHeight: true),
             );
           },
@@ -240,8 +238,8 @@ class _MessageList extends StatelessWidget {
               void onScroll() {
                 if (!scrollController.hasClients) return;
                 final pos = scrollController.position;
-                // 视口底下没剩内容（<=1px）即贴底
-                isPinnedRef.value = pos.extentAfter <= 1.0;
+                // 视口底下没剩内容（== 0）即贴底
+                isPinnedRef.value = pos.extentAfter <= 0;
                 if (pos.extentAfter > 0) {
                   savedMaxExtent.value = null;
                 }
@@ -251,21 +249,13 @@ class _MessageList extends StatelessWidget {
               return () => scrollController.removeListener(onScroll);
             }, [scrollController]);
 
-            /// 收敛式跳到底部：ListView 懒加载时 maxScrollExtent 是估算值
-            /// （只基于已布局的 item），一次 jumpTo 到不了真实底部；
-            /// 跳完后布局更新、估算值修正，递归再跳直到真正到底
-            /// （extentAfter == 0）。这样最新内容（流式文本/新 part）
-            /// 始终在视口内逐字渲染，而不是在视口外积累后整段出现。
-            void jumpToBottomRecursive(int depth) {
-              if (!scrollController.hasClients || depth <= 0) return;
+            /// 直接跳到底部。ListView 懒加载时 maxScrollExtent 是估算值，
+            /// 单次 jumpTo 可能到不了真实底部（差一小截），靠后续流式
+            /// 触发的再次跳转逐步收敛。
+            void jumpToBottom() {
+              if (!scrollController.hasClients) return;
               final p = scrollController.position;
               scrollController.jumpTo(p.maxScrollExtent);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!scrollController.hasClients) return;
-                if (scrollController.position.extentAfter > 0.5) {
-                  jumpToBottomRecursive(depth - 1);
-                }
-              });
             }
 
             // 全部消息拍平到 item 粒度（见下方「全量拍平」），视口外的
@@ -301,7 +291,8 @@ class _MessageList extends StatelessWidget {
               }
             }
             // 最新轮只有用户消息（无任何 assistant 内容）时，末尾显示独立 loading
-            final standaloneIndicator = hasLatestTurn &&
+            final standaloneIndicator =
+                hasLatestTurn &&
                 isStreaming &&
                 latestUserIndex == messageOrder.length - 1;
             final itemCount = flatItems.length + (standaloneIndicator ? 1 : 0);
@@ -319,10 +310,10 @@ class _MessageList extends StatelessWidget {
                 if (!scrollController.hasClients) return;
                 // 首次评估以实际位置为准（新会话从顶部开始 → 不贴底 → 不跳）
                 isPinnedRef.value ??=
-                    scrollController.position.extentAfter <= 1.0;
+                    scrollController.position.extentAfter <= 0;
                 // 贴底才跟随：用户在中间翻历史时不拽回底部
                 if (isPinnedRef.value != true) return;
-                jumpToBottomRecursive(3);
+                jumpToBottom();
               });
               return null;
             }, [itemCount]);
@@ -348,8 +339,8 @@ class _MessageList extends StatelessWidget {
                   // 用户滚动离开底部后（extentAfter > 0）不再打扰。
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!scrollController.hasClients) return;
-                    if (scrollController.position.extentAfter > 0.5) {
-                      jumpToBottomRecursive(2);
+                    if (scrollController.position.extentAfter > 0) {
+                      jumpToBottom();
                     }
                   });
                 }
@@ -446,9 +437,8 @@ class _MessageList extends StatelessWidget {
                 role: messageRoles[msgId] ?? '',
                 parts: [part],
                 // 仅最新轮的 assistant 消息流式渲染
-                streaming: hasLatestTurn &&
-                    msgIndex > latestUserIndex &&
-                    isStreaming,
+                streaming:
+                    hasLatestTurn && msgIndex > latestUserIndex && isStreaming,
                 modelName: partIndex == 0 && isFirstInTurn[msgIndex] == true
                     ? messageModels[msgId]
                     : null,
@@ -469,18 +459,13 @@ class _MessageList extends StatelessWidget {
                   );
                 },
               );
-              return wrapFlatItem(
-                item,
-                isLastItem: isLastItem,
-              );
+              return wrapFlatItem(item, isLastItem: isLastItem);
             }
 
             final listView = ListView.builder(
               controller: scrollController,
               physics: savedMaxExtent.value != null
-                  ? _KeepAtBottomPhysics(
-                      savedMaxExtent: savedMaxExtent.value,
-                    )
+                  ? _KeepAtBottomPhysics(savedMaxExtent: savedMaxExtent.value)
                   : null,
               padding: EdgeInsets.only(
                 top: 0,

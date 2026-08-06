@@ -72,7 +72,8 @@ class VirtualParagraphText extends StatefulWidget {
   final bool stickToBottom;
 
   /// Distance from the bottom (logical px) within which the viewport is
-  /// considered "pinned to bottom".
+  /// considered "pinned to bottom".  Set to 0 for strict pinning (only
+  /// when the viewport is exactly at the bottom).
   final double bottomThreshold;
 
   /// Builder for a custom paragraph widget.  When null, a plain [Text] widget
@@ -99,7 +100,7 @@ class VirtualParagraphText extends StatefulWidget {
     this.paragraphPaddingBlock = 12,
     this.paragraphGap = 8,
     this.stickToBottom = false,
-    this.bottomThreshold = 24,
+    this.bottomThreshold = 0,
     this.paragraphBuilder,
     this.emptyBuilder,
   });
@@ -224,11 +225,10 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
 
   void _scrollToBottom() {
     if (!_scrollController.hasClients || _paragraphs.isEmpty) return;
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 30),
-      curve: Curves.easeOut,
-    );
+    // 直接跳到底部。ListView 懒加载时 maxScrollExtent 是估算值，
+    // 单次 jumpTo 可能到不了真实底部（差一小截），靠后续文本更新
+    // 触发的再次跳转逐步收敛。
+    _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
   }
 
   void _maybeScrollToBottomAfterBuild() {
