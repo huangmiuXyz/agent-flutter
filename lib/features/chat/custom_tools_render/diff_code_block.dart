@@ -33,6 +33,203 @@ import 'package:agent/theme/syntax_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/highlight_text.dart';
 
+/// 增量 diff 解析器 — 只处理新增文本。
+///
+/// 流式期间每次到达的补丁文本都是「前缀追加」（相同前缀 + 新尾部），
+/// [feed] 只解析增量部分：完整行立即走状态机生成 [DiffLine]，
+/// 未完成行（无行尾换行）留在 [pending] 供渲染层原位更新。
+///
+/// 语义对齐一次性全量解析 [`DiffCodeBlock.parseDiff`]，差异仅一处：
+/// 「上下文行前缀风格」从全量多数派判定改为「首个内容行到达时定型」
+/// （流式无法预知未来行），对非规范输出（混用前缀风格）的视觉影响
+/// 仅是前缀空格是否保留。
+class DiffParser {
+  /// 已提交的完整行
+  final List<DiffLine> lines = [];
+
+  /// 文件头事件（kind, path）— 到达即记录，供纯文件操作分支增量渲染
+  final List<(DiffLineKind, String)> headers = [];
+
+  /// 是否出现过内容行（非空、非信封/文件头/@@/尾注）
+  bool hasContentLines = false;
+
+  /// 未完成行文本（无行尾换行）
+  String pending = '';
+
+  /// 是否可见内容行（含未完成行）：纯文件操作分支的判定依据。
+  /// 未完成行按全量解析语义参与分类（`+hel` 未换行也算内容行）。
+  bool get hasVisibleContent {
+    if (hasContentLines) return true;
+    final raw = pending;
+    if (raw.isEmpty) return false;
+    if (raw.startsWith('+') || raw.startsWith('-')) return true;
+    final trimmed = raw.trimLeft();
+    return trimmed.isNotEmpty &&
+        !trimmed.startsWith('***') &&
+        !trimmed.startsWith('@@') &&
+        !trimmed.startsWith('\\ No newline');
+  }
+
+  // ── 解析状态（对齐静态 _parse）──
+  Mode? _language;
+  int _oldLine = 1;
+  int _newLine = 1;
+  int _blockAdded = 0;
+  int _blockRemoved = 0;
+  // 上下文前缀风格：首个上下文行到达时定型（流式增量近似全量多数派判定）
+  bool _styleFixed = false;
+  bool _trimContextPrefix = true;
+  // 上一块（已结束）的变更统计：header 行显示的是前一块的统计（首个为 0）
+  int _lastBlockAdded = 0;
+  int _lastBlockRemoved = 0;
+
+  static final RegExp _hunkRe =
+      RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@');
+
+  /// 追加新文本（增量）：处理新出现的完整行，未完成行留待下次
+  void feed(String delta) {
+    if (delta.isEmpty) return;
+    pending += delta;
+    final nl = pending.lastIndexOf('\n');
+    if (nl < 0) return;
+    final head = pending.substring(0, nl);
+    pending = pending.substring(nl + 1);
+    // 上一轮 pending 恰好为空、本轮 delta 以换行开头时没有完整行
+    if (head.isEmpty) return;
+    for (final raw in head.split('\n')) {
+      _processLine(raw);
+    }
+  }
+
+  /// 流结束（未完成行保持可见）
+  void flush() {}
+
+  /// 未完成行按当前文本分类（不提交、不动游标/统计）
+  DiffLine? pendingLine() {
+    final raw = pending;
+    if (raw.isEmpty) return null;
+    if (raw.startsWith('+') && !raw.startsWith('+++')) {
+      return DiffLine(
+        DiffLineKind.added,
+        _contentAfterPrefix(raw),
+        _language,
+        newLineNo: _newLine,
+      );
+    }
+    if (raw.startsWith('-') && !raw.startsWith('---')) {
+      return DiffLine(
+        DiffLineKind.removed,
+        _contentAfterPrefix(raw),
+        _language,
+        oldLineNo: _oldLine,
+      );
+    }
+    final text =
+        _trimContextPrefix && raw.startsWith(' ') ? raw.substring(1) : raw;
+    return DiffLine(
+      DiffLineKind.context,
+      text,
+      _language,
+      oldLineNo: _oldLine,
+      newLineNo: _newLine,
+    );
+  }
+
+  void _processLine(String raw) {
+    // 信封行：语法噪音，不产生行
+    if (raw == '*** Begin Patch' || raw == '*** End Patch') {
+      return;
+    }
+    // hunk 头：解析行号起点（apply_patch 常见简化格式 `@@` 无参数，不重置）
+    if (raw.startsWith('@@')) {
+      final hunk = _hunkRe.firstMatch(raw);
+      if (hunk != null) {
+        _oldLine = int.parse(hunk.group(1)!);
+        _newLine = int.parse(hunk.group(2)!);
+      }
+      return;
+    }
+    // 尾注：语法噪音
+    if (raw.startsWith('\\ No newline')) {
+      return;
+    }
+    // 文件头：开启新块（提交上一个文件头、重置行号/统计/语言）
+    final header = DiffCodeBlock._headerPath(raw);
+    if (header != null) {
+      // 刚结束的块统计结算：header 行显示的是前一块的 +N −M（首个为 0）
+      _lastBlockAdded = _blockAdded;
+      _lastBlockRemoved = _blockRemoved;
+      _blockAdded = 0;
+      _blockRemoved = 0;
+      // 立即提交（此时当前块尚未有内容行，append 即块首）
+      lines.add(DiffLine(
+        header.$1,
+        header.$2,
+        null,
+        addedCount: _lastBlockAdded,
+        removedCount: _lastBlockRemoved,
+      ));
+      _language = DiffCodeBlock._modeForPath(header.$2);
+      _oldLine = 1;
+      _newLine = 1;
+      headers.add(header);
+      return;
+    }
+    // 增删行
+    if (raw.startsWith('+') && !raw.startsWith('+++')) {
+      hasContentLines = true;
+      _addLine(DiffLineKind.added, _contentAfterPrefix(raw), null, _newLine);
+      _newLine++;
+      _blockAdded++;
+      return;
+    }
+    if (raw.startsWith('-') && !raw.startsWith('---')) {
+      hasContentLines = true;
+      _addLine(DiffLineKind.removed, _contentAfterPrefix(raw), _oldLine, null);
+      _oldLine++;
+      _blockRemoved++;
+      return;
+    }
+    // 上下文行：首个上下文行即定型前缀风格（近似全量多数派判定，
+    // 流式无法预知未来行，纯 context 场景也能立即渲染）。
+    // `*** Environment ID` 等不匹配文件头的 `***` 行也在此列，
+    // 对齐原全量解析：作为上下文行渲染（不算内容行，对齐纯文件操作判定）
+    if (raw.isNotEmpty && !raw.startsWith('***')) hasContentLines = true;
+    if (!_styleFixed) {
+      _styleFixed = true;
+      _trimContextPrefix = raw.startsWith(' ');
+    }
+    _addContextLine(raw);
+  }
+
+  void _addLine(DiffLineKind kind, String text, int? oldNo, int? newNo) {
+    lines.add(DiffLine(
+      kind,
+      text,
+      _language,
+      oldLineNo: oldNo,
+      newLineNo: newNo,
+    ));
+  }
+
+  void _addContextLine(String raw) {
+    final text =
+        _trimContextPrefix && raw.startsWith(' ') ? raw.substring(1) : raw;
+    _addLine(DiffLineKind.context, text, _oldLine, _newLine);
+    _oldLine++;
+    _newLine++;
+  }
+
+  String _contentAfterPrefix(String raw) {
+    final content = raw.substring(1);
+    if (!_trimContextPrefix && content.startsWith(' ')) {
+      return content.substring(1);
+    }
+    return content;
+  }
+}
+
+
 /// Diff 视图 — apply_patch 补丁专用渲染（GitHub/VSCode diff 风格）。
 ///
 /// 隐藏全部补丁语法噪音，只呈现内容变更：
@@ -47,11 +244,14 @@ import 'package:agent/widgets/text/highlight_text.dart';
 /// 跟随亮暗主题。行首为 VSCode 式双列行号（旧 | 新，删除行显示旧行号、
 /// 新增行显示新行号，hunk 头重置、文件头归零），行号弱色且不可选中，
 /// 选中复制仅包含内容。短行背景铺满内容宽度，长行可横向滚动。
-class DiffCodeBlock extends StatelessWidget {
+class DiffCodeBlock extends StatefulWidget {
   /// Unified diff 原文（apply_patch 信封格式）
   final String diff;
 
   const DiffCodeBlock({super.key, required this.diff});
+
+  @override
+  State<DiffCodeBlock> createState() => _DiffCodeBlockState();
 
   /// 解析结果缓存：build 可被父级频繁触发（流式更新/主题切换/列表重建），
   /// 同一 diff 不重复解析。
@@ -125,33 +325,7 @@ class DiffCodeBlock extends StatelessWidget {
     return lines;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (diff.isEmpty) {
-      return const SizedBox.shrink();
-    }
 
-    final lines = parseDiff(diff);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // 短行背景铺满内容宽度（横向滚动时随内容延伸）
-        final contentWidth = constraints.maxWidth;
-
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final line in lines)
-                DiffLineView(line: line, minWidth: contentWidth),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   /// 解析 apply_patch 信封：隐藏语法噪音（信封/hunk/文件头），
   /// 行归类为增删/上下文，记录文件块语言，统一内容列前缀（对齐缩进）
@@ -318,6 +492,84 @@ class DiffCodeBlock extends StatelessWidget {
     return content;
   }
 }
+class _DiffCodeBlockState extends State<DiffCodeBlock> {
+  DiffParser _parser = DiffParser();
+
+  /// 已提交行的 widget 缓存：增量更新时只 append 新行，
+  /// 旧行 widget 实例不变 → element 复用，不重新 build/布局/高亮
+  final List<Widget> _rowWidgets = [];
+  double? _builtWidth;
+  Object? _builtTheme;
+
+  @override
+  void initState() {
+    super.initState();
+    _parser.feed(widget.diff);
+  }
+
+  @override
+  void didUpdateWidget(covariant DiffCodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final diff = widget.diff;
+    if (diff == oldWidget.diff) return;
+    if (diff.length > oldWidget.diff.length &&
+        diff.startsWith(oldWidget.diff)) {
+      // 流式纯追加：只解析增量（未完成行由 build 按最新文本原位替换）
+      _parser.feed(diff.substring(oldWidget.diff.length));
+    } else {
+      // 整体替换（重试/解码恢复/工具完成覆盖）：重置并全量解析
+      _parser = DiffParser()..feed(diff);
+      _rowWidgets.clear();
+      _builtWidth = null;
+      _builtTheme = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.diff.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final custom = CustomTheme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 短行背景铺满内容宽度（横向滚动时随内容延伸）
+        final contentWidth = constraints.maxWidth;
+        if (_builtWidth != contentWidth || !identical(_builtTheme, custom)) {
+          // 窗口尺寸/主题变化：低频全量重建
+          _builtWidth = contentWidth;
+          _builtTheme = custom;
+          _rowWidgets.clear();
+          for (final line in _parser.lines) {
+            _rowWidgets.add(DiffLineView(line: line, minWidth: contentWidth));
+          }
+        } else {
+          // 增量：只构建新完成的行
+          for (var i = _rowWidgets.length; i < _parser.lines.length; i++) {
+            _rowWidgets.add(
+              DiffLineView(line: _parser.lines[i], minWidth: contentWidth),
+            );
+          }
+        }
+        // 未完成行：随文本增长原位替换
+        final pendingLine = _parser.pendingLine();
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final row in _rowWidgets) row,
+              if (pendingLine != null)
+                DiffLineView(line: pendingLine, minWidth: contentWidth),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 
 enum DiffLineKind {
   fileAdd,

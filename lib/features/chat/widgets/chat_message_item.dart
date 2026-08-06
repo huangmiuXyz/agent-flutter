@@ -19,6 +19,7 @@ import 'chat_image_part.dart';
 import 'chat_search_part.dart';
 
 import '../custom_tools_render/chat_diff_block.dart';
+import '../custom_tools_render/patch_args_extractor.dart';
 import 'chat_text_part.dart';
 
 /// 用户消息编辑重试回调
@@ -515,26 +516,16 @@ class ChatMessageItem extends HookWidget {
 
   /// 用 diff 代码块渲染 apply_patch 的 patch 参数
   Widget _buildPatchDiff(BuildContext context, String rawArguments) {
-    // arguments 形如 {"patch": "...", "path": "...", ...}，只取 patch 字段；
-    // 解析失败（流式未完成时常见）则整段当作 diff 处理
-    String diff = rawArguments;
-    var patchReady = false;
-    try {
-      final json = jsonDecode(rawArguments);
-      if (json is Map<String, dynamic>) {
-        final patch = json['patch'];
-        if (patch is String && patch.isNotEmpty) {
-          diff = patch;
-          patchReady = true;
-        }
-      }
-    } catch (_) {}
-    // 流式早期 arguments 未完整（JSON 解析失败）时不渲染代码块，
-    // 避免把半截 JSON 当作 diff 显示成代码块
-    if (!patchReady) {
+    // 流式期间 arguments 是不断增长的半截 JSON（`{"patch": "*** Begin Patch...`），
+    // 整段 jsonDecode 必然失败；若等 JSON 完整才渲染，diff 只能在流式结束后
+    // 一次性出现（非实时）。这里容错提取 patch 字符串值：字符串未闭合
+    // （仍在流式）时取全部剩余文本，diff 随流式逐行增长；仅当 patch 键
+    // 尚未出现（极早期）或值为空时暂不渲染。
+    final patch = extractStreamingPatch(rawArguments);
+    if (patch == null || patch.isEmpty) {
       return const SizedBox.shrink();
     }
-    return ChatDiffBlock(diff: diff);
+    return ChatDiffBlock(diff: patch);
   }
 
   /// 读取工具调用名称（streaming 早期即稳定）
