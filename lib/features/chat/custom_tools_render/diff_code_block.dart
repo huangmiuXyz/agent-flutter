@@ -53,7 +53,10 @@ class DiffCodeBlock extends StatelessWidget {
 
   const DiffCodeBlock({super.key, required this.diff});
 
-  static const _lineHeight = 18.0;
+  /// 解析结果缓存：build 可被父级频繁触发（流式更新/主题切换/列表重建），
+  /// 同一 diff 不重复解析。
+  static final Map<String, List<DiffLine>> _parseCache = {};
+  static const _parseCacheLimit = 32;
 
   /// 文件扩展名 → re_highlight 语法
   static final Map<String, Mode> _extModes = {
@@ -107,24 +110,28 @@ class DiffCodeBlock extends StatelessWidget {
     return _extModes[ext] ?? _extModes[path.toLowerCase()];
   }
 
+  /// 带缓存的解析入口：同一 diff 不重复解析（build 可被父级频繁触发）
+  static List<DiffLine> parseDiff(String diff) {
+    final cached = _parseCache[diff];
+    if (cached != null) return cached;
+    final lines = _parse(diff);
+    _parseCache[diff] = lines;
+    if (_parseCache.length > _parseCacheLimit) {
+      final keys = _parseCache.keys.take(_parseCache.length ~/ 2).toList();
+      for (final key in keys) {
+        _parseCache.remove(key);
+      }
+    }
+    return lines;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (diff.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final custom = CustomTheme.of(context);
-    final colors = custom.colors;
-    final fontSize = custom.typography.captionSize;
-    final base = TextStyle(
-      fontFamily: 'JetBrainsMono',
-      fontSize: fontSize,
-      height: _lineHeight / fontSize,
-      color: colors.textPrimary,
-    );
-    final syntaxTheme = buildSyntaxTheme(colors);
-    // 行背景透明度：暗色主题下更浓（与 GitHub 亮/暗 diff 一致）
-    final bgAlpha = custom.brightness == Brightness.dark ? 0.15 : 0.08;
+    final lines = parseDiff(diff);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -137,35 +144,8 @@ class DiffCodeBlock extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (final line in _parse(diff))
-                switch (line.kind) {
-                  DiffLineKind.fileAdd ||
-                  DiffLineKind.fileUpdate ||
-                  DiffLineKind.fileDelete ||
-                  DiffLineKind.fileMove =>
-                    _FileHeader(line: line, custom: custom),
-                  DiffLineKind.added => _DiffRow(
-                    line: line,
-                    background: colors.success.withValues(alpha: bgAlpha),
-                    base: base,
-                    syntaxTheme: syntaxTheme,
-                    minWidth: contentWidth,
-                  ),
-                  DiffLineKind.removed => _DiffRow(
-                    line: line,
-                    background: colors.danger.withValues(alpha: bgAlpha),
-                    base: base,
-                    syntaxTheme: syntaxTheme,
-                    minWidth: contentWidth,
-                  ),
-                  DiffLineKind.context => _DiffRow(
-                    line: line,
-                    background: null,
-                    base: base,
-                    syntaxTheme: syntaxTheme,
-                    minWidth: contentWidth,
-                  ),
-                },
+              for (final line in lines)
+                DiffLineView(line: line, minWidth: contentWidth),
             ],
           ),
         );
@@ -175,7 +155,7 @@ class DiffCodeBlock extends StatelessWidget {
 
   /// 解析 apply_patch 信封：隐藏语法噪音（信封/hunk/文件头），
   /// 行归类为增删/上下文，记录文件块语言，统一内容列前缀（对齐缩进）
-  static List<_DiffLine> _parse(String diff) {
+  static List<DiffLine> _parse(String diff) {
     final rawLines = diff.split('\n');
     // 去掉末尾空白行：diff 常以换行结尾，split 会拆出空串，
     // 若保留会被当作空上下文行渲染成一行空的代码行
@@ -203,7 +183,7 @@ class DiffCodeBlock extends StatelessWidget {
     final trimContextPrefix =
         contextCount == 0 || prefixedContextCount > contextCount ~/ 2;
 
-    final lines = <_DiffLine>[];
+    final lines = <DiffLine>[];
     Mode? currentLanguage;
     // 行号游标：随上下文/增删行递增，hunk 头重置，文件头归零
     var oldLine = 1;
@@ -216,7 +196,7 @@ class DiffCodeBlock extends StatelessWidget {
       final header = _headerPath(raw);
       if (header != null) {
         lines.add(
-          _DiffLine(
+          DiffLine(
             header.$1,
             header.$2,
             null,
@@ -252,7 +232,7 @@ class DiffCodeBlock extends StatelessWidget {
       }
       if (raw.startsWith('+') && !raw.startsWith('+++')) {
         lines.add(
-          _DiffLine(
+          DiffLine(
             DiffLineKind.added,
             _contentAfterPrefix(raw, trimContextPrefix),
             currentLanguage,
@@ -266,7 +246,7 @@ class DiffCodeBlock extends StatelessWidget {
       }
       if (raw.startsWith('-') && !raw.startsWith('---')) {
         lines.add(
-          _DiffLine(
+          DiffLine(
             DiffLineKind.removed,
             _contentAfterPrefix(raw, trimContextPrefix),
             currentLanguage,
@@ -283,7 +263,7 @@ class DiffCodeBlock extends StatelessWidget {
           ? raw.substring(1)
           : raw;
       lines.add(
-        _DiffLine(
+        DiffLine(
           DiffLineKind.context,
           text,
           currentLanguage,
@@ -349,8 +329,9 @@ enum DiffLineKind {
   context,
 }
 
-class _DiffLine {
-  const _DiffLine(
+/// 单行 diff 数据（文件头行/增删行/上下文行），解析结果可缓存共享
+class DiffLine {
+  const DiffLine(
     this.kind,
     this.text,
     this.language, {
@@ -381,79 +362,64 @@ class _DiffLine {
   final int removedCount;
 }
 
-/// 内容行：整行背景（铺满 [minWidth]）+ VSCode 式双列行号 + 可选中内容
-class _DiffRow extends StatelessWidget {
-  const _DiffRow({
+/// 单行 diff 渲染（文件头行/增删行/上下文行）。
+///
+/// 供 [DiffCodeBlock] 整块渲染使用；行背景铺满 [minWidth]
+/// （默认 0：tight 约束下自动填满可用宽度）。
+class DiffLineView extends StatelessWidget {
+  const DiffLineView({
+    super.key,
     required this.line,
-    required this.background,
-    required this.base,
-    required this.syntaxTheme,
-    required this.minWidth,
+    this.minWidth = 0,
   });
 
-  final _DiffLine line;
-  final Color? background;
-  final TextStyle base;
-  final Map<String, TextStyle> syntaxTheme;
+  final DiffLine line;
   final double minWidth;
 
   /// 行号列宽：3 位等宽字符（@12px ≈ 22px）
   static const _lineNoWidth = 22.0;
 
-  @override
-  Widget build(BuildContext context) {
-    final language = line.language;
-    final Widget content;
-    if (language == null || line.text.isEmpty) {
-      content = SelectableText(line.text, style: base);
-    } else {
-      content = SelectableText.rich(
-        highlightToSpan(
-          code: line.text,
-          language: language,
-          baseStyle: base,
-          theme: syntaxTheme,
-        ),
-      );
-    }
-    // 行号：弱色、不可选中（普通 Text），复制内容不含行号
-    final lineNoStyle = base.copyWith(color: base.color!.withValues(alpha: 0.45));
-    // 单列行号：新增/上下文显示新行号，删除行显示旧行号
-    final lineNo = line.newLineNo ?? line.oldLineNo;
-    return Container(
-      color: background,
-      constraints: BoxConstraints(minWidth: minWidth),
-      padding: const EdgeInsets.only(left: 8, right: 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: _lineNoWidth,
-            child: Text(
-              lineNo?.toString() ?? '',
-              style: lineNoStyle,
-              textAlign: TextAlign.right,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(child: content),
-        ],
-      ),
-    );
-  }
-}
-
-/// 文件头行：操作图标 + 路径加粗 + 变更统计（+N −M），GitHub 风格
-class _FileHeader extends StatelessWidget {
-  const _FileHeader({required this.line, required this.custom});
-
-  final _DiffLine line;
-  final CustomTheme custom;
+  static const _lineHeight = 18.0;
 
   @override
   Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
     final colors = custom.colors;
     final fontSize = custom.typography.captionSize;
+    final base = TextStyle(
+      fontFamily: 'JetBrainsMono',
+      fontSize: fontSize,
+      height: _lineHeight / fontSize,
+      color: colors.textPrimary,
+    );
+    final syntaxTheme = buildSyntaxTheme(colors);
+
+    return switch (line.kind) {
+      DiffLineKind.fileAdd ||
+      DiffLineKind.fileUpdate ||
+      DiffLineKind.fileDelete ||
+      DiffLineKind.fileMove => _buildFileHeader(custom, fontSize),
+      DiffLineKind.added => _buildRow(
+        base,
+        syntaxTheme,
+        colors.success.withValues(
+          alpha: custom.brightness == Brightness.dark ? 0.15 : 0.08,
+        ),
+      ),
+      DiffLineKind.removed => _buildRow(
+        base,
+        syntaxTheme,
+        colors.danger.withValues(
+          alpha: custom.brightness == Brightness.dark ? 0.15 : 0.08,
+        ),
+      ),
+      DiffLineKind.context => _buildRow(base, syntaxTheme, null),
+    };
+  }
+
+  /// 文件头行：操作图标 + 路径加粗 + 变更统计（+N −M），GitHub 风格
+  Widget _buildFileHeader(CustomTheme custom, double fontSize) {
+    final colors = custom.colors;
     // 操作类型 → 图标 + 操作色（新建绿 / 修改琥珀 / 删除红 / 移动强调）
     final (iconName, color) = switch (line.kind) {
       DiffLineKind.fileAdd => ('filePlus', colors.success),
@@ -464,7 +430,7 @@ class _FileHeader extends StatelessWidget {
     final base = TextStyle(
       fontFamily: 'JetBrainsMono',
       fontSize: fontSize,
-      height: DiffCodeBlock._lineHeight / fontSize,
+      height: _lineHeight / fontSize,
       color: colors.textPrimary,
     );
 
@@ -503,6 +469,53 @@ class _FileHeader extends StatelessWidget {
                 ),
               ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// 内容行：整行背景（铺满 [minWidth]）+ VSCode 式行号 + 可选中内容
+  Widget _buildRow(
+    TextStyle base,
+    Map<String, TextStyle> syntaxTheme,
+    Color? background,
+  ) {
+    final Widget content;
+    if (line.language == null || line.text.isEmpty) {
+      content = SelectableText(line.text, style: base, maxLines: 1);
+    } else {
+      content = SelectableText.rich(
+        highlightToSpan(
+          code: line.text,
+          language: line.language!,
+          baseStyle: base,
+          theme: syntaxTheme,
+        ),
+        style: base,
+        maxLines: 1,
+      );
+    }
+    // 行号：弱色、不可选中（普通 Text），复制内容不含行号
+    final lineNoStyle = base.copyWith(color: base.color!.withValues(alpha: 0.45));
+    // 单列行号：新增/上下文显示新行号，删除行显示旧行号
+    final lineNo = line.newLineNo ?? line.oldLineNo;
+    return Container(
+      color: background,
+      constraints: BoxConstraints(minWidth: minWidth),
+      padding: const EdgeInsets.only(left: 8, right: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: _lineNoWidth,
+            child: Text(
+              lineNo?.toString() ?? '',
+              style: lineNoStyle,
+              textAlign: TextAlign.right,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(child: content),
         ],
       ),
     );

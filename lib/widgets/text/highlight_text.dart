@@ -22,6 +22,22 @@ Highlight _highlightFor(Mode language) {
   );
 }
 
+/// 已高亮 token 树缓存：`Highlight.highlight()`（正则匹配构建 token 树）
+/// 是开销主体，`render()` 仅遍历 token 树生成 TextSpan，开销可忽略。
+/// 结果与样式无关（样式在 render 时注入），主题切换无需失效。
+/// 流式半截文本会产生大量一次性条目，用有界 FIFO 缓存淘汰。
+final Map<String, HighlightResult> _resultCache = {};
+const _resultCacheLimit = 512;
+
+/// 超出容量时删除最早插入的一半（Dart Map 保持插入序）
+void _trimCache<T>(Map<String, T> cache, int limit) {
+  if (cache.length <= limit) return;
+  final keys = cache.keys.take(cache.length ~/ 2).toList();
+  for (final key in keys) {
+    cache.remove(key);
+  }
+}
+
 /// 将 [code] 按 [language] 高亮为 TextSpan（供自定义布局复用）。
 ///
 /// 未匹配任何语法规则的内容回退为 [baseStyle]；主题表缺失的 scope 同理。
@@ -35,10 +51,13 @@ TextSpan highlightToSpan({
   if (code.isEmpty) {
     return TextSpan(text: code, style: baseStyle);
   }
-  final result = _highlightFor(language).highlight(
-    code: code,
-    language: _languageName(language),
+  final name = _languageName(language);
+  final key = '$name|$code';
+  final result = _resultCache.putIfAbsent(
+    key,
+    () => _highlightFor(language).highlight(code: code, language: name),
   );
+  _trimCache(_resultCache, _resultCacheLimit);
   final renderer = TextSpanRenderer(baseStyle, theme);
   result.render(renderer);
   return renderer.span ?? TextSpan(text: code, style: baseStyle);

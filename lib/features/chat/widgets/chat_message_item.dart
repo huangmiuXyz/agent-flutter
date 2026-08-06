@@ -155,9 +155,10 @@ class _UserMessage extends HookWidget {
       focusNode.requestFocus();
     }
 
+    // 垂直方向与其他 part 一致用 xs：相邻项各贡献 xs，视觉 8px
     final messagePadding = EdgeInsets.symmetric(
       horizontal: custom.spacing.md,
-      vertical: custom.spacing.sm,
+      vertical: custom.spacing.xs,
     );
 
     return Padding(
@@ -309,6 +310,8 @@ class ChatMessageItem extends HookWidget {
     }
 
     // 模型标签（仅第一条 assistant 消息显示）
+    // 与第一个 part 在同一 item 内（共享同一份 messagePadding），
+    // 间距完全由 bottom 直接贡献：sm(8) 才能与普通 part 间距 8px 一致
     final modelBadge = modelName != null && role == 'assistant'
         ? Padding(
             padding: EdgeInsets.only(bottom: custom.spacing.sm),

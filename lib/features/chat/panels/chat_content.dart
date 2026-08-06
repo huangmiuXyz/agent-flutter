@@ -54,6 +54,27 @@ class _KeepAtBottomPhysics extends ScrollPhysics {
 
 const double _listBottomSpacing = 40;
 
+/// 拍平列表 item：用户消息整条 / assistant 单个 part。
+/// 全部消息按此拍平后，消息列表只在视口内构建 item（列表级虚拟化）。
+sealed class _FlatItem {
+  const _FlatItem();
+}
+
+/// 整条消息一个 item（用户消息：编辑卡片需要全部 parts 一起渲染）
+final class _FlatMessageItem extends _FlatItem {
+  const _FlatMessageItem(this.msgIndex);
+
+  final int msgIndex;
+}
+
+/// assistant 消息的单个 part
+final class _FlatPartItem extends _FlatItem {
+  const _FlatPartItem(this.msgIndex, this.partIndex);
+
+  final int msgIndex;
+  final int partIndex;
+}
+
 class _StreamingMessage extends StatelessWidget {
   final Widget child;
 
@@ -82,6 +103,32 @@ class _StandaloneStreamingIndicator extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 与 [ChatMessageItem] 的可见性规则一致：不可见的 part 在拍平时直接
+/// 跳过，避免渲染成 SizedBox.shrink 后仍占位产生幻影间距。
+bool _isPartVisible(api.PartInfo part) {
+  if (part.partType == PartTypes.toolResult) return false;
+  // 工具返回的图片消息：仅模型上下文可见，前端不渲染
+  if (part.partType == PartTypes.toolImage) return false;
+  if (part.partType == PartTypes.text) {
+    return part.content.isNotEmpty;
+  }
+  if (part.partType == PartTypes.reasoning) {
+    return part.content.isNotEmpty;
+  }
+  if (part.partType == PartTypes.webSearch) {
+    return part.content.isNotEmpty;
+  }
+  if (part.partType == PartTypes.subAgentText) {
+    return part.content.isNotEmpty;
+  }
+  if (part.partType == PartTypes.image) {
+    return part.content.isNotEmpty;
+  }
+  // tool_call / tool_call_frag 是同一个调用生命周期内的两种状态，都展示
+  return part.partType == PartTypes.toolCall ||
+      part.partType == PartTypes.toolCallFrag;
 }
 
 /// 聊天内容区 — 消息列表 + 队列面板 + 输入框
@@ -184,14 +231,18 @@ class _MessageList extends StatelessWidget {
             final scrollController = useScrollController();
             final focusedMsgId = useState<String?>(null);
             final savedMaxExtent = useRef<double?>(null);
-            // 切换 session 时：先隐藏 ListView → jumpTo 底部 → 再显示
-            final isListVisible = useState(false);
+            // 用户是否贴底（流式跟随的条件）：滚动时实时更新，
+            // 初始挂载后首次评估时惰性初始化（以实际位置为准）。
+            final isPinnedRef = useRef<bool?>(null);
 
-            // 监听滚动位置，离开底部时清空 physics 保留位
+            // 监听滚动位置：更新贴底状态；离开底部时清空 physics 保留位
             useEffect(() {
               void onScroll() {
                 if (!scrollController.hasClients) return;
-                if (scrollController.position.extentAfter > 0) {
+                final pos = scrollController.position;
+                // 视口底下没剩内容（<=1px）即贴底
+                isPinnedRef.value = pos.extentAfter <= 1.0;
+                if (pos.extentAfter > 0) {
                   savedMaxExtent.value = null;
                 }
               }
@@ -217,16 +268,8 @@ class _MessageList extends StatelessWidget {
               });
             }
 
-            // ── 切换 session：先隐藏 → 收敛跳到底部 → 再显示 ──
-            useEffect(() {
-              isListVisible.value = false;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                jumpToBottomRecursive(3);
-                isListVisible.value = true;
-              });
-              return null;
-            }, [sessionId]);
-            // 让 ListView 在 part 粒度上虚拟化。若把整轮打包进单个 item
+            // 全部消息拍平到 item 粒度（见下方「全量拍平」），视口外的
+            // item 由 ListView 跳过构建。若把整轮打包进单个 item
             // （旧 _LatestTurnLayout 方案），一轮内数百/上千个 parts（工具
             // 调用卡片等）每帧全量构建+布局，虚拟滚动完全失效 ——
             // 实测 1000 张卡片时每帧 ~140ms。拍平后视口外的卡片不构建。
@@ -234,33 +277,51 @@ class _MessageList extends StatelessWidget {
                 ? -1
                 : messageOrder.indexOf(focusedMsgId.value!);
 
+            // ── 全量拍平 ──
+            // 用户消息整条一个 item（编辑卡片需要全部 parts 一起渲染）；
+            // assistant 消息按 part 拍平（列表只在视口内构建 item）。
             final hasLatestTurn = latestUserIndex >= 0;
-            final flattenedParts = hasLatestTurn
-                ? <(int, int)>[
-                    for (int m = latestUserIndex + 1;
-                        m < messageOrder.length;
-                        m++)
-                      for (int p = 0;
-                          p < (partsByMsg[messageOrder[m]]?.length ?? 0);
-                          p++)
-                        (m, p),
-                  ]
-                : const <(int, int)>[];
-            // 最新一轮只有用户消息（无任何 assistant 内容）时，末尾显示独立 loading
+            final flatItems = <_FlatItem>[];
+            for (var m = 0; m < messageOrder.length; m++) {
+              final msgId = messageOrder[m];
+              final parts = partsByMsg[msgId] ?? [];
+              // 纯工具类消息不占位
+              if (parts.isNotEmpty && PartTypes.isToolOnly(parts)) continue;
+              // 用户消息整条渲染（编辑/重试卡片）
+              if (messageRoles[msgId] == 'user') {
+                flatItems.add(_FlatMessageItem(m));
+                continue;
+              }
+              for (var p = 0; p < parts.length; p++) {
+                final part = parts[p];
+                // 不可见 part（toolResult/toolImage/空内容）不占位，
+                // 避免渲染成 SizedBox.shrink 后仍留下 8px 幻影间距
+                if (!_isPartVisible(part)) continue;
+                flatItems.add(_FlatPartItem(m, p));
+              }
+            }
+            // 最新轮只有用户消息（无任何 assistant 内容）时，末尾显示独立 loading
             final standaloneIndicator = hasLatestTurn &&
                 isStreaming &&
                 latestUserIndex == messageOrder.length - 1;
-            final itemCount = !hasLatestTurn
-                ? messageOrder.length
-                : latestUserIndex +
-                    1 +
-                    flattenedParts.length +
-                    (standaloneIndicator ? 1 : 0);
+            final itemCount = flatItems.length + (standaloneIndicator ? 1 : 0);
 
-            // ── 新消息/流式：只滚动到底部，不隐藏 ──
+            // ── 新消息/流式：itemCount 变化时滚到底部 ──
+            // 切换会话后首次构建不跳底（停留在对话顶部），只有 itemCount
+            // 真正变化（新消息/流式新 part）才跳。
+            final lastItemCount = useRef(itemCount);
             useEffect(() {
-              if (!isListVisible.value) return null;
+              final prevItemCount = lastItemCount.value;
+              lastItemCount.value = itemCount;
+              // 初始挂载（切换会话后首次构建）不跳底
+              if (prevItemCount == itemCount) return null;
               WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!scrollController.hasClients) return;
+                // 首次评估以实际位置为准（新会话从顶部开始 → 不贴底 → 不跳）
+                isPinnedRef.value ??=
+                    scrollController.position.extentAfter <= 1.0;
+                // 贴底才跟随：用户在中间翻历史时不拽回底部
+                if (isPinnedRef.value != true) return;
                 jumpToBottomRecursive(3);
               });
               return null;
@@ -298,79 +359,49 @@ class _MessageList extends StatelessWidget {
               };
             }, [sessionId, scrollController]);
 
-            Widget buildMessage(
-              int index, {
-              bool showStreamingIndicator = true,
+            /// 包裹拍平 item：part 间距、流式 loading、底部间距
+            /// 所有 part（含跨消息）间距统一：两侧 messagePadding xs(4)
+            /// 合计 8px，不做消息/part 分层，保证视觉完全一致。
+            Widget wrapFlatItem(
+              Widget item, {
+              required bool isLastItem,
+              // 用户消息不挂 loading（由独立流式指示器负责），避免
+              // loading 出现/消失导致用户消息子树反复重建
+              bool showStreamingLoading = true,
             }) {
-              final msgId = messageOrder[index];
-              final parts = partsByMsg[msgId] ?? [];
-              final role = messageRoles[msgId] ?? '';
-
-              // 纯工具类消息不占位
-              if (parts.isNotEmpty && PartTypes.isToolOnly(parts)) {
-                return const SizedBox.shrink();
+              if (isLastItem) {
+                // 先包 _StreamingMessage（loading 距内容 20px，与历史结构一致），
+                // 再包底部间距 —— 顺序反了会把 loading 推到内容下方 60px 处
+                if (isStreaming && showStreamingLoading) {
+                  item = _StreamingMessage(child: item);
+                }
+                item = Padding(
+                  padding: const EdgeInsets.only(bottom: _listBottomSpacing),
+                  child: item,
+                );
               }
+              return item;
+            }
 
+            /// 整条消息一个 item（用户消息：编辑/重试卡片需要全部 parts）
+            Widget buildMessageItem(int msgIndex, {required bool isLastItem}) {
+              final msgId = messageOrder[msgIndex];
+              final parts = partsByMsg[msgId] ?? [];
               final messageItem = ChatMessageItem(
                 key: ValueKey(msgId),
                 sessionId: sessionId,
                 msgId: msgId,
-                role: role,
+                role: messageRoles[msgId] ?? '',
                 parts: parts,
-                // 历史消息（含最新轮的用户消息）一律静态渲染：streaming
-                // 只对正在流式的 assistant 消息（buildFlattenedPartItem）
-                // 生效。若按会话级 isStreaming 传值，每次发送新消息都会
-                // 让全部历史消息切到流式模式 —— Streamdown 重建管线后
-                // 异步重放全文，产生 1-2 帧空白，表现为发送时界面闪烁。
+                // 历史消息（含用户消息）一律静态渲染：streaming
+                // 只对正在流式的 assistant 消息（buildPartItem）生效。
+                // 若按会话级 isStreaming 传值，每次发送新消息都会让全部
+                // 历史消息切到流式模式 —— Streamdown 重建管线后异步重放
+                // 全文，产生 1-2 帧空白，表现为发送时界面闪烁。
                 streaming: false,
-                modelName: isFirstInTurn[index] == true
+                modelName: isFirstInTurn[msgIndex] == true
                     ? messageModels[msgId]
                     : null,
-                dimmed: focusedIndex >= 0 && index > focusedIndex,
-                onFocusChanged: (focused) {
-                  focusedMsgId.value = focused ? msgId : null;
-                },
-                onRetry: (msgId, newContent, imagePaths, imageNames) {
-                  final mgr = SessionStore.instance;
-                  mgr.retryMessage(
-                    sessionId: sessionId,
-                    msgId: msgId,
-                    newPrompt: newContent,
-                    provider: ConfigStore.instance.currentProvider.value,
-                    model: ConfigStore.instance.currentModel.value,
-                    imagePaths: imagePaths,
-                    imageNames: imageNames,
-                  );
-                },
-              );
-
-              // 流式输出中，最后一条消息下方显示 loading
-              if (showStreamingIndicator &&
-                  isStreaming &&
-                  index == messageOrder.length - 1) {
-                return _StreamingMessage(child: messageItem);
-              }
-
-              return messageItem;
-            }
-
-            /// 最新轮拍平后的单个 part 项（视口外的 part 由 ListView 跳过构建）
-            Widget buildFlattenedPartItem(
-              int msgIndex,
-              api.PartInfo part, {
-              required bool isFirstPartOfMsg,
-              required bool isLastItem,
-            }) {
-              final msgId = messageOrder[msgIndex];
-              final role = messageRoles[msgId] ?? '';
-              Widget item = ChatMessageItem(
-                key: ValueKey('${msgId}_${part.id}'),
-                sessionId: sessionId,
-                msgId: msgId,
-                role: role,
-                parts: [part],
-                streaming: isStreaming,
-                modelName: isFirstPartOfMsg ? messageModels[msgId] : null,
                 dimmed: focusedIndex >= 0 && msgIndex > focusedIndex,
                 onFocusChanged: (focused) {
                   focusedMsgId.value = focused ? msgId : null;
@@ -388,18 +419,60 @@ class _MessageList extends StatelessWidget {
                   );
                 },
               );
-              if (isLastItem) {
-                // 先包 _StreamingMessage（loading 距内容 20px，与历史结构一致），
-                // 再包底部间距 —— 顺序反了会把 loading 推到内容下方 60px 处
-                if (isStreaming) {
-                  item = _StreamingMessage(child: item);
-                }
-                item = Padding(
-                  padding: const EdgeInsets.only(bottom: _listBottomSpacing),
-                  child: item,
-                );
-              }
-              return item;
+              return wrapFlatItem(
+                messageItem,
+                isLastItem: isLastItem,
+                // 用户消息不挂流式 loading（原设计：loading 指示器
+                // 不挂在用户消息上，由独立指示器/最后一条内容项负责）
+                showStreamingLoading: false,
+              );
+            }
+
+            /// assistant 消息拍平后的单个 part 项（视口外的 part 由
+            /// ListView 跳过构建 —— part 级虚拟化）
+            Widget buildPartItem(
+              int msgIndex,
+              int partIndex, {
+              required bool isLastItem,
+            }) {
+              final msgId = messageOrder[msgIndex];
+              final parts = partsByMsg[msgId] ?? [];
+              if (partIndex >= parts.length) return const SizedBox.shrink();
+              final part = parts[partIndex];
+              Widget item = ChatMessageItem(
+                key: ValueKey('${msgId}_${part.id}'),
+                sessionId: sessionId,
+                msgId: msgId,
+                role: messageRoles[msgId] ?? '',
+                parts: [part],
+                // 仅最新轮的 assistant 消息流式渲染
+                streaming: hasLatestTurn &&
+                    msgIndex > latestUserIndex &&
+                    isStreaming,
+                modelName: partIndex == 0 && isFirstInTurn[msgIndex] == true
+                    ? messageModels[msgId]
+                    : null,
+                dimmed: focusedIndex >= 0 && msgIndex > focusedIndex,
+                onFocusChanged: (focused) {
+                  focusedMsgId.value = focused ? msgId : null;
+                },
+                onRetry: (msgId, newContent, imagePaths, imageNames) {
+                  final mgr = SessionStore.instance;
+                  mgr.retryMessage(
+                    sessionId: sessionId,
+                    msgId: msgId,
+                    newPrompt: newContent,
+                    provider: ConfigStore.instance.currentProvider.value,
+                    model: ConfigStore.instance.currentModel.value,
+                    imagePaths: imagePaths,
+                    imageNames: imageNames,
+                  );
+                },
+              );
+              return wrapFlatItem(
+                item,
+                isLastItem: isLastItem,
+              );
             }
 
             final listView = ListView.builder(
@@ -415,35 +488,23 @@ class _MessageList extends StatelessWidget {
               ),
               itemCount: itemCount,
               itemBuilder: (context, index) {
-                // 最新轮之前的历史消息：消息级 item
-                if (!hasLatestTurn || index < latestUserIndex) {
-                  return buildMessage(index);
-                }
-                // 最新轮的用户消息：单独 item（loading 指示器不挂在用户消息上）
-                if (index == latestUserIndex) {
-                  return buildMessage(
-                    latestUserIndex,
-                    showStreamingIndicator: false,
-                  );
-                }
-                // 最新轮的 assistant parts：拍平后每个 part 一个 item，
-                // ListView 只构建视口内（+cacheExtent）的部分 —— part 级虚拟化
-                final flatIdx = index - latestUserIndex - 1;
-                if (flatIdx < flattenedParts.length) {
-                  final (msgIndex, partIndex) = flattenedParts[flatIdx];
-                  final part = partsByMsg[messageOrder[msgIndex]]![partIndex];
-                  return buildFlattenedPartItem(
-                    msgIndex,
-                    part,
-                    isFirstPartOfMsg: partIndex == 0,
-                    isLastItem: index == itemCount - 1,
-                  );
-                }
                 // 独立流式指示器（最新一轮只有用户消息，无 assistant 内容）
-                return const Padding(
-                  padding: EdgeInsets.only(bottom: _listBottomSpacing),
-                  child: _StandaloneStreamingIndicator(),
-                );
+                if (index >= flatItems.length) {
+                  return const Padding(
+                    padding: EdgeInsets.only(bottom: _listBottomSpacing),
+                    child: _StandaloneStreamingIndicator(),
+                  );
+                }
+                final item = flatItems[index];
+                final isLastItem = index == itemCount - 1;
+                return switch (item) {
+                  _FlatMessageItem(:final msgIndex) => buildMessageItem(
+                    msgIndex,
+                    isLastItem: isLastItem,
+                  ),
+                  _FlatPartItem(:final msgIndex, :final partIndex) =>
+                    buildPartItem(msgIndex, partIndex, isLastItem: isLastItem),
+                };
               },
             );
 
@@ -453,14 +514,11 @@ class _MessageList extends StatelessWidget {
                   alignment: Alignment.topCenter,
                   child: SizedBox(
                     width: readingWidth,
-                    child: Opacity(
-                      opacity: isListVisible.value ? 1.0 : 0.0,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: () =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        child: listView,
-                      ),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      child: listView,
                     ),
                   ),
                 );

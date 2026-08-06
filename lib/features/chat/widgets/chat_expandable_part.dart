@@ -61,7 +61,8 @@ class ChatExpandablePart extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final expanded = useState(initiallyExpanded);
+    final expandedState = useState(initiallyExpanded);
+    final isExpanded = expandedState.value;
 
     // 解析调用参数 — 统一格式：{id, call_type, function: {name, arguments}, _result?}
     // 保留原始 arguments（供 argumentsBuilder 二次解析），另存格式化文本
@@ -167,7 +168,9 @@ class ChatExpandablePart extends HookWidget {
       children: [
         // ── 头部（可点击切换展开/收起） ──
         InkWell(
-          onTap: () => expanded.value = !expanded.value,
+          onTap: () {
+            expandedState.value = !expandedState.value;
+          },
           borderRadius: custom.radii.sm,
           child: SizedBox(
             height: collapsedHeight,
@@ -189,7 +192,7 @@ class ChatExpandablePart extends HookWidget {
                     ),
                   ),
                   AppIcon(
-                    expanded.value ? 'chevronDown' : 'chevronRight',
+                    isExpanded ? 'chevronDown' : 'chevronRight',
                     size: custom.typography.captionSize,
                     color: custom.colors.textSecondary,
                   ),
@@ -200,13 +203,14 @@ class ChatExpandablePart extends HookWidget {
         ),
 
         // ── 展开内容 ──
-        if (expanded.value && hasContent)
+        // 底部不留 padding：展开态与收起态的视觉间距必须一致（均为 8px）
+        if (isExpanded && hasContent)
           Padding(
             padding: EdgeInsets.fromLTRB(
               0,
               0,
               custom.spacing.sm,
-              custom.spacing.xs,
+              0,
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -234,7 +238,7 @@ class ChatExpandablePart extends HookWidget {
                       showLeftDivider ? custom.spacing.sm : 0,
                       showLeftDivider ? custom.spacing.sm : 0,
                       custom.spacing.sm,
-                      custom.spacing.sm,
+                      0,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
