@@ -45,6 +45,10 @@ class ChatExpandablePart extends HookWidget {
   /// 是否默认展开（工具调用默认展开，深度思考默认收起）
   final bool initiallyExpanded;
 
+  /// 展开区内容是否贴底自动滚动：内容增长（如深度思考流式输出）时
+  /// 自动滚到底部；用户主动上滚后暂停，回到底部附近才恢复
+  final bool stickToBottom;
+
   const ChatExpandablePart({
     super.key,
     required this.content,
@@ -56,6 +60,7 @@ class ChatExpandablePart extends HookWidget {
     this.argumentsBuilder,
     this.showLeftDivider = true,
     this.initiallyExpanded = false,
+    this.stickToBottom = false,
   });
 
   @override
@@ -280,6 +285,9 @@ class ChatExpandablePart extends HookWidget {
                           maxHeight: custom.controls.chatPartExpandedMaxHeight,
                           paragraphPaddingBlock: 0,
                           paragraphGap: 4,
+                          // 内容增长时自动滚动到底部（深度思考流式输出跟随）
+                          stickToBottom: stickToBottom,
+                          bottomThreshold: 0,
                           paragraphBuilder: paragraphBuilder,
                         ),
                       ],

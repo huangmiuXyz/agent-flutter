@@ -432,6 +432,8 @@ class ChatMessageItem extends HookWidget {
         iconName: 'lightbulb',
         title: '深度思考',
         titleColor: custom.colors.textSecondary,
+        // 流式思考内容增长时自动滚动到底部
+        stickToBottom: true,
       ),
       PartTypes.image => ChatImagePart(content: part.content),
       PartTypes.toolCall || PartTypes.toolCallFrag => _buildToolCallPart(
