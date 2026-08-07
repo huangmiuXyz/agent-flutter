@@ -62,7 +62,11 @@ class ThemeStore {
 
   void setFontWeight(FontWeight weight) => fontWeightValue.value = weight.value;
 
-  void setFontSizeScale(double scale) => fontSizeScale.value = scale;
+  void setFontSizeScale(double scale) {
+    fontSizeScale.value = scale;
+    // 同步持久化到 setting.json（跨窗口通过 settingChanged 广播同步）
+    SettingStore.instance.setFontSizeScale(scale);
+  }
 
   void setColor(Brightness brightness, AppColorRole role, Color color) {
     final overrides = Map<AppColorRole, int>.of(

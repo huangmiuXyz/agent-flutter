@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/flutter_highlight.dart' show HighlightView;
 
+import 'package:agent/theme/custom_theme.dart';
+
 import '../parser/ast.dart';
 import 'syntax_theme.dart';
 
@@ -22,11 +24,15 @@ class CodeBlockWidget extends StatelessWidget {
     required this.node,
     required this.syntaxTheme,
     this.builder,
+    this.textStyle,
   });
 
   final CodeBlockNode node;
   final SyntaxTheme syntaxTheme;
   final CodeBlockBuilder? builder;
+
+  /// 正文样式（用于中文回退到用户设置的字体）。
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +59,11 @@ class CodeBlockWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          _CodeHeader(language: node.language, code: node.content),
+          _CodeHeader(
+            language: node.language,
+            code: node.content,
+            textStyle: textStyle,
+          ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -62,6 +72,7 @@ class CodeBlockWidget extends StatelessWidget {
               language: node.language,
               syntaxTheme: syntaxTheme,
               defaultColor: fg,
+              textStyle: textStyle,
             ),
           ),
         ],
@@ -79,19 +90,26 @@ class _CodeBody extends StatelessWidget {
     required this.language,
     required this.syntaxTheme,
     required this.defaultColor,
+    this.textStyle,
   });
 
   final String code;
   final String? language;
   final SyntaxTheme syntaxTheme;
   final Color defaultColor;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
+    // 全局字号缩放系数（无 CustomTheme 扩展时取 1.0）
+    final scale =
+        Theme.of(context).extension<CustomTheme>()?.typography.fontSizeScale ??
+        1.0;
     final monoStyle = TextStyle(
-      fontFamily: 'monospace',
-      fontFamilyFallback: const <String>['Courier', 'monospace'],
-      fontSize: 13,
+      // 代码块字体直接跟随正文（用户设置），无正文字体时退回 monospace；
+      // 字号随全局缩放系数
+      fontFamily: textStyle?.fontFamily ?? 'monospace',
+      fontSize: 13 * scale,
       height: 1.45,
       color: defaultColor,
     );
@@ -108,10 +126,15 @@ class _CodeBody extends StatelessWidget {
 }
 
 class _CodeHeader extends StatelessWidget {
-  const _CodeHeader({required this.language, required this.code});
+  const _CodeHeader({
+    required this.language,
+    required this.code,
+    this.textStyle,
+  });
 
   final String? language;
   final String code;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +148,8 @@ class _CodeHeader extends StatelessWidget {
               language!,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
-                fontFamily: 'monospace',
+                // 字体跟随正文（用户设置）
+                fontFamily: textStyle?.fontFamily ?? 'monospace',
               ),
             ),
           const Spacer(),

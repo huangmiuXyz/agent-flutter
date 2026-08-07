@@ -117,7 +117,7 @@ class _ConfigForm extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('请选择协议类型')));
+          ).showSnackBar(const SnackBar(content: AppText('请选择协议类型')));
         }
         return;
       }
@@ -166,13 +166,13 @@ class _ConfigForm extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('配置保存成功')));
+          ).showSnackBar(const SnackBar(content: AppText('配置保存成功')));
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
         }
       }
     }
@@ -268,14 +268,14 @@ class _ConfigForm extends HookWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('配置已删除')));
+        ).showSnackBar(const SnackBar(content: AppText('配置已删除')));
         onBack();
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+        ).showSnackBar(SnackBar(content: AppText('删除失败: $e')));
       }
     }
   }

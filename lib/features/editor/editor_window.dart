@@ -18,6 +18,7 @@ import 'language_map.dart';
 import 'rust_init.dart';
 import '../../services/sync/file_watcher.dart';
 import '../../store/code_forge_store.dart';
+import '../../widgets/text/app_text.dart';
 
 /// 在子窗口中打开一个文件进行编辑。
 class EditorWindow extends StatefulWidget {
@@ -186,11 +187,7 @@ class _EditorWindowState extends State<EditorWindow> {
             children: [
               const Icon(Icons.error_outline, size: 48, color: Colors.red),
               const SizedBox(height: 16),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red),
-              ),
+              AppText(_error!, textAlign: TextAlign.center, color: Colors.red),
             ],
           ),
         ),
@@ -357,13 +354,13 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                     ),
                     const SizedBox(width: 8),
                     // 标题 + 数量统计
-                    Text(
+                    AppText(
                       '诊断 (${widget.diagnostics.length})',
                       style: theme.textTheme.labelMedium,
                     ),
                     const Spacer(),
                     // 统计摘要
-                    Text(
+                    AppText(
                       '${widget.diagnostics.where((d) => d.severity == 1).length}错误 '
                       '${widget.diagnostics.where((d) => d.severity == 2).length}警告',
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -388,7 +385,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
             Expanded(
               child: widget.diagnostics.isEmpty
                   ? Center(
-                      child: Text(
+                      child: AppText(
                         '没有诊断信息',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
@@ -423,7 +420,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                                   color: color,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
+                                AppText(
                                   '行 $startLine',
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: color,
@@ -434,7 +431,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text(
+                                  child: AppText(
                                     diag.message,
                                     style: theme.textTheme.bodySmall,
                                     maxLines: 2,

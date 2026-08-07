@@ -113,7 +113,7 @@ class ModelListPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('操作失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('操作失败: $e')));
         }
       }
     }

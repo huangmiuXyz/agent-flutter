@@ -117,7 +117,7 @@ class McpServerConfigPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('配置保存成功')));
+          ).showSnackBar(const SnackBar(content: AppText('配置保存成功')));
           // 通知 Rust 后端重新连接该服务器
           if (oldName != newName) {
             // 原名已从配置中移除，断开旧连接
@@ -136,7 +136,7 @@ class McpServerConfigPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
         }
       }
     }
@@ -158,7 +158,7 @@ class McpServerConfigPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('已删除')));
+          ).showSnackBar(const SnackBar(content: AppText('已删除')));
           // 通知 Rust 后端断开该服务器
           api.reloadMcpServer(
             configPath: store.configPath,
@@ -170,7 +170,7 @@ class McpServerConfigPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('删除失败: $e')));
         }
       }
     }
@@ -184,18 +184,10 @@ class McpServerConfigPage extends HookWidget {
       title: latestServer.name,
       subtitle: '编辑 MCP 服务器配置',
       actions: FormActions(
-        primary: [
-          AppPrimaryButton(text: '保存', onPressed: handleSave),
-        ],
+        primary: [AppPrimaryButton(text: '保存', onPressed: handleSave)],
         secondary: [
-          AppSecondaryButton(
-            text: '管理详情',
-            onPressed: onManageDetail,
-          ),
-          AppSecondaryButton(
-            text: '删除',
-            onPressed: handleDelete,
-          ),
+          AppSecondaryButton(text: '管理详情', onPressed: onManageDetail),
+          AppSecondaryButton(text: '删除', onPressed: handleDelete),
         ],
       ),
       children: [

@@ -15,6 +15,7 @@ import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_select.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen form for adding a custom provider.
 class AddProviderPage extends HookWidget {
@@ -79,7 +80,7 @@ class AddProviderPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('提供商添加成功')));
+          ).showSnackBar(const SnackBar(content: AppText('提供商添加成功')));
           onSaved?.call(
             ProviderInfo(
               name: providerId,
@@ -93,7 +94,7 @@ class AddProviderPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
         }
       } finally {
         saving.value = false;

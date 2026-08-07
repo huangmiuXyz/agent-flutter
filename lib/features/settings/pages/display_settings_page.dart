@@ -31,6 +31,7 @@ class DisplaySettingsPage extends HookWidget {
     final custom = CustomTheme.of(context);
     final store = ThemeStore.instance;
     final currentFont = useExistingSignal(store.fontFamily);
+    final scale = useExistingSignal(store.fontSizeScale);
 
     return AppFormPage(
       title: '显示设置',
@@ -54,6 +55,36 @@ class DisplaySettingsPage extends HookWidget {
                 icon: 'settings',
                 tooltip: '字体设置',
                 onPressed: onFontSettingsTap,
+              ),
+            ],
+          ),
+        ),
+        FormRow(
+          label: '字号',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppText(
+                '${(scale.value * 100).round()}%',
+                variant: AppTextVariant.caption,
+                color: custom.colors.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 160,
+                child: Slider(
+                  value: scale.value.clamp(0.8, 1.5),
+                  min: 0.8,
+                  max: 1.5,
+                  divisions: 14,
+                  label: '${(scale.value * 100).round()}%',
+                  onChanged: (v) => store.setFontSizeScale(v),
+                ),
+              ),
+              AppIconButton(
+                icon: 'refresh',
+                tooltip: '重置字号',
+                onPressed: () => store.setFontSizeScale(1.0),
               ),
             ],
           ),

@@ -494,12 +494,10 @@ class FontSettingsPage extends HookWidget {
             color: active ? custom.colors.accent : custom.colors.border,
           ),
         ),
-        child: Text(
+        child: AppText(
           label,
-          style: custom.typography.styleForSize(
-            custom.typography.captionSize,
-            active ? custom.colors.onAccent : custom.colors.textPrimary,
-          ),
+          variant: AppTextVariant.caption,
+          color: active ? custom.colors.onAccent : custom.colors.textPrimary,
         ),
       ),
     );

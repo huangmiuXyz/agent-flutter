@@ -34,6 +34,7 @@ import 'package:re_highlight/languages/xml.dart';
 import 'package:re_highlight/languages/yaml.dart';
 import 'package:re_highlight/styles/atom-one-dark.dart';
 
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/text/highlight_text.dart';
 
 /// 代码块 — VSCode 风格深色渲染（背景 + 语法高亮 + 复制按钮）。
@@ -134,9 +135,11 @@ class CodeBlockView extends StatelessWidget {
     final root = resolvedTheme['root'];
     final background = root?.backgroundColor ?? const Color(0xFF282C34);
     final foreground = root?.color ?? const Color(0xFFABB2BF);
+    final custom = CustomTheme.of(context);
     final base = TextStyle(
-      fontFamily: 'JetBrainsMono',
-      fontSize: _contentFontSize,
+      // 代码块字体直接跟随主题设置（默认 JetBrainsMono），字号随全局缩放
+      fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
+      fontSize: _contentFontSize * custom.typography.fontSizeScale,
       height: _lineHeight / _contentFontSize,
       color: foreground,
     );
@@ -192,10 +195,13 @@ class CodeBlockHeader extends StatelessWidget {
           if (label != null && label!.isNotEmpty)
             Text(
               label!,
-              style: const TextStyle(
+              style: TextStyle(
                 color: _CodeBlockViewColors.headerForeground,
-                fontFamily: 'JetBrainsMono',
-                fontSize: 11,
+                // 字体跟随主题设置（默认 JetBrainsMono），字号随全局缩放
+                fontFamily:
+                    CustomTheme.of(context).typography.fontFamily ??
+                    kDefaultFontFamily,
+                fontSize: 11 * CustomTheme.of(context).typography.fontSizeScale,
               ),
             ),
           const Spacer(),

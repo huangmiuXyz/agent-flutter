@@ -84,8 +84,9 @@ class DiffParser {
   int _lastBlockAdded = 0;
   int _lastBlockRemoved = 0;
 
-  static final RegExp _hunkRe =
-      RegExp(r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@');
+  static final RegExp _hunkRe = RegExp(
+    r'^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@',
+  );
 
   /// 追加新文本（增量）：处理新出现的完整行，未完成行留待下次
   void feed(String delta) {
@@ -133,8 +134,9 @@ class DiffParser {
         oldLineNo: _oldLine,
       );
     }
-    final text =
-        _trimContextPrefix && raw.startsWith(' ') ? raw.substring(1) : raw;
+    final text = _trimContextPrefix && raw.startsWith(' ')
+        ? raw.substring(1)
+        : raw;
     return DiffLine(
       DiffLineKind.context,
       text,
@@ -171,13 +173,15 @@ class DiffParser {
       _blockAdded = 0;
       _blockRemoved = 0;
       // 立即提交（此时当前块尚未有内容行，append 即块首）
-      lines.add(DiffLine(
-        header.$1,
-        header.$2,
-        null,
-        addedCount: _lastBlockAdded,
-        removedCount: _lastBlockRemoved,
-      ));
+      lines.add(
+        DiffLine(
+          header.$1,
+          header.$2,
+          null,
+          addedCount: _lastBlockAdded,
+          removedCount: _lastBlockRemoved,
+        ),
+      );
       _language = DiffCodeBlock._modeForPath(header.$2);
       _oldLine = 1;
       _newLine = 1;
@@ -212,18 +216,15 @@ class DiffParser {
   }
 
   void _addLine(DiffLineKind kind, String text, int? oldNo, int? newNo) {
-    lines.add(DiffLine(
-      kind,
-      text,
-      _language,
-      oldLineNo: oldNo,
-      newLineNo: newNo,
-    ));
+    lines.add(
+      DiffLine(kind, text, _language, oldLineNo: oldNo, newLineNo: newNo),
+    );
   }
 
   void _addContextLine(String raw) {
-    final text =
-        _trimContextPrefix && raw.startsWith(' ') ? raw.substring(1) : raw;
+    final text = _trimContextPrefix && raw.startsWith(' ')
+        ? raw.substring(1)
+        : raw;
     _addLine(DiffLineKind.context, text, _oldLine, _newLine);
     _oldLine++;
     _newLine++;
@@ -237,7 +238,6 @@ class DiffParser {
     return content;
   }
 }
-
 
 /// Diff 视图 — apply_patch 补丁专用渲染（GitHub/VSCode diff 风格）。
 ///
@@ -339,8 +339,6 @@ class DiffCodeBlock extends StatefulWidget {
     }
     return lines;
   }
-
-
 
   /// 解析 apply_patch 信封：隐藏语法噪音（信封/hunk/文件头），
   /// 行归类为增删/上下文，记录文件块语言，统一内容列前缀（对齐缩进）
@@ -507,6 +505,7 @@ class DiffCodeBlock extends StatefulWidget {
     return content;
   }
 }
+
 class _DiffCodeBlockState extends State<DiffCodeBlock> {
   DiffParser _parser = DiffParser();
 
@@ -609,8 +608,9 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
   void _measureNewLines(
     List<DiffLine> lines,
     double fontSize,
-    TextScaler textScaler,
-  ) {
+    TextScaler textScaler, {
+    String? fontFamily,
+  }) {
     if (fontSize != _measuredFontSize || textScaler != _measuredScaler) {
       // 字体/无障碍缩放变化（主题切换、系统缩放）：全量重测
       _measuredRows = 0;
@@ -622,7 +622,12 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
     while (_measuredRows < lines.length) {
       final line = lines[_measuredRows++];
       _contentHeight += DiffLineView.heightFor(line);
-      final width = _measureLineWidth(line, fontSize, textScaler);
+      final width = _measureLineWidth(
+        line,
+        fontSize,
+        textScaler,
+        fontFamily: fontFamily,
+      );
       if (width > _maxRowWidth) _maxRowWidth = width;
     }
   }
@@ -632,8 +637,9 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
   static double _measureLineWidth(
     DiffLine line,
     double fontSize,
-    TextScaler textScaler,
-  ) {
+    TextScaler textScaler, {
+    String? fontFamily,
+  }) {
     switch (line.kind) {
       case DiffLineKind.fileAdd:
       case DiffLineKind.fileUpdate:
@@ -641,22 +647,50 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
       case DiffLineKind.fileMove:
         // 8 左内边距 + 图标 11 + 6 间隔 + 路径文本 + 8 右内边距
         var width =
-            8 + 11 + 6 + _textWidth(line.text, fontSize, FontWeight.w600, textScaler) + 8;
+            8 +
+            11 +
+            6 +
+            _textWidth(
+              line.text,
+              fontSize,
+              FontWeight.w600,
+              textScaler,
+              fontFamily: fontFamily,
+            ) +
+            8;
         // 变更统计（GitHub 风格：+N 绿 / −M 红），与 _buildFileHeader 对齐
         if (line.addedCount > 0) {
-          width += 10 + _textWidth('+${line.addedCount}', fontSize - 1, FontWeight.w600, textScaler);
+          width +=
+              10 +
+              _textWidth(
+                '+${line.addedCount}',
+                fontSize - 1,
+                FontWeight.w600,
+                textScaler,
+                fontFamily: fontFamily,
+              );
         }
         if (line.removedCount > 0) {
-          width += _textWidth(' −${line.removedCount}', fontSize - 1, FontWeight.w600, textScaler);
+          width += _textWidth(
+            ' −${line.removedCount}',
+            fontSize - 1,
+            FontWeight.w600,
+            textScaler,
+            fontFamily: fontFamily,
+          );
         }
         return width;
       default:
         // 8 左内边距 + 行号列 22 + 8 间隔 + 文本 + 8 右内边距
-        return 8 + DiffLineView.lineNumberWidth + 8 + _textWidth(
+        return 8 +
+            DiffLineView.lineNumberWidth +
+            8 +
+            _textWidth(
               line.text,
               fontSize,
               FontWeight.normal,
               textScaler,
+              fontFamily: fontFamily,
             ) +
             8;
     }
@@ -666,14 +700,15 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
     String text,
     double fontSize,
     FontWeight weight,
-    TextScaler textScaler,
-  ) {
+    TextScaler textScaler, {
+    String? fontFamily,
+  }) {
     if (text.isEmpty) return 0;
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
-          fontFamily: 'JetBrainsMono',
+          fontFamily: fontFamily ?? 'JetBrainsMono',
           fontSize: fontSize,
           fontWeight: weight,
           height: 1,
@@ -700,7 +735,12 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
         final lines = _parser.lines;
 
         // 增量测量新行（行高精确、行宽一次/行），每 chunk 只处理增量
-        _measureNewLines(lines, fontSize, textScaler);
+        _measureNewLines(
+          lines,
+          fontSize,
+          textScaler,
+          fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
+        );
 
         // 未完成行：随文本增长原位替换（内容行，行高 18）；
         // 宽度随文本增长每帧重测（仅一行）
@@ -710,7 +750,8 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
           if (width > _maxRowWidth) _maxRowWidth = width;
         }
         final contentHeight =
-            _contentHeight + (pendingLine != null ? DiffLineView.lineHeight : 0);
+            _contentHeight +
+            (pendingLine != null ? DiffLineView.lineHeight : 0);
 
         // ── 长 diff：封顶 + 虚拟滚动 ──
         // 超过 chatPartExpandedMaxHeight 时只构建可见行（对齐
@@ -734,9 +775,9 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
                   // 内层滚到边界后由外层（消息列表）接管，实现滚动接续
                   physics: ChainedScrollPhysics(
                     outerPosition: () => Scrollable.maybeOf(
-                          context,
-                          axis: Axis.vertical,
-                        )?.position,
+                      context,
+                      axis: Axis.vertical,
+                    )?.position,
                   ),
                   // 行高精确（内容 18 / 文件头 30）：滚动范围精确，
                   // 贴底 jumpTo 可精确落到最后一行
@@ -790,7 +831,6 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
   }
 }
 
-
 enum DiffLineKind {
   fileAdd,
   fileUpdate,
@@ -839,11 +879,7 @@ class DiffLine {
 /// 供 [DiffCodeBlock] 整块渲染使用；行背景铺满 [minWidth]
 /// （默认 0：tight 约束下自动填满可用宽度）。
 class DiffLineView extends StatelessWidget {
-  const DiffLineView({
-    super.key,
-    required this.line,
-    this.minWidth = 0,
-  });
+  const DiffLineView({super.key, required this.line, this.minWidth = 0});
 
   final DiffLine line;
   final double minWidth;
@@ -864,8 +900,7 @@ class DiffLineView extends StatelessWidget {
       DiffLineKind.fileAdd ||
       DiffLineKind.fileUpdate ||
       DiffLineKind.fileDelete ||
-      DiffLineKind.fileMove =>
-        lineHeight + _headerPadTop + _headerPadBottom,
+      DiffLineKind.fileMove => lineHeight + _headerPadTop + _headerPadBottom,
       _ => lineHeight,
     };
   }
@@ -876,7 +911,8 @@ class DiffLineView extends StatelessWidget {
     final colors = custom.colors;
     final fontSize = custom.typography.captionSize;
     final base = TextStyle(
-      fontFamily: 'JetBrainsMono',
+      // 代码块字体直接跟随主题设置（默认 JetBrainsMono）
+      fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
       fontSize: fontSize,
       height: lineHeight / fontSize,
       color: colors.textPrimary,
@@ -917,19 +953,15 @@ class DiffLineView extends StatelessWidget {
       _ => ('move', colors.accent),
     };
     final base = TextStyle(
-      fontFamily: 'JetBrainsMono',
+      // 代码块字体直接跟随主题设置（默认 JetBrainsMono）
+      fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
       fontSize: fontSize,
       height: lineHeight / fontSize,
       color: colors.textPrimary,
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        8,
-        _headerPadTop,
-        8,
-        _headerPadBottom,
-      ),
+      padding: const EdgeInsets.fromLTRB(8, _headerPadTop, 8, _headerPadBottom),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -937,10 +969,7 @@ class DiffLineView extends StatelessWidget {
           AppIcon(iconName, size: 11, color: color),
           const SizedBox(width: 6),
           // 路径
-          Text(
-            line.text,
-            style: base.copyWith(fontWeight: FontWeight.w600),
-          ),
+          Text(line.text, style: base.copyWith(fontWeight: FontWeight.w600)),
           // 变更统计（GitHub 风格：+N 绿 / −M 红）
           if (line.addedCount > 0 || line.removedCount > 0) ...[
             const SizedBox(width: 10),
@@ -990,7 +1019,9 @@ class DiffLineView extends StatelessWidget {
       );
     }
     // 行号：弱色、不可选中（普通 Text），复制内容不含行号
-    final lineNoStyle = base.copyWith(color: base.color!.withValues(alpha: 0.45));
+    final lineNoStyle = base.copyWith(
+      color: base.color!.withValues(alpha: 0.45),
+    );
     // 单列行号：新增/上下文显示新行号，删除行显示旧行号
     final lineNo = line.newLineNo ?? line.oldLineNo;
     return Container(

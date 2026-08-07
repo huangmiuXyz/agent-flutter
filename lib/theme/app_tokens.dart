@@ -291,6 +291,7 @@ class AppTypography {
     this.heading2Size = 24,
     this.heading1Size = 32,
     this.bodyWeight = FontWeight.w400,
+    this.fontSizeScale = 1.0,
   });
 
   final String? fontFamily;
@@ -302,6 +303,9 @@ class AppTypography {
   final double heading1Size;
   final FontWeight bodyWeight;
 
+  /// 全局字号缩放系数（1.0 = 原始大小），供硬编码字号的组件读取。
+  final double fontSizeScale;
+
   String? get effectiveFontFamily => fontFamily;
 
   AppTypography copyWith({
@@ -309,7 +313,7 @@ class AppTypography {
     FontWeight? bodyWeight,
     double? fontSizeScale,
   }) {
-    final scale = fontSizeScale ?? 1.0;
+    final scale = fontSizeScale ?? this.fontSizeScale;
     return AppTypography(
       fontFamily: fontFamily ?? this.fontFamily,
       captionSize: captionSize * scale,
@@ -319,6 +323,7 @@ class AppTypography {
       heading2Size: heading2Size * scale,
       heading1Size: heading1Size * scale,
       bodyWeight: bodyWeight ?? this.bodyWeight,
+      fontSizeScale: scale,
     );
   }
 
@@ -342,6 +347,7 @@ class AppTypography {
         heading2Size: lerpDouble(a.heading2Size, b.heading2Size, t)!,
         heading1Size: lerpDouble(a.heading1Size, b.heading1Size, t)!,
         bodyWeight: t < 0.5 ? a.bodyWeight : b.bodyWeight,
+        fontSizeScale: t < 0.5 ? a.fontSizeScale : b.fontSizeScale,
       );
 
   /// Returns a copy scaled by [factor].
@@ -354,6 +360,7 @@ class AppTypography {
     heading2Size: heading2Size * factor,
     heading1Size: heading1Size * factor,
     bodyWeight: bodyWeight,
+    fontSizeScale: fontSizeScale * factor,
   );
 }
 

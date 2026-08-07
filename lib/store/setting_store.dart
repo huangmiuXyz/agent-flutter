@@ -20,12 +20,17 @@ class SettingStore extends JsonFileSignalStore {
   Map<String, dynamic> defaults() => {
     'fontFamily': kDefaultFontFamily,
     'themeMode': 'system',
+    'fontSizeScale': 1.0,
   };
 
   // ── 便捷读取 ──
 
   String get fontFamily =>
       data.value['fontFamily'] as String? ?? kDefaultFontFamily;
+
+  /// 全局字号缩放系数，缺失/非法值时回退 1.0。
+  double get fontSizeScale =>
+      (data.value['fontSizeScale'] as num?)?.toDouble() ?? 1.0;
 
   /// 持久化的主题模式，缺失/非法值时回退到跟随系统。
   ThemeMode get themeMode {
@@ -42,6 +47,10 @@ class SettingStore extends JsonFileSignalStore {
 
   void setThemeMode(ThemeMode mode) {
     mutate((d) => d['themeMode'] = mode.name);
+  }
+
+  void setFontSizeScale(double scale) {
+    mutate((d) => d['fontSizeScale'] = scale);
   }
 
   // ── 路径解析 ──

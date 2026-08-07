@@ -9,6 +9,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'package:agent/theme/custom_theme.dart';
+
 import '../parser/ast.dart';
 import 'code_block.dart';
 import 'inline_spans.dart';
@@ -118,6 +120,7 @@ class _AstRendererState extends State<AstRenderer> {
         node: node,
         syntaxTheme: widget.syntaxTheme,
         builder: widget.codeBlockBuilder,
+        textStyle: widget.textStyle,
       ),
       TableNode() => table_widget.TableWidget(
         key: ValueKey<int>(node.id),
@@ -166,7 +169,21 @@ class _Heading extends StatelessWidget {
       6 => theme.textTheme.titleSmall,
       _ => theme.textTheme.bodyLarge,
     };
-    final merged = (baseStyle ?? const TextStyle()).merge(headingStyle);
+    // 全局字号缩放系数（无 CustomTheme 扩展时取 1.0）
+    final scale =
+        Theme.of(context).extension<CustomTheme>()?.typography.fontSizeScale ??
+        1.0;
+    // 注意：不能用 (baseStyle).merge(headingStyle) 的默认顺序——Material 默认
+    // textTheme 样式的 fontFamily 是 'Roboto'（非 null），merge 会让它覆盖
+    // 用户选的字体，导致标题永远用 Roboto/系统回退。保留标题的字号/字重/
+    // 颜色，但字体必须用正文的 baseStyle（用户设置的字体）。字号随全局缩放。
+    final merged = (baseStyle ?? const TextStyle())
+        .merge(headingStyle)
+        .copyWith(
+          fontSize: (headingStyle?.fontSize ?? 14) * scale,
+          fontFamily: baseStyle?.fontFamily ?? headingStyle?.fontFamily,
+          fontFamilyFallback: baseStyle?.fontFamilyFallback,
+        );
 
     return Text.rich(
       TextSpan(
@@ -344,7 +361,15 @@ class _ListItem extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        SizedBox(width: 24, child: Text(marker, textAlign: TextAlign.right)),
+        SizedBox(
+          width: 24,
+          child: Text(
+            marker,
+            textAlign: TextAlign.right,
+            // 列表序号/符号跟随正文样式，否则永远用默认字体
+            style: baseStyle,
+          ),
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Column(

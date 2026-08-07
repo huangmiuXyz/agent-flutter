@@ -58,8 +58,9 @@ class XtermTerminalWidget extends HookWidget {
     }, [visible, id]);
 
     // 快捷键/命令展开面板时把光标聚焦到终端输入
-    final focusRequest =
-        useExistingSignal(XtermStore.instance.terminalFocusRequestCount);
+    final focusRequest = useExistingSignal(
+      XtermStore.instance.terminalFocusRequestCount,
+    );
     useEffect(() {
       if (focusRequest.value > 0) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,13 +76,13 @@ class XtermTerminalWidget extends HookWidget {
       ThemeStore.instance.effectiveBrightness,
     );
     final theme = buildTerminalTheme(custom, brightness.value);
-    // 终端必须使用等宽字体
+    // 终端字体跟随主题设置（默认 JetBrainsMono，选其他字体时整体切换）
     final textStyle = useMemoized(
       () => TerminalStyle(
         fontSize: custom.typography.bodySize,
-        fontFamily: kDefaultFontFamily,
+        fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
       ),
-      [custom.typography.bodySize],
+      [custom.typography.bodySize, custom.typography.fontFamily],
     );
 
     String escapePath(String path) {

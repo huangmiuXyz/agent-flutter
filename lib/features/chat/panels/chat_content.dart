@@ -8,6 +8,7 @@ import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/session/part_types.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
+import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/features/chat/chat_input.dart';
@@ -238,6 +239,9 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 订阅主题变化（字体/字号/颜色）：主题改动时消息列表必须重建，
+    // 否则已渲染的 markdown 保持旧样式（SignalBuilder 只监听会话数据）。
+    CustomTheme.of(context);
     return SignalBuilder(
       builder: (_) {
         final mgr = SessionStore.instance;

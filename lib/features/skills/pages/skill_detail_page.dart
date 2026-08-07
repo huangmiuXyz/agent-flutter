@@ -28,20 +28,25 @@ class SkillDetailPage extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
-    final content = useState<String?>(skill.content.isNotEmpty ? skill.content : null);
+    final content = useState<String?>(
+      skill.content.isNotEmpty ? skill.content : null,
+    );
     final loading = useState(false);
 
     // ── 进页面时从 Rust 加载 SKILL.md 正文 ──
     useEffect(() {
       if (content.value != null) return null;
       loading.value = true;
-      bridge.loadSkillContent(directoryPath: skill.directoryPath).then((c) {
-        content.value = c;
-        loading.value = false;
-      }).catchError((_) {
-        content.value = '(加载失败)';
-        loading.value = false;
-      });
+      bridge
+          .loadSkillContent(directoryPath: skill.directoryPath)
+          .then((c) {
+            content.value = c;
+            loading.value = false;
+          })
+          .catchError((_) {
+            content.value = '(加载失败)';
+            loading.value = false;
+          });
       return null;
     }, [skill.directoryPath]);
 
@@ -65,10 +70,7 @@ class SkillDetailPage extends HookWidget {
           _MetaRow(label: '名称', value: skill.name),
           _MetaRow(label: '描述', value: skill.description),
           _MetaRow(label: '来源', value: skill.source.name),
-          _MetaRow(
-            label: '范围',
-            value: skill.scope == 'global' ? '全局' : '项目',
-          ),
+          _MetaRow(label: '范围', value: skill.scope == 'global' ? '全局' : '项目'),
           _MetaRow(label: '路径', value: skill.directoryPath),
           SizedBox(height: custom.spacing.md),
 
@@ -77,10 +79,7 @@ class SkillDetailPage extends HookWidget {
           SizedBox(height: custom.spacing.md),
 
           // ── 内容标题 ──
-          AppText(
-            'SKILL.md',
-            variant: AppTextVariant.subtitle,
-          ),
+          AppText('SKILL.md', variant: AppTextVariant.subtitle),
           SizedBox(height: custom.spacing.sm),
 
           // ── SKILL.md 正文预览 ──
@@ -97,15 +96,20 @@ class SkillDetailPage extends HookWidget {
                 border: Border.all(color: custom.colors.cardBorder),
               ),
               child: loading.value
-                  ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : MarkdownPreview(
-                text: (content.value?.isNotEmpty == true ? content.value! : '(空)'),
-                textStyle: const TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-              ),
+                      text: (content.value?.isNotEmpty == true
+                          ? content.value!
+                          : '(空)'),
+                      textStyle: TextStyle(
+                        fontFamily:
+                            custom.typography.fontFamily ?? kDefaultFontFamily,
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
             ),
           ),
         ],
@@ -136,9 +140,7 @@ class _MetaRow extends StatelessWidget {
               color: custom.colors.textSecondary,
             ),
           ),
-          Expanded(
-            child: AppText(value, variant: AppTextVariant.body),
-          ),
+          Expanded(child: AppText(value, variant: AppTextVariant.body)),
         ],
       ),
     );

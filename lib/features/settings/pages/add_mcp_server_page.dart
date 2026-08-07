@@ -13,6 +13,7 @@ import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// 添加 MCP 服务器页。
 class AddMcpServerPage extends HookWidget {
@@ -56,7 +57,7 @@ class AddMcpServerPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('服务器名称 "$name" 已存在')));
+          ).showSnackBar(SnackBar(content: AppText('服务器名称 "$name" 已存在')));
         }
         return;
       }
@@ -86,19 +87,16 @@ class AddMcpServerPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('服务器添加成功')));
+          ).showSnackBar(const SnackBar(content: AppText('服务器添加成功')));
           // 通知 Rust 后端重新连接该服务器
-          api.reloadMcpServer(
-            configPath: store.configPath,
-            serverName: name,
-          );
+          api.reloadMcpServer(configPath: store.configPath, serverName: name);
           onBack();
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
         }
       } finally {
         saving.value = false;

@@ -137,9 +137,7 @@ class _PerformanceData {
     final start = recordedSnapshots.first.timestamp;
     final end = recordedSnapshots.last.timestamp;
     final buf = StringBuffer();
-    buf.writeln(
-      '=== 性能日志 [${_fmtDt(start)} ~ ${_fmtDt(end)}] ===',
-    );
+    buf.writeln('=== 性能日志 [${_fmtDt(start)} ~ ${_fmtDt(end)}] ===');
     buf.writeln('共 ${recordedSnapshots.length} 条记录');
     buf.writeln('');
     for (final s in recordedSnapshots) {
@@ -161,7 +159,9 @@ class _PerformanceData {
       buf.writeln(
         'Build 平均: ${(buildValues.reduce((a, b) => a + b) / buildValues.length).toStringAsFixed(2)}ms',
       );
-      buf.writeln('Raster 平均: ${(rasterValues.reduce((a, b) => a + b) / rasterValues.length).toStringAsFixed(2)}ms');
+      buf.writeln(
+        'Raster 平均: ${(rasterValues.reduce((a, b) => a + b) / rasterValues.length).toStringAsFixed(2)}ms',
+      );
     }
     return buf.toString();
   }
@@ -233,9 +233,11 @@ class _RightPanelState extends State<RightPanel>
     _timingsCallback = (List<FrameTiming> timings) {
       for (final t in timings) {
         final buildMs =
-            t.buildDuration.inMicroseconds / Duration.microsecondsPerMillisecond;
+            t.buildDuration.inMicroseconds /
+            Duration.microsecondsPerMillisecond;
         final rasterMs =
-            t.rasterDuration.inMicroseconds / Duration.microsecondsPerMillisecond;
+            t.rasterDuration.inMicroseconds /
+            Duration.microsecondsPerMillisecond;
         _data.recordFrame(buildMs, rasterMs);
       }
     };
@@ -290,7 +292,7 @@ class _RightPanelState extends State<RightPanel>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: AppText(
             _data.recordedSnapshots.isEmpty
                 ? '暂无录制数据'
                 : '已复制 ${_data.recordedSnapshots.length} 条日志',
@@ -345,7 +347,8 @@ class _RightPanelState extends State<RightPanel>
                 _buildUptimeCard(custom, uptime),
                 SizedBox(height: custom.spacing.sm),
                 _buildRecordingCard(custom),
-                if (_data.isRecording || _data.recordedSnapshots.isNotEmpty) ...[
+                if (_data.isRecording ||
+                    _data.recordedSnapshots.isNotEmpty) ...[
                   SizedBox(height: custom.spacing.sm),
                   _buildLogPreview(custom),
                 ],
@@ -364,9 +367,7 @@ class _RightPanelState extends State<RightPanel>
         vertical: custom.spacing.xs,
       ),
       decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: custom.colors.separator),
-        ),
+        border: Border(bottom: BorderSide(color: custom.colors.separator)),
       ),
       child: Row(
         children: [
@@ -381,8 +382,9 @@ class _RightPanelState extends State<RightPanel>
             size: ButtonSize.sm,
             tooltip: _data.isRecording ? '停止录制' : '开始录制',
             onPressed: _toggleRecording,
-            backgroundColor:
-                _data.isRecording ? custom.colors.danger.withValues(alpha: 0.2) : null,
+            backgroundColor: _data.isRecording
+                ? custom.colors.danger.withValues(alpha: 0.2)
+                : null,
           ),
           SizedBox(width: custom.spacing.xs),
           AppIconButton(
@@ -436,9 +438,7 @@ class _RightPanelState extends State<RightPanel>
           SizedBox(height: 2),
           _MetricRow(
             label: '峰值',
-            value: _data.maxFps > 0
-                ? _data.maxFps.toStringAsFixed(1)
-                : '—',
+            value: _data.maxFps > 0 ? _data.maxFps.toStringAsFixed(1) : '—',
           ),
           SizedBox(height: 2),
           _MetricRow(
@@ -462,10 +462,7 @@ class _RightPanelState extends State<RightPanel>
                 : '—',
           ),
           SizedBox(height: 2),
-          _MetricRow(
-            label: '总帧数',
-            value: '${_data.frameCount}',
-          ),
+          _MetricRow(label: '总帧数', value: '${_data.frameCount}'),
         ],
       ),
     );
@@ -499,8 +496,7 @@ class _RightPanelState extends State<RightPanel>
           SizedBox(height: 2),
           _MetricRow(
             label: '流式中',
-            value:
-                '${SessionStore.instance.streamingSessionIds.value.length}',
+            value: '${SessionStore.instance.streamingSessionIds.value.length}',
           ),
         ],
       ),
@@ -516,15 +512,10 @@ class _RightPanelState extends State<RightPanel>
           SizedBox(height: custom.spacing.xs),
           _MetricRow(
             label: '面板',
-            value: _fmtDuration(
-              DateTime.now().difference(_panelStart),
-            ),
+            value: _fmtDuration(DateTime.now().difference(_panelStart)),
           ),
           SizedBox(height: 2),
-          _MetricRow(
-            label: '应用',
-            value: _fmtDuration(uptime),
-          ),
+          _MetricRow(label: '应用', value: _fmtDuration(uptime)),
         ],
       ),
     );
@@ -641,11 +632,7 @@ class _MetricRow extends StatelessWidget {
   final String value;
   final Color? valueColor;
 
-  const _MetricRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+  const _MetricRow({required this.label, required this.value, this.valueColor});
 
   @override
   Widget build(BuildContext context) {
@@ -665,7 +652,10 @@ class _MetricRow extends StatelessWidget {
             value,
             variant: AppTextVariant.caption,
             color: valueColor ?? custom.colors.textPrimary,
-            style: const TextStyle(fontFamily: 'JetBrainsMono'),
+            style: TextStyle(
+              // 字体跟随主题设置（默认 JetBrainsMono）
+              fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
+            ),
             textAlign: TextAlign.right,
             overflow: TextOverflow.ellipsis,
           ),

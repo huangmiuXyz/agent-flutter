@@ -53,8 +53,8 @@ List<InlineSpan> buildInlineSpans(
   }
 
   TextStyle codeSpanStyle() => styleNow().copyWith(
-    fontFamily: 'monospace',
-    fontFamilyFallback: const <String>['Courier', 'monospace'],
+    // 行内代码字体直接跟随正文（用户设置），无正文字体时退回 monospace
+    fontFamily: base.fontFamily ?? 'monospace',
     backgroundColor: theme.colorScheme.surfaceContainerHighest,
   );
 

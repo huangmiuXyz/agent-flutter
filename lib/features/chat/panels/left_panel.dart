@@ -47,8 +47,13 @@ class LeftPanel extends HookWidget {
                   bottom: BorderSide(color: custom.colors.separator),
                 ),
               ),
-              child: _buildHeader(context, custom, selectMode, selectedIds,
-                  isHeaderHovered.value),
+              child: _buildHeader(
+                context,
+                custom,
+                selectMode,
+                selectedIds,
+                isHeaderHovered.value,
+              ),
             ),
           ),
           // ── Session list ──
@@ -93,8 +98,7 @@ class LeftPanel extends HookWidget {
                 size: ButtonSize.sm,
                 backgroundColor: custom.colors.danger,
                 tooltip: '删除选中',
-                onPressed: () =>
-                    _batchDelete(context, selectMode, selectedIds),
+                onPressed: () => _batchDelete(context, selectMode, selectedIds),
               ),
             ),
           AppIconButton(
@@ -168,7 +172,7 @@ class LeftPanel extends HookWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('创建失败: $e')));
+        ).showSnackBar(SnackBar(content: AppText('创建失败: $e')));
       }
     }
   }

@@ -26,12 +26,13 @@ import 'chat_text_part.dart';
 /// [msgId] 要重试的消息 ID，[newContent] 编辑后的文本（含 `[图片N]` 引用标记），
 /// [imagePaths] 编辑后的图片附件（绝对路径，按文档顺序），
 /// [imageNames] 与 [imagePaths] 一一对应的原始文件名。
-typedef OnRetryMessage = void Function(
-  String msgId,
-  String newContent,
-  List<String> imagePaths,
-  List<String> imageNames,
-);
+typedef OnRetryMessage =
+    void Function(
+      String msgId,
+      String newContent,
+      List<String> imagePaths,
+      List<String> imageNames,
+    );
 
 /// 用户消息 — 基于 Fleather 的可编辑富文本消息，图片以 `[图片N]` 标签内嵌，
 /// 支持增删图片，回车重试。
@@ -95,7 +96,8 @@ class _UserMessage extends HookWidget {
     final isFocused = useState(false);
 
     // 文档内容变化（重试后 parts 更新）时重建文档
-    final docKey = '$initialText|${storedNames.join(',')}|${displayNames.join(',')}';
+    final docKey =
+        '$initialText|${storedNames.join(',')}|${displayNames.join(',')}';
     useEffect(() {
       controller.clear();
       controller.compose(
@@ -295,8 +297,9 @@ class ChatMessageItem extends HookWidget {
     // 用户消息：支持点击编辑。
     // 子智能体插入的结果（sub_agent_text）除外——它是系统插入的只读卡片，
     // 走下方普通 part 渲染（「子智能体插入」样式），不显示为可编辑输入框。
-    final hasSubAgentPart =
-        visibleParts.any((p) => p.partType == PartTypes.subAgentText);
+    final hasSubAgentPart = visibleParts.any(
+      (p) => p.partType == PartTypes.subAgentText,
+    );
     if (role == 'user' && !hasSubAgentPart) {
       return _UserMessage(
         sessionId: sessionId,
@@ -388,10 +391,11 @@ class ChatMessageItem extends HookWidget {
     final isLast = index == visibleParts.length - 1;
     // 缓存查找：part 实例与位置未变 → 复用整个（含薄壳的）widget 实例，
     // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘
-    return partCache.putIfAbsent(
-      (part, isLast, streaming),
-      () => _buildPartWithSpacingInner(part, custom, minPartHeight, isLast),
-    );
+    return partCache.putIfAbsent((
+      part,
+      isLast,
+      streaming,
+    ), () => _buildPartWithSpacingInner(part, custom, minPartHeight, isLast));
   }
 
   Widget _buildPartWithSpacingInner(
@@ -417,10 +421,7 @@ class ChatMessageItem extends HookWidget {
     return isolated;
   }
 
-  Widget _buildPart(
-    api.PartInfo part,
-    CustomTheme custom,
-  ) {
+  Widget _buildPart(api.PartInfo part, CustomTheme custom) {
     return switch (part.partType) {
       PartTypes.text => ChatTextPart(
         content: part.content,
@@ -435,10 +436,8 @@ class ChatMessageItem extends HookWidget {
         stickToBottom: true,
       ),
       PartTypes.image => ChatImagePart(content: part.content),
-      PartTypes.toolCall || PartTypes.toolCallFrag => _buildToolCallPart(
-        part,
-        custom,
-      ),
+      PartTypes.toolCall ||
+      PartTypes.toolCallFrag => _buildToolCallPart(part, custom),
       PartTypes.toolResult => const SizedBox.shrink(),
       PartTypes.webSearch => ChatSearchPart(content: part.content),
       PartTypes.subAgentText => _buildSubAgentPart(part, custom),
@@ -466,13 +465,11 @@ class ChatMessageItem extends HookWidget {
                 color: custom.colors.accent,
               ),
               const SizedBox(width: 4),
-              Text(
+              AppText(
                 '子智能体插入',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: custom.colors.accent,
-                ),
+                variant: AppTextVariant.caption,
+                color: custom.colors.accent,
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -496,10 +493,7 @@ class ChatMessageItem extends HookWidget {
   }
 
   /// 工具调用卡片：apply_patch 走专用 diff 渲染，其余保持通用样式
-  Widget _buildToolCallPart(
-    api.PartInfo part,
-    CustomTheme custom,
-  ) {
+  Widget _buildToolCallPart(api.PartInfo part, CustomTheme custom) {
     final isPatch = _toolCallName(part.content) == 'apply_patch';
     return ChatExpandablePart(
       content: part.content,

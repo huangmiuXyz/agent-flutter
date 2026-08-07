@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:agent/services/image_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// 解析 image part 内容：`{"file": 存储名, "name": 原始名}` JSON，
 /// 兼容旧数据（content 直接是存储文件名）。返回 (存储名, 原始名)。
@@ -14,10 +15,7 @@ import 'package:agent/theme/custom_theme.dart';
     if (json is Map<String, dynamic>) {
       final stored = json['file'] as String? ?? content;
       final display = json['name'] as String? ?? '';
-      return (
-        stored: stored,
-        display: display.isEmpty ? stored : display,
-      );
+      return (stored: stored, display: display.isEmpty ? stored : display);
     }
   } catch (_) {}
   return (stored: content, display: content);
@@ -92,13 +90,11 @@ class ChatImagePart extends StatelessWidget {
             const SizedBox(width: 6),
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 180),
-              child: Text(
+              child: AppText(
                 parsed.display,
+                variant: AppTextVariant.caption,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: custom.colors.textPrimary,
-                ),
+                color: custom.colors.textPrimary,
               ),
             ),
           ],

@@ -277,7 +277,7 @@ class _McpInitSnackBarState extends State<_McpInitSnackBar> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(errors.join('\n')),
+              content: AppText(errors.join('\n')),
               duration: const Duration(seconds: 5),
             ),
           );

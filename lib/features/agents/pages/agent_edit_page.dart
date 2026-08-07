@@ -146,15 +146,13 @@ class AgentEditPage extends HookWidget {
       return null;
     }, const []);
 
-
-
     // ── 保存 ──
     Future<void> save() async {
       final name = nameController.text.trim();
       if (name.isEmpty) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('请填写名称')));
+        ).showSnackBar(const SnackBar(content: AppText('请填写名称')));
         return;
       }
       final id = idController.text.trim();
@@ -162,9 +160,9 @@ class AgentEditPage extends HookWidget {
         if (id.isEmpty ||
             id == kGlobalAgentId ||
             id.contains(RegExp(r'[\\/:*?"<>|]'))) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('标识无效：不能为空、不能为 全局、不能包含路径字符')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: AppText('标识无效：不能为空、不能为 全局、不能包含路径字符')),
+          );
           return;
         }
       }
@@ -230,8 +228,7 @@ class AgentEditPage extends HookWidget {
           }
 
           // MCP 服务器：从全局配置中拷贝勾选项的完整定义
-          final globalMcp =
-              global['mcpServers'] as Map<String, dynamic>? ?? {};
+          final globalMcp = global['mcpServers'] as Map<String, dynamic>? ?? {};
           cfg['mcpServers'] = {
             for (final name in selectedMcp.value)
               if (globalMcp.containsKey(name)) name: globalMcp[name],
@@ -278,7 +275,7 @@ class AgentEditPage extends HookWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
+          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
         }
       } finally {
         saving.value = false;
@@ -365,7 +362,8 @@ class AgentEditPage extends HookWidget {
         AppProviderModelSelect(
           label: '标题生成模型（可选）',
           placeholder: '留空则使用默认模型',
-          value: selectedTitleProvider.value != null &&
+          value:
+              selectedTitleProvider.value != null &&
                   selectedTitleModel.value != null
               ? AppProviderModelSelect.encodeKey(
                   selectedTitleProvider.value!,
@@ -484,14 +482,14 @@ class AgentEditPage extends HookWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('已删除')));
+        ).showSnackBar(const SnackBar(content: AppText('已删除')));
         onSaved();
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('删除失败: $e')));
+        ).showSnackBar(SnackBar(content: AppText('删除失败: $e')));
       }
     }
   }

@@ -375,15 +375,13 @@ class _ChatFleatherState extends State<ChatFleather> {
                   // 显示原始文件名（截断超长名）
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 140),
-                    child: Text(
+                    child: AppText(
                       displayName.isEmpty ? '图片' : displayName,
+                      variant: AppTextVariant.caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.15,
-                        color: custom.colors.textPrimary,
-                      ),
+                      color: custom.colors.textPrimary,
+                      style: const TextStyle(height: 1.15),
                     ),
                   ),
                 ],

@@ -8,6 +8,7 @@ library;
 import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// Visual size variants for [AppTabBar].
 enum TabBarSize { sm, md, lg }
@@ -153,7 +154,7 @@ class _TabSegment extends StatelessWidget {
               ? Border(bottom: BorderSide(color: activeColor, width: 2))
               : null,
         ),
-        child: Text(
+        child: AppText(
           label,
           style: TextStyle(
             color: active ? activeColor : inactiveColor,

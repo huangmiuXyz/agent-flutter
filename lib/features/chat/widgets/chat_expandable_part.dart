@@ -137,7 +137,8 @@ class ChatExpandablePart extends HookWidget {
       final text = SelectableText(
         paragraph.text,
         style: TextStyle(
-          fontFamily: 'JetBrainsMono',
+          // 字体跟随主题设置（默认 JetBrainsMono）
+          fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
           fontSize: custom.typography.captionSize,
           height: 18 / custom.typography.captionSize,
           color: isOutputSection
@@ -211,16 +212,9 @@ class ChatExpandablePart extends HookWidget {
         // 底部不留 padding：展开态与收起态的视觉间距必须一致（均为 8px）
         if (isExpanded && hasContent)
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              0,
-              0,
-              custom.spacing.sm,
-              0,
-            ),
+            padding: EdgeInsets.fromLTRB(0, 0, custom.spacing.sm, 0),
             child: Padding(
-              padding: EdgeInsets.only(
-                left: showLeftDivider ? 6 : 0,
-              ),
+              padding: EdgeInsets.only(left: showLeftDivider ? 6 : 0),
               child: Container(
                 decoration: showLeftDivider
                     ? BoxDecoration(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:agent/widgets/scroll/chained_scroll_physics.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 import 'paragraph_utils.dart';
 export 'paragraph_utils.dart' show ParagraphBlock, ParagraphSplitMode;
@@ -281,7 +282,7 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
   Widget _defaultParagraphBuilder(ParagraphBlock paragraph, int index) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: widget.paragraphPaddingBlock / 2),
-      child: Text(
+      child: AppText(
         paragraph.text,
         style: TextStyle(
           fontSize: widget.fontSize,
