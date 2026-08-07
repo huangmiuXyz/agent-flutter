@@ -6,7 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 /// 本地捆绑字体名（JetBrainsMono 已打包在 assets 中，无需网络）。
 const String kDefaultFontFamily = 'JetBrainsMono';
 
-/// 构建 [TextStyle]：默认字体走本地捆绑，其他字体走 [GoogleFonts] 云端加载。
+/// Google Fonts 全部 family 名集合（惰性缓存，首次访问时构建）。
+final Set<String> _googleFontFamilies = GoogleFonts.asMap().keys.toSet();
+
+/// 构建 [TextStyle]：按字体来源分流——
+/// 1. 默认字体走本地捆绑；
+/// 2. Google Fonts 字体走 [GoogleFonts] 云端加载；
+/// 3. 其余（本机系统字体、导入字体）直接按 family 名引用，由系统引擎解析。
 TextStyle textStyleForFont(
   String fontFamily, {
   double? fontSize,
@@ -21,8 +27,18 @@ TextStyle textStyleForFont(
       color: color,
     );
   }
-  return GoogleFonts.getFont(
-    fontFamily,
+  if (_googleFontFamilies.contains(fontFamily)) {
+    return GoogleFonts.getFont(
+      fontFamily,
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+    );
+  }
+  // 系统字体 / 已导入字体：直接引用，Flutter 桌面端通过
+  // DirectWrite/CoreText 解析本机字体，FontLoader 解析已注册字体。
+  return TextStyle(
+    fontFamily: fontFamily,
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,

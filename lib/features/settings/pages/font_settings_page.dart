@@ -4,12 +4,15 @@
 /// can serve as a form-based overview with breadcrumb navigation.
 library;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/services/font_cache/font_cache_service.dart';
+import 'package:agent/services/font_cache/imported_font_service.dart';
+import 'package:agent/services/font_cache/system_font_service.dart';
 import 'package:agent/store/setting_store.dart';
 import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -17,6 +20,7 @@ import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
 import 'package:agent/widgets/list/app_big_list.dart';
+import 'package:agent/widgets/tab/app_tab_bar.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 本地捆绑字体（始终可用，无需网络）。
@@ -86,8 +90,8 @@ const _cjkFonts = <String>{
 
 /// Full-screen font selection page.
 ///
-/// Displays all available fonts (bundled, cached, and online) with search
-/// and filtering. Replaces the original inline font UI of
+/// Displays all available fonts (bundled, imported, system, cached, and
+/// online) with search and filtering. Replaces the original inline font UI of
 /// [DisplaySettingsPage].
 class FontSettingsPage extends HookWidget {
   /// Called when the user wants to go back to display settings.
@@ -102,8 +106,12 @@ class FontSettingsPage extends HookWidget {
     final currentFont = useExistingSignal(store.fontFamily);
     final searchTerm = useState('');
     final cachedFonts = useState<List<CachedFontInfo>>([]);
+    final importedFonts = useState<List<ImportedFontInfo>>([]);
+    final systemFonts = useState<List<SystemFontInfo>>([]);
     final showAll = useState(false);
     final cjkOnly = useState(false);
+    // 0 = 全部，1 = 本地，2 = 在线
+    final activeTab = useState(0);
     const int pageSize = 50;
 
     void rescanCache() {
@@ -115,8 +123,26 @@ class FontSettingsPage extends HookWidget {
       });
     }
 
+    void rescanImported() {
+      ImportedFontService.instance.scan().then((list) {
+        if (context.mounted) {
+          importedFonts.value = list;
+        }
+      });
+    }
+
+    void rescanSystem() {
+      SystemFontService.instance.listFonts().then((list) {
+        if (context.mounted) {
+          systemFonts.value = list;
+        }
+      });
+    }
+
     useEffect(() {
       rescanCache();
+      rescanImported();
+      rescanSystem();
       return null;
     }, []);
 
@@ -128,8 +154,41 @@ class FontSettingsPage extends HookWidget {
     }
 
     Future<void> onDeleteFont(String family) async {
-      await FontCacheService.instance.deleteFont(family);
-      rescanCache();
+      if (ImportedFontService.instance.contains(family)) {
+        // 删除导入字体：文件删除立即生效，FontLoader 注册保留到下次启动
+        await ImportedFontService.instance.deleteFont(family);
+        if (store.fontFamily.value == family) {
+          store.fontFamily.value = kDefaultFontFamily;
+          SettingStore.instance.setFontFamily(kDefaultFontFamily);
+        }
+        rescanImported();
+      } else {
+        await FontCacheService.instance.deleteFont(family);
+        rescanCache();
+      }
+    }
+
+    Future<void> onImportFont() async {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['ttf', 'otf'],
+        dialogTitle: '导入字体文件',
+      );
+      final paths = result?.paths.whereType<String>().toList() ?? const [];
+      if (paths.isEmpty) return;
+      final added = await ImportedFontService.instance.importFiles(paths);
+      if (added.isNotEmpty) {
+        rescanImported();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: AppText('已导入 ${added.length} 个字体'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
     }
 
     final allFonts = useMemoized(() {
@@ -157,6 +216,33 @@ class FontSettingsPage extends HookWidget {
       }
       return list;
     }, [searchTerm.value, allFonts, cjkOnly.value]);
+
+    // 导入字体：搜索/筛选后按 family 名排序
+    final filteredImported = useMemoized(() {
+      var list = importedFonts.value;
+      if (cjkOnly.value) {
+        list = list
+            .where((f) => SystemFontService.isCjkFamily(f.family))
+            .toList();
+      }
+      if (searchTerm.value.isNotEmpty) {
+        final q = searchTerm.value.toLowerCase();
+        list = list.where((f) => f.family.toLowerCase().contains(q)).toList();
+      }
+      return list;
+    }, [importedFonts.value, searchTerm.value, cjkOnly.value]);
+
+    // 系统字体：默认只显示中日韩字体；搜索时显示全部匹配
+    final filteredSystem = useMemoized(() {
+      var list = systemFonts.value;
+      if (searchTerm.value.isNotEmpty) {
+        final q = searchTerm.value.toLowerCase();
+        list = list.where((f) => f.family.toLowerCase().contains(q)).toList();
+      } else {
+        list = list.where((f) => f.cjk).toList();
+      }
+      return list;
+    }, [systemFonts.value, searchTerm.value]);
 
     final sections = useMemoized(
       () {
@@ -187,7 +273,12 @@ class FontSettingsPage extends HookWidget {
             : notCached.take(pageSize).toList();
 
         final result = <AppBigSection>[];
-        if (bundled.isNotEmpty) {
+        // 本地类分区：全部 / 本地 tab 显示（在线 tab 隐藏）
+        final showLocalSections = activeTab.value != 2;
+        // 在线类分区：全部 / 在线 tab 显示（本地 tab 隐藏）
+        final showOnlineSections = activeTab.value != 1;
+
+        if (showLocalSections && bundled.isNotEmpty) {
           result.add(
             AppBigSection(
               label: '本地捆绑',
@@ -203,7 +294,45 @@ class FontSettingsPage extends HookWidget {
             ),
           );
         }
-        if (cached.isNotEmpty) {
+        if (showLocalSections && filteredImported.isNotEmpty) {
+          result.add(
+            AppBigSection(
+              label: '已导入',
+              itemCount: filteredImported.length,
+              itemBuilder: (ctx, i, {required isFirst, required isLast}) {
+                final f = filteredImported[i];
+                return _buildRow(
+                  {'label': f.family, 'family': f.family},
+                  currentFont.value,
+                  FontCacheStatus.notCached,
+                  () => onDeleteFont(f.family),
+                  onSelectFont,
+                  description: '本地导入字体',
+                );
+              },
+            ),
+          );
+        }
+        if (showLocalSections && filteredSystem.isNotEmpty) {
+          result.add(
+            AppBigSection(
+              label: '系统字体',
+              itemCount: filteredSystem.length,
+              itemBuilder: (ctx, i, {required isFirst, required isLast}) {
+                final f = filteredSystem[i];
+                return _buildRow(
+                  {'label': f.family, 'family': f.family},
+                  currentFont.value,
+                  FontCacheStatus.notCached,
+                  null,
+                  onSelectFont,
+                  description: '本机已安装字体',
+                );
+              },
+            ),
+          );
+        }
+        if (showOnlineSections && cached.isNotEmpty) {
           result.add(
             AppBigSection(
               label: '已下载',
@@ -219,7 +348,7 @@ class FontSettingsPage extends HookWidget {
             ),
           );
         }
-        if (notCachedDisplayed.isNotEmpty) {
+        if (showOnlineSections && notCachedDisplayed.isNotEmpty) {
           final total = notCached.length;
           final shown = notCachedDisplayed.length;
           result.add(
@@ -249,10 +378,13 @@ class FontSettingsPage extends HookWidget {
       },
       [
         filteredFonts,
+        filteredImported,
+        filteredSystem,
         currentFont.value,
         cachedFonts.value,
         searchTerm.value,
         showAll.value,
+        activeTab.value,
       ],
     );
 
@@ -260,7 +392,14 @@ class FontSettingsPage extends HookWidget {
     final bundledShown =
         searchTerm.value.isEmpty ||
         _kBundledLabel.toLowerCase().contains(searchTerm.value.toLowerCase());
-    final totalCount = filteredFonts.length + (bundledShown ? 1 : 0);
+    final tab = activeTab.value;
+    final totalCount =
+        (tab == 2
+            ? 0
+            : (bundledShown ? 1 : 0) +
+                  filteredImported.length +
+                  filteredSystem.length) +
+        (tab == 1 ? 0 : filteredFonts.length);
 
     // 结构参考 [ModelListPage]：面包屑导航 + AppBigList 内容
     return ContentFrame(
@@ -279,6 +418,15 @@ class FontSettingsPage extends HookWidget {
           ),
           SizedBox(height: custom.spacing.lg),
 
+          // ---- 来源分类 Tab ----
+          AppTabBar(
+            tabs: const ['全部', '本地', '在线'],
+            activeIndex: activeTab.value,
+            onChanged: (i) => activeTab.value = i,
+            size: TabBarSize.md,
+          ),
+          SizedBox(height: custom.spacing.md),
+
           // ---- Content ----
           Expanded(
             child: AppBigList(
@@ -288,7 +436,9 @@ class FontSettingsPage extends HookWidget {
               searchTerm: searchTerm.value,
               searchPlaceholder: cjkOnly.value
                   ? '搜索中文字体…'
-                  : '搜索 Google Fonts（共 1500+ 种）…',
+                  : (tab == 1
+                        ? '搜索本地字体（系统 + 导入）…'
+                        : '搜索 Google Fonts（共 1500+ 种）…'),
               onSearchChanged: (v) {
                 searchTerm.value = v;
                 showAll.value = false;
@@ -303,11 +453,17 @@ class FontSettingsPage extends HookWidget {
                   cjkOnly.value = true;
                   showAll.value = false;
                 }),
+                SizedBox(width: custom.spacing.sm),
+                AppIconButton(
+                  icon: 'filePlus',
+                  tooltip: '导入字体',
+                  onPressed: onImportFont,
+                ),
               ],
               emptyState: AppBigEmpty(
                 icon: 'type',
                 title: '未找到匹配的字体',
-                hint: '试试切换“中文”筛选或清空搜索关键词。',
+                hint: '试试切换“中文”筛选、清空搜索关键词，或导入本地字体文件。',
               ),
               sections: sections,
             ),
@@ -382,30 +538,31 @@ class FontSettingsPage extends HookWidget {
     String currentFont,
     FontCacheStatus status,
     VoidCallback? onDelete,
-    void Function(String) onSelectFont,
-  ) {
+    void Function(String) onSelectFont, {
+    String? description,
+  }) {
     final family = opt['family']!;
     final label = opt['label']!;
     final isSelected = family == currentFont;
 
-    final description = isSelected
+    final effectiveDescription = isSelected
         ? '当前使用中'
-        : switch (status) {
-            FontCacheStatus.bundled => '本地捆绑，无需网络',
-            FontCacheStatus.cached => '已下载到本地缓存',
-            FontCacheStatus.notCached => '需联网下载',
-          };
+        : description ??
+              switch (status) {
+                FontCacheStatus.bundled => '本地捆绑，无需网络',
+                FontCacheStatus.cached => '已下载到本地缓存',
+                FontCacheStatus.notCached => '需联网下载',
+              };
 
     return AppBigRow(
       name: label,
-      description: description,
+      description: effectiveDescription,
       dot: isSelected,
       muted: !isSelected && status == FontCacheStatus.notCached,
       clickable: true,
       onTap: () => onSelectFont(family),
       actions: [
-        if (status == FontCacheStatus.cached && onDelete != null)
-          AppIconButton(icon: 'trash', onPressed: onDelete),
+        if (onDelete != null) AppIconButton(icon: 'trash', onPressed: onDelete),
       ],
     );
   }

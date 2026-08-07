@@ -39,6 +39,8 @@ dependencies:
   re_highlight: ^0.0.3
   freezed_annotation: ^3.0.0
   marionette_flutter: ^0.6.0
+  win32: 5.15.0
+  ffi: ^2.2.0
 
 dev_dependencies:
   flutter_test:

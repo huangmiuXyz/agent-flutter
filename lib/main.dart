@@ -13,6 +13,7 @@ import 'features/editor/editor_window.dart';
 import 'rust_bridge/frb_generated.dart' as frb;
 import 'services/engine/engine_client.dart';
 import 'services/engine/frontend_tools.dart';
+import 'services/font_cache/imported_font_service.dart';
 import 'store/code_forge_store.dart';
 import 'store/session_store.dart';
 import 'store/xterm_store.dart';
@@ -53,6 +54,9 @@ void main() async {
       // 监听 textinput 通道消息，跟踪输入法组合状态
       // （Enter 发送类快捷键在组合中不应触发发送）
       ImeComposingTracker.instance.install();
+
+      // 尽早注册本地导入字体（FontLoader 全局注册，幂等）
+      unawaited(ImportedFontService.instance.loadAll());
 
       await frb.RustLib.init();
       await code_forge.RustLib.init();
