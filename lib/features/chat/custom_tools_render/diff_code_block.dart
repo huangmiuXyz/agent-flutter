@@ -31,6 +31,7 @@ import 'package:re_highlight/languages/yaml.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/theme/syntax_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
+import 'package:agent/widgets/scroll/chained_scroll_physics.dart';
 import 'package:agent/widgets/text/highlight_text.dart';
 
 /// 增量 diff 解析器 — 只处理新增文本。
@@ -104,10 +105,18 @@ class DiffParser {
   /// 流结束（未完成行保持可见）
   void flush() {}
 
-  /// 未完成行按当前文本分类（不提交、不动游标/统计）
+  /// 未完成行按当前文本分类（不提交、不动游标/统计）。
+  /// 信封/hunk/尾注/文件头等语法噪音不渲染（对齐 [DiffParser._processLine]）。
   DiffLine? pendingLine() {
     final raw = pending;
     if (raw.isEmpty) return null;
+    if (raw == '*** Begin Patch' ||
+        raw == '*** End Patch' ||
+        raw.startsWith('@@') ||
+        raw.startsWith('\\ No newline') ||
+        DiffCodeBlock._headerPath(raw) != null) {
+      return null;
+    }
     if (raw.startsWith('+') && !raw.startsWith('+++')) {
       return DiffLine(
         DiffLineKind.added,
@@ -244,6 +253,12 @@ class DiffParser {
 /// 跟随亮暗主题。行首为 VSCode 式双列行号（旧 | 新，删除行显示旧行号、
 /// 新增行显示新行号，hunk 头重置、文件头归零），行号弱色且不可选中，
 /// 选中复制仅包含内容。短行背景铺满内容宽度，长行可横向滚动。
+///
+/// 大补丁虚拟化：行高精确（内容 18 / 文件头 30），总高超过
+/// `chatPartExpandedMaxHeight` 时切换为封顶内部滚动（只构建可见行，
+/// 对齐 VirtualParagraphText 的大输出处理），避免数千行一次性构建
+/// 卡顿；流式追加时若用户贴底则自动跟随到底部。横向滚动范围由
+/// 每行一次 TextPainter 测量精确得出（单行不换行，宽度与视口无关）。
 class DiffCodeBlock extends StatefulWidget {
   /// Unified diff 原文（apply_patch 信封格式）
   final String diff;
@@ -495,16 +510,38 @@ class DiffCodeBlock extends StatefulWidget {
 class _DiffCodeBlockState extends State<DiffCodeBlock> {
   DiffParser _parser = DiffParser();
 
-  /// 已提交行的 widget 缓存：增量更新时只 append 新行，
+  /// 已提交行的 widget 缓存：增量更新时只 append 新行（紧凑渲染路径用），
   /// 旧行 widget 实例不变 → element 复用，不重新 build/布局/高亮
   final List<Widget> _rowWidgets = [];
   double? _builtWidth;
   Object? _builtTheme;
 
+  /// 已测量行数 / 累计内容高度 / 最宽行宽：虚拟化判定与横向滚动范围。
+  /// 行高精确（内容 18 / 文件头 30），行宽按主题字体每行测一次，
+  /// 流式只补新行；字体或无障碍缩放变化时全量重测（低频）。
+  int _measuredRows = 0;
+  double _contentHeight = 0;
+  double _maxRowWidth = 0;
+  double? _measuredFontSize;
+  TextScaler? _measuredScaler;
+
+  /// 虚拟列表滚动：流式追加时若用户贴底则跟随到底部
+  /// （与 VirtualParagraphText 的 stickToBottom 语义一致）
+  final ScrollController _scrollController = ScrollController();
+  bool _isPinnedToBottom = false;
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _parser.feed(widget.diff);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -516,13 +553,136 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
         diff.startsWith(oldWidget.diff)) {
       // 流式纯追加：只解析增量（未完成行由 build 按最新文本原位替换）
       _parser.feed(diff.substring(oldWidget.diff.length));
+      // 贴底跟随：自然高度（无内部滚动）视为贴底；用户上滚后暂停，
+      // 回到底部附近才恢复（_onScroll 同步状态）
+      _isPinnedToBottom = _isNearBottom();
+      _maybeJumpToBottom();
     } else {
       // 整体替换（重试/解码恢复/工具完成覆盖）：重置并全量解析
       _parser = DiffParser()..feed(diff);
       _rowWidgets.clear();
       _builtWidth = null;
       _builtTheme = null;
+      _measuredRows = 0;
+      _contentHeight = 0;
+      _maxRowWidth = 0;
+      _measuredFontSize = null;
+      _measuredScaler = null;
+      _isPinnedToBottom = false;
     }
+  }
+
+  // ── 滚动跟随（虚拟列表模式） ──
+
+  bool _isNearBottom() {
+    // 无滚动客户端（紧凑模式/尚未挂载）视为贴底：全部内容可见
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    // itemExtentBuilder 精确求滚动范围，maxScrollExtent 精确，阈值可为 0
+    return pos.maxScrollExtent - pos.pixels <= 0;
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final near = _isNearBottom();
+    if (near != _isPinnedToBottom) {
+      setState(() {
+        _isPinnedToBottom = near;
+      });
+    }
+  }
+
+  void _maybeJumpToBottom() {
+    if (!_isPinnedToBottom || !_scrollController.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isPinnedToBottom || !_scrollController.hasClients) {
+        return;
+      }
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    });
+  }
+
+  // ── 行宽/行高测量（虚拟化判定与横向滚动范围） ──
+
+  /// 增量测量新行：行高精确累加、行宽按主题字体测一次。
+  /// 每 chunk 只处理新行（流式下 O(增量)）。
+  void _measureNewLines(
+    List<DiffLine> lines,
+    double fontSize,
+    TextScaler textScaler,
+  ) {
+    if (fontSize != _measuredFontSize || textScaler != _measuredScaler) {
+      // 字体/无障碍缩放变化（主题切换、系统缩放）：全量重测
+      _measuredRows = 0;
+      _contentHeight = 0;
+      _maxRowWidth = 0;
+      _measuredFontSize = fontSize;
+      _measuredScaler = textScaler;
+    }
+    while (_measuredRows < lines.length) {
+      final line = lines[_measuredRows++];
+      _contentHeight += DiffLineView.heightFor(line);
+      final width = _measureLineWidth(line, fontSize, textScaler);
+      if (width > _maxRowWidth) _maxRowWidth = width;
+    }
+  }
+
+  /// 测量单行渲染宽度（含行号列/内边距等固定部分）；
+  /// 单行不换行，宽度与视口宽度无关，随字体缩放重测
+  static double _measureLineWidth(
+    DiffLine line,
+    double fontSize,
+    TextScaler textScaler,
+  ) {
+    switch (line.kind) {
+      case DiffLineKind.fileAdd:
+      case DiffLineKind.fileUpdate:
+      case DiffLineKind.fileDelete:
+      case DiffLineKind.fileMove:
+        // 8 左内边距 + 图标 11 + 6 间隔 + 路径文本 + 8 右内边距
+        var width =
+            8 + 11 + 6 + _textWidth(line.text, fontSize, FontWeight.w600, textScaler) + 8;
+        // 变更统计（GitHub 风格：+N 绿 / −M 红），与 _buildFileHeader 对齐
+        if (line.addedCount > 0) {
+          width += 10 + _textWidth('+${line.addedCount}', fontSize - 1, FontWeight.w600, textScaler);
+        }
+        if (line.removedCount > 0) {
+          width += _textWidth(' −${line.removedCount}', fontSize - 1, FontWeight.w600, textScaler);
+        }
+        return width;
+      default:
+        // 8 左内边距 + 行号列 22 + 8 间隔 + 文本 + 8 右内边距
+        return 8 + DiffLineView.lineNumberWidth + 8 + _textWidth(
+              line.text,
+              fontSize,
+              FontWeight.normal,
+              textScaler,
+            ) +
+            8;
+    }
+  }
+
+  static double _textWidth(
+    String text,
+    double fontSize,
+    FontWeight weight,
+    TextScaler textScaler,
+  ) {
+    if (text.isEmpty) return 0;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontFamily: 'JetBrainsMono',
+          fontSize: fontSize,
+          fontWeight: weight,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: textScaler,
+    )..layout();
+    return painter.width;
   }
 
   @override
@@ -535,24 +695,84 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
       builder: (context, constraints) {
         // 短行背景铺满内容宽度（横向滚动时随内容延伸）
         final contentWidth = constraints.maxWidth;
+        final fontSize = custom.typography.captionSize;
+        final textScaler = MediaQuery.textScalerOf(context);
+        final lines = _parser.lines;
+
+        // 增量测量新行（行高精确、行宽一次/行），每 chunk 只处理增量
+        _measureNewLines(lines, fontSize, textScaler);
+
+        // 未完成行：随文本增长原位替换（内容行，行高 18）；
+        // 宽度随文本增长每帧重测（仅一行）
+        final pendingLine = _parser.pendingLine();
+        if (pendingLine != null) {
+          final width = _measureLineWidth(pendingLine, fontSize, textScaler);
+          if (width > _maxRowWidth) _maxRowWidth = width;
+        }
+        final contentHeight =
+            _contentHeight + (pendingLine != null ? DiffLineView.lineHeight : 0);
+
+        // ── 长 diff：封顶 + 虚拟滚动 ──
+        // 超过 chatPartExpandedMaxHeight 时只构建可见行（对齐
+        // VirtualParagraphText 的大输出处理），内部滚动跟随流式。
+        // 高度约束放在横向滚动视图外层：滚动视图对子级交叉轴传递
+        // 传入的 minHeight，仅内层 SizedBox 会随外部紧约束失真
+        final cap = custom.controls.chatPartExpandedMaxHeight;
+        if (contentHeight > cap) {
+          final innerWidth = contentWidth > _maxRowWidth
+              ? contentWidth
+              : _maxRowWidth;
+          return SizedBox(
+            height: cap,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: innerWidth,
+                height: cap,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  // 内层滚到边界后由外层（消息列表）接管，实现滚动接续
+                  physics: ChainedScrollPhysics(
+                    outerPosition: () => Scrollable.maybeOf(
+                          context,
+                          axis: Axis.vertical,
+                        )?.position,
+                  ),
+                  // 行高精确（内容 18 / 文件头 30）：滚动范围精确，
+                  // 贴底 jumpTo 可精确落到最后一行
+                  itemExtentBuilder: (index, _) => index < lines.length
+                      ? DiffLineView.heightFor(lines[index])
+                      : DiffLineView.lineHeight,
+                  itemCount: lines.length + (pendingLine != null ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    final line = index < lines.length
+                        ? lines[index]
+                        : pendingLine!;
+                    return DiffLineView(line: line, minWidth: contentWidth);
+                  },
+                ),
+              ),
+            ),
+          );
+        }
+
+        // ── 短 diff：自然高度，一次构建所有行 ──
         if (_builtWidth != contentWidth || !identical(_builtTheme, custom)) {
           // 窗口尺寸/主题变化：低频全量重建
           _builtWidth = contentWidth;
           _builtTheme = custom;
           _rowWidgets.clear();
-          for (final line in _parser.lines) {
+          for (final line in lines) {
             _rowWidgets.add(DiffLineView(line: line, minWidth: contentWidth));
           }
         } else {
           // 增量：只构建新完成的行
-          for (var i = _rowWidgets.length; i < _parser.lines.length; i++) {
+          for (var i = _rowWidgets.length; i < lines.length; i++) {
             _rowWidgets.add(
-              DiffLineView(line: _parser.lines[i], minWidth: contentWidth),
+              DiffLineView(line: lines[i], minWidth: contentWidth),
             );
           }
         }
-        // 未完成行：随文本增长原位替换
-        final pendingLine = _parser.pendingLine();
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Column(
@@ -628,10 +848,27 @@ class DiffLineView extends StatelessWidget {
   final DiffLine line;
   final double minWidth;
 
-  /// 行号列宽：3 位等宽字符（@12px ≈ 22px）
-  static const _lineNoWidth = 22.0;
+  /// 行号列宽：3 位等宽字符（@12px ≈ 22px）；虚拟列表行宽测量引用
+  static const lineNumberWidth = 22.0;
 
-  static const _lineHeight = 18.0;
+  static const lineHeight = 18.0;
+
+  /// 文件头行上下内边距（与 [_buildFileHeader] 的 padding 同步），
+  /// 行高 = [lineHeight] + 上下内边距；虚拟列表按此精确计算滚动范围
+  static const _headerPadTop = 8.0;
+  static const _headerPadBottom = 4.0;
+
+  /// 行渲染高度：内容行固定 [lineHeight]；文件头行含上下内边距
+  static double heightFor(DiffLine line) {
+    return switch (line.kind) {
+      DiffLineKind.fileAdd ||
+      DiffLineKind.fileUpdate ||
+      DiffLineKind.fileDelete ||
+      DiffLineKind.fileMove =>
+        lineHeight + _headerPadTop + _headerPadBottom,
+      _ => lineHeight,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -641,7 +878,7 @@ class DiffLineView extends StatelessWidget {
     final base = TextStyle(
       fontFamily: 'JetBrainsMono',
       fontSize: fontSize,
-      height: _lineHeight / fontSize,
+      height: lineHeight / fontSize,
       color: colors.textPrimary,
     );
     final syntaxTheme = buildSyntaxTheme(colors);
@@ -682,12 +919,17 @@ class DiffLineView extends StatelessWidget {
     final base = TextStyle(
       fontFamily: 'JetBrainsMono',
       fontSize: fontSize,
-      height: _lineHeight / fontSize,
+      height: lineHeight / fontSize,
       color: colors.textPrimary,
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      padding: const EdgeInsets.fromLTRB(
+        8,
+        _headerPadTop,
+        8,
+        _headerPadBottom,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -759,7 +1001,7 @@ class DiffLineView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: _lineNoWidth,
+            width: lineNumberWidth,
             child: Text(
               lineNo?.toString() ?? '',
               style: lineNoStyle,

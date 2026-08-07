@@ -19,7 +19,6 @@ import 'chat_image_part.dart';
 import 'chat_search_part.dart';
 
 import '../custom_tools_render/chat_diff_block.dart';
-import '../custom_tools_render/patch_args_extractor.dart';
 import 'chat_text_part.dart';
 
 /// 用户消息编辑重试回调
@@ -516,18 +515,15 @@ class ChatMessageItem extends HookWidget {
     );
   }
 
-  /// 用 diff 代码块渲染 apply_patch 的 patch 参数
+  /// 用 diff 代码块渲染 apply_patch 的 patch 参数。
+  /// 提取逻辑在 ChatDiffBlock 内部增量完成：流式期间 arguments 是
+  /// 不断增长的半截 JSON（`{"patch": "*** Begin Patch...`），整段
+  /// jsonDecode 必然失败；若等 JSON 完整才渲染，diff 只能在流式结束后
+  /// 一次性出现（非实时）。StreamingPatchExtractor 容错提取 patch
+  /// 字符串值（字符串未闭合时取全部剩余文本、转义逐字符解码），
+  /// diff 随流式逐行增长，每 chunk 只处理新增文本。
   Widget _buildPatchDiff(BuildContext context, String rawArguments) {
-    // 流式期间 arguments 是不断增长的半截 JSON（`{"patch": "*** Begin Patch...`），
-    // 整段 jsonDecode 必然失败；若等 JSON 完整才渲染，diff 只能在流式结束后
-    // 一次性出现（非实时）。这里容错提取 patch 字符串值：字符串未闭合
-    // （仍在流式）时取全部剩余文本，diff 随流式逐行增长；仅当 patch 键
-    // 尚未出现（极早期）或值为空时暂不渲染。
-    final patch = extractStreamingPatch(rawArguments);
-    if (patch == null || patch.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return ChatDiffBlock(diff: patch);
+    return ChatDiffBlock.arguments(rawArguments: rawArguments);
   }
 
   /// 读取工具调用名称（streaming 早期即稳定）

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:agent/widgets/scroll/chained_scroll_physics.dart';
+
 import 'paragraph_utils.dart';
 export 'paragraph_utils.dart' show ParagraphBlock, ParagraphSplitMode;
 
@@ -350,9 +352,15 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
   }
 
   /// Normal virtual‑scrolling [ListView.builder].
+  /// 正常虚拟‑滚动 [ListView.builder]。
   Widget _buildListView() {
     return ListView.builder(
       controller: _scrollController,
+      // 内层滚到边界后由外层（消息列表）接管，实现滚动接续
+      physics: ChainedScrollPhysics(
+        outerPosition: () =>
+            Scrollable.maybeOf(context, axis: Axis.vertical)?.position,
+      ),
       itemCount: _paragraphs.length,
       itemBuilder: (context, index) {
         final paragraph = _paragraphs[index];
