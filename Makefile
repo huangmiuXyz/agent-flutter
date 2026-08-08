@@ -18,9 +18,11 @@ else
 		flutter_rust_bridge_codegen generate
 endif
 ifneq ($(IS_WINDOWS),)
+		MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat cargo sweep -m 3GB $(CLI_DIR)"
 		MSYS2_ARG_CONV_EXCL='*' cmd.exe /c "tools\run_in_msvc_env.bat cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent"
 		cp $(CLI_DIR)/target/release/rust_lib_agent.dll build/windows/x64/runner/Debug/
 else
+		cd $(CLI_DIR) && cargo sweep -m 3GB
 		cargo build --release --manifest-path $(CLI_MANIFEST) -p rust_lib_agent
 endif
 ifeq ($(UNAME_S),Darwin)
