@@ -137,6 +137,11 @@ void main() async {
         await windowManager.maximize();
         await windowManager.show();
         await windowManager.focus();
+
+        // 启动后自动聚焦 AI 聊天输入框：ChatInput 监听该计数器，
+        // 首帧后请求焦点（窗口刚显示时组件可能尚未挂载，计数器值
+        // 在挂载后的首次 effect 运行中同样生效）
+        XtermStore.instance.chatFocusRequestCount.value++;
       });
 
       await initAppSync();

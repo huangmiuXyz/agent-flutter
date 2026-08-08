@@ -1,3 +1,8 @@
+// RenderEditableContainerBox 未从 fleather 公开导出；版本已在 pubspec.lock 锁定
+// （fleather 1.27.0），内部路径引用可接受。
+// ignore: implementation_imports
+import 'package:fleather/src/rendering/editable_box.dart'
+    show RenderEditableContainerBox;
 import 'package:flutter/gestures.dart' show HitTestResult, kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
@@ -152,14 +157,22 @@ class ChatContent extends HookWidget {
     final downPos = useRef<Offset?>(null);
     return Listener(
       behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) => downPos.value = event.position,
+      onPointerDown: (event) {
+        downPos.value = event.position;
+        // 每次点击开始重置用户消息标记（点击卡片外空白仍正常取消焦点）
+        userMessagePointerUp = false;
+      },
       onPointerUp: (event) {
         final down = downPos.value;
         downPos.value = null;
         if (down == null) return;
         // 滚动/拖动（位移超过 touch slop）不取消，避免打断滚动
         if ((event.position - down).distance > kTouchSlop) return;
-        // 点击了可编辑组件（输入框/编辑器）不取消，避免打断编辑
+        // 点击了可编辑组件（输入框/编辑器）不取消，避免打断编辑。
+        // 注意：Fleather 编辑器（用户消息 ChatFleather）的渲染对象是
+        // `RenderEditableContainerBox` 而非 Flutter 的 `RenderEditable`，
+        // 漏判会导致点击编辑框时被当作空白区域而 unfocus（点一下反而失焦）。
+        // 该类型未从 fleather 公开导出，import 内部路径（版本已锁定）。
         final result = HitTestResult();
         WidgetsBinding.instance.hitTestInView(
           result,
@@ -167,11 +180,16 @@ class ChatContent extends HookWidget {
           event.viewId,
         );
         final hitEditable = result.path.any(
-          (entry) => entry.target is RenderEditable,
+          (entry) =>
+              entry.target is RenderEditable ||
+              entry.target is RenderEditableContainerBox,
         );
-        if (!hitEditable) {
+        // 用户消息卡片整体（含空白/按钮）点击也不取消：
+        // 卡片内层 Listener 已置位标记（pointer up 叶子→根分发，内层先执行）
+        if (!hitEditable && !userMessagePointerUp) {
           FocusManager.instance.primaryFocus?.unfocus();
         }
+        userMessagePointerUp = false; // 消费标记
       },
       child: SignalBuilder(
         builder: (_) {

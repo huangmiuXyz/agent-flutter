@@ -5,6 +5,7 @@
 ///
 /// 当前注册的工具：
 /// - `simulated_terminal` — 在终端中执行命令并返回输出，支持通过 id 复用终端
+/// - `terminal_send_input` — 向指定终端发送原始输入（回答交互式提示）
 library;
 
 import 'dart:convert';
@@ -22,6 +23,7 @@ import 'package:agent/rust_bridge/events.dart';
 /// 在 `main.dart` 主窗口启动时调用一次。
 Future<void> registerFrontendTools() async {
   registerSimulatedTerminal();
+  registerTerminalSendInput();
 }
 
 /// 注册 `simulated_terminal` 工具。
@@ -47,7 +49,8 @@ Future<void> registerFrontendTools() async {
 /// 3. 传 `terminal_id` 但已关闭 → 返回错误，提示 AI 不传 id 重新创建
 void registerSimulatedTerminal() {
   const toolName = 'simulated_terminal';
-  const description = '在用户终端中执行 shell 命令并返回输出。'
+  const description =
+      '在用户终端中执行 shell 命令并返回输出。'
       '适用于查看文件、运行脚本、检查环境等场景。'
       '命令在持久的 shell 会话中执行，工作目录和环境变量会保留。'
       '首次调用不传 terminal_id 会创建新终端并在返回中包含 id；'
@@ -78,10 +81,103 @@ void registerSimulatedTerminal() {
   );
 
   // 2. 在 EngineClient 注册 handler
-  EngineClient.instance.registerToolHandler(
-    toolName,
-    _handleSimulatedTerminal,
+  EngineClient.instance.registerToolHandler(toolName, _handleSimulatedTerminal);
+}
+
+/// 注册 `terminal_send_input` 工具。
+///
+/// 工具 schema：
+/// ```json
+/// {
+///   "type": "object",
+///   "properties": {
+///     "terminal_id": { "type": "string", "description": "要发送输入的终端 id" },
+///     "text": { "type": "string", "description": "要发送的原始输入文本" },
+///     "press_enter": { "type": "boolean", "description": "可选，是否在 text 后追加回车" }
+///   },
+///   "required": ["terminal_id", "text"]
+/// }
+/// ```
+///
+/// 行为：向指定终端发送原始输入（不经过命令执行等待，直接写入 PTY），
+/// 适用于回答交互式提示（如 y/n 确认、vi 命令、进度输入）等场景。
+void registerTerminalSendInput() {
+  const toolName = 'terminal_send_input';
+  const description =
+      '向指定终端发送原始输入（默认不自动追加换行）。'
+      '适用于回答交互式提示（如确认 y/n、vi 命令、输入密码等）的场景。'
+      '需要先通过 simulated_terminal 工具创建终端并获取 terminal_id，'
+      '或复用 simulated_terminal 返回的 terminal_id。'
+      '如果终端已被用户关闭，调用会失败，需重新调用 simulated_terminal 创建。';
+  const parameters = r'''
+{
+  "type": "object",
+  "properties": {
+    "terminal_id": {
+      "type": "string",
+      "description": "要发送输入的终端 id，来自 simulated_terminal 的返回。如果该终端已被用户关闭，调用会失败，需重新调用 simulated_terminal 创建新终端。"
+    },
+    "text": {
+      "type": "string",
+      "description": "要发送的原始输入文本，不会自动追加换行"
+    },
+    "press_enter": {
+      "type": "boolean",
+      "description": "可选，默认 false。为 true 时在 text 后追加回车（\\n），可用于确认提示"
+    }
+  },
+  "required": ["terminal_id", "text"]
+}
+''';
+
+  // 1. 在 Rust 后端注册工具元信息
+  LlmService().registerFrontendTool(
+    name: toolName,
+    description: description,
+    parameters: parameters,
   );
+
+  // 2. 在 EngineClient 注册 handler
+  EngineClient.instance.registerToolHandler(toolName, _handleTerminalSendInput);
+}
+
+/// `terminal_send_input` 工具的执行 handler。
+///
+/// 复用规则：
+/// - 必须传 `terminal_id`（由 `simulated_terminal` 创建/返回）
+/// - 传的 id 不存在或已关闭 → 返回错误，提示重新创建终端
+Future<String> _handleTerminalSendInput(
+  EngineEvent_FrontendToolCall event,
+) async {
+  // 1. 解析入参
+  final args = event.arguments.isEmpty
+      ? <String, dynamic>{}
+      : (jsonDecode(event.arguments) as Map<String, dynamic>);
+
+  final terminalId = args['terminal_id']?.toString();
+  final text = args['text']?.toString() ?? '';
+  final pressEnter = args['press_enter'] == true;
+
+  if (terminalId == null || terminalId.isEmpty) {
+    return 'Error: missing "terminal_id" parameter. '
+        'Call simulated_terminal first to create a terminal and get its id.';
+  }
+  if (text.isEmpty && !pressEnter) {
+    return 'Error: missing or empty "text" parameter';
+  }
+
+  // 2. 检查终端是否存在
+  if (!XtermStore.instance.hasTab(terminalId)) {
+    return 'Error: Terminal "$terminalId" has been closed by the user. '
+        'Call simulated_terminal WITHOUT terminal_id to create a new terminal.';
+  }
+
+  // 3. 确保 PTY 已启动并发送输入
+  final session = XtermStore.instance.forId(terminalId);
+  session.ensurePtyStarted(shell: resolveShell());
+  session.sendInput(pressEnter ? '$text\n' : text);
+
+  return '[terminal_id: $terminalId]\nInput sent.';
 }
 
 /// `simulated_terminal` 工具的执行 handler。

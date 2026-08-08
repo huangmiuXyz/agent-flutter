@@ -56,6 +56,16 @@ List<ParagraphBlock> splitTextIntoParagraphs(
   return result;
 }
 
+/// 剥离工具输出开头的 `exit code: N` 行。
+///
+/// `shell_command` 的返回文本以退出码开头（供模型判断成败，对齐 codex），
+/// UI 展示命令输出时无需显示此前缀；无前缀时原样返回。
+String stripExitCodeLine(String text) {
+  final m = RegExp(r'^exit code: -?\d+\r?\n').firstMatch(text);
+  if (m == null) return text;
+  return text.substring(m.end);
+}
+
 /// Estimates the rendered height (in logical pixels) of a single paragraph
 /// of [text] when rendered with the given typographic settings and container
 /// constraints.

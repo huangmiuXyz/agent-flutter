@@ -34,6 +34,14 @@ typedef OnRetryMessage =
       List<String> imageNames,
     );
 
+/// 用户消息卡片点击标记 — 与 `ChatContent` 外层「点击空白取消焦点」协作。
+///
+/// pointer 事件按 hit test 路径**叶子→根**分发：卡片内层 `Listener` 在
+/// `onPointerUp` 置位（先执行），`ChatContent` 外层读取后消费（后执行），
+/// 从而点击用户消息卡片的**任何位置**（含空白/间距/按钮）都不触发 unfocus；
+/// 外层 `onPointerDown` 每次重置，保证点击卡片外的空白仍正常取消焦点。
+bool userMessagePointerUp = false;
+
 /// 用户消息 — 基于 Fleather 的可编辑富文本消息，图片以 `[图片N]` 标签内嵌，
 /// 支持增删图片，回车重试。
 class _UserMessage extends HookWidget {
@@ -163,52 +171,58 @@ class _UserMessage extends HookWidget {
       vertical: custom.spacing.xs,
     );
 
-    return Padding(
-      padding: messagePadding,
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: custom.colors.cardBackground,
-          borderRadius: custom.radii.sm,
-          border: Border.all(color: custom.colors.cardBorder, width: 1),
-          boxShadow: custom.shadows.small,
-        ),
-        padding: EdgeInsets.all(custom.spacing.sm),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 20),
-              child: ChatFleather(
-                controller: controller,
-                focusNode: focusNode,
-                onSubmit: handleSubmit,
-                // 消息编辑：按内容自适应高度，不占满父级
-                expands: false,
-                // 紧凑：去掉段落上下间距，贴近原 TextField 高度
-                compact: true,
-                // 行高由字体自然决定，保证单行文本垂直居中（不强制 strut 行高）
-                strutStyle: StrutStyle(fontSize: custom.typography.bodySize),
-                // 编辑消息不显示输入框占位文案
-                placeholder: null,
+    // 整张卡片（含空白/间距/按钮）点击都不触发外层「点击空白取消焦点」：
+    // pointer up 置位标记，外层 ChatContent 读取后消费（见 userMessagePointerUp）
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerUp: (_) => userMessagePointerUp = true,
+      child: Padding(
+        padding: messagePadding,
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: custom.colors.cardBackground,
+            borderRadius: custom.radii.sm,
+            border: Border.all(color: custom.colors.cardBorder, width: 1),
+            boxShadow: custom.shadows.small,
+          ),
+          padding: EdgeInsets.all(custom.spacing.sm),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 20),
+                child: ChatFleather(
+                  controller: controller,
+                  focusNode: focusNode,
+                  onSubmit: handleSubmit,
+                  // 消息编辑：按内容自适应高度，不占满父级
+                  expands: false,
+                  // 紧凑：去掉段落上下间距，贴近原 TextField 高度
+                  compact: true,
+                  // 行高由字体自然决定，保证单行文本垂直居中（不强制 strut 行高）
+                  strutStyle: StrutStyle(fontSize: custom.typography.bodySize),
+                  // 编辑消息不显示输入框占位文案
+                  placeholder: null,
+                ),
               ),
-            ),
-            SizedBox(height: custom.spacing.xs),
-            // 仅聚焦时显示图片按钮，避免干扰消息浏览
-            if (isFocused.value)
-              Row(
-                children: [
-                  AppIconButton(
-                    icon: 'image',
-                    size: ButtonSize.sm,
-                    backgroundColor: custom.colors.hover,
-                    tooltip: '添加图片',
-                    onPressed: pickImages,
-                  ),
-                ],
-              ),
-          ],
+              SizedBox(height: custom.spacing.xs),
+              // 仅聚焦时显示图片按钮，避免干扰消息浏览
+              if (isFocused.value)
+                Row(
+                  children: [
+                    AppIconButton(
+                      icon: 'image',
+                      size: ButtonSize.sm,
+                      backgroundColor: custom.colors.hover,
+                      tooltip: '添加图片',
+                      onPressed: pickImages,
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );

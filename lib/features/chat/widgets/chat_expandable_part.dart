@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/ansi_text.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/text/paragraph_utils.dart';
@@ -104,7 +105,9 @@ class ChatExpandablePart extends HookWidget {
         final json = jsonDecode(rawResult);
         resultText = const JsonEncoder.withIndent('  ').convert(json);
       } catch (_) {
-        resultText = rawResult;
+        // 纯文本工具输出：剥离 `exit code: N` 前缀（仅供模型判断成败，
+        // UI 展示命令输出时无需显示）
+        resultText = stripExitCodeLine(rawResult);
       }
     }
 
@@ -130,20 +133,28 @@ class ChatExpandablePart extends HookWidget {
         ? '$argumentsText\n\n$resultText'
         : argumentsText;
 
-    // 输入段落用次级文字色，输出段落用成功色；两者之间渲染分隔线
+    // 输入段落用次级文字色，输出段落用成功色；两者之间渲染分隔线。
+    // 输出段落经 ANSI 解析渲染彩色（shell_command 等工具输出保留颜色码），
+    // 无颜色码时回落到段落默认色。
     Widget paragraphBuilder(ParagraphBlock paragraph, int index) {
       final isOutputSection =
           customWidgetsExist || index >= inputParagraphCount;
-      final text = SelectableText(
-        paragraph.text,
-        style: TextStyle(
-          // 字体跟随主题设置（默认 JetBrainsMono）
-          fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
-          fontSize: custom.typography.captionSize,
-          height: 18 / custom.typography.captionSize,
-          color: isOutputSection
-              ? custom.colors.success
-              : custom.colors.textSecondary,
+      final baseStyle = TextStyle(
+        // 字体跟随主题设置（默认 JetBrainsMono）
+        fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
+        fontSize: custom.typography.captionSize,
+        height: 18 / custom.typography.captionSize,
+        color: isOutputSection
+            ? custom.colors.success
+            : custom.colors.textSecondary,
+      );
+      final text = SelectableText.rich(
+        TextSpan(
+          style: baseStyle,
+          children: AnsiTextParser().parse(
+            paragraph.text,
+            baseStyle: baseStyle,
+          ),
         ),
       );
       final showDivider =
