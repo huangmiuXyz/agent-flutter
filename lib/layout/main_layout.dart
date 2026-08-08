@@ -7,7 +7,6 @@ import 'package:window_manager/window_manager.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/settings_page.dart';
-import 'package:agent/store/config_store.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
@@ -15,7 +14,6 @@ import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/notification/stream_completion_notifications.dart';
 import 'package:agent/widgets/text/app_text.dart';
-import 'package:agent/rust_bridge/api/mcp.dart' as api;
 import 'package:agent/rust_bridge/api/skills.dart' as api;
 
 /// 设置面板单例标记：同一窗口内只允许一个设置弹窗，避免叠加多个。
@@ -187,7 +185,7 @@ class MainLayout extends StatelessWidget {
         body: Stack(
           children: [
             child,
-            const _McpInitSnackBar(),
+            const _StartupSkillsScan(),
             const StreamCompletionNotifications(),
           ],
         ),
@@ -243,7 +241,7 @@ class MainLayout extends StatelessWidget {
       body: Stack(
         children: [
           child,
-          const _McpInitSnackBar(),
+          const _StartupSkillsScan(),
           const StreamCompletionNotifications(),
         ],
       ),
@@ -252,15 +250,17 @@ class MainLayout extends StatelessWidget {
   }
 }
 
-/// 启动时初始化 MCP + 扫描技能
-class _McpInitSnackBar extends StatefulWidget {
-  const _McpInitSnackBar();
+/// 启动时扫描全局技能
+///
+/// MCP 初始化已迁移到 Rust 端懒初始化（chat 入口自动连接），不再需要前端调用。
+class _StartupSkillsScan extends StatefulWidget {
+  const _StartupSkillsScan();
 
   @override
-  State<_McpInitSnackBar> createState() => _McpInitSnackBarState();
+  State<_StartupSkillsScan> createState() => _StartupSkillsScanState();
 }
 
-class _McpInitSnackBarState extends State<_McpInitSnackBar> {
+class _StartupSkillsScanState extends State<_StartupSkillsScan> {
   @override
   void initState() {
     super.initState();
@@ -268,25 +268,8 @@ class _McpInitSnackBarState extends State<_McpInitSnackBar> {
   }
 
   Future<void> _init() async {
-    // 1. 初始化 MCP 连接
-    try {
-      final configPath = ConfigStore.instance.configPath;
-      final errors = await api.initMcp(configPath: configPath);
-      if (errors.isNotEmpty && mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: AppText(errors.join('\n')),
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        });
-      }
-    } catch (_) {}
-
-    // 2. 扫描全局技能，确保第一次发消息时 buildSkillCatalog() 能返回结果
-    //    即使未访问过设置→技能页面
+    // 扫描全局技能，确保第一次发消息时 buildSkillCatalog() 能返回结果
+    // 即使未访问过设置→技能页面
     try {
       final discovered = await api.scanGlobalSkills();
       SkillStore.instance.load(discovered);
