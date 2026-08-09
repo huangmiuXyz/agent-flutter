@@ -11,6 +11,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/tab/app_icon_tab_bar.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -24,9 +25,9 @@ class LeftPanel extends HookWidget {
     final selectMode = useSignal(false);
     final selectedIds = useSignal(<String>{});
     final isHeaderHovered = useState(false);
-    // 面板模式：false = 对话；true = 检查点
-    final isCheckpointMode = useExistingSignal(
-      CheckpointStore.instance.activeMode,
+    // 左侧面板模式：false = 会话列表；true = 检查点路径列表（仅影响左侧显示）
+    final isLeftCheckpointMode = useExistingSignal(
+      CheckpointStore.instance.leftMode,
     );
 
     // 退出选择模式时清理选中状态
@@ -47,15 +48,14 @@ class LeftPanel extends HookWidget {
               custom.spacing.sm,
               custom.spacing.xs,
               custom.spacing.sm,
-              // 底部留出激活指示条的空间
-              custom.spacing.sm,
+              0,
             ),
             child: AppIconTabBar(
               icons: const [LucideIcons.messageSquareMore, LucideIcons.history],
               tooltips: const ['对话', '检查点'],
-              activeIndex: isCheckpointMode.value ? 1 : 0,
+              activeIndex: isLeftCheckpointMode.value ? 1 : 0,
               onChanged: (i) {
-                // 切换模式时退出批量选择状态
+                // 切换左侧模式时退出批量选择状态
                 selectMode.value = false;
                 if (i == 1) {
                   CheckpointStore.instance.switchToCheckpoints();
@@ -65,6 +65,8 @@ class LeftPanel extends HookWidget {
               },
             ),
           ),
+          // Tab 栏下方分割线
+          const AppDivider(extent: 1, thickness: 1),
           // ── 标题区（两种模式都显示，样式与聊天一致） ──
           MouseRegion(
             onEnter: (_) => isHeaderHovered.value = true,
@@ -74,24 +76,19 @@ class LeftPanel extends HookWidget {
                 horizontal: custom.spacing.sm,
                 vertical: custom.spacing.xs,
               ),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: custom.colors.separator),
-                ),
-              ),
               child: _buildHeader(
                 context,
                 custom,
                 selectMode,
                 selectedIds,
                 isHeaderHovered.value,
-                isCheckpointMode.value,
+                isLeftCheckpointMode.value,
               ),
             ),
           ),
           // ── 内容区：会话列表 / 检查点路径列表（两种模式都显示） ──
           Expanded(
-            child: isCheckpointMode.value
+            child: isLeftCheckpointMode.value
                 ? CheckpointPathList(
                     selectMode: selectMode.value,
                     selectedIds: selectedIds.value,
@@ -118,7 +115,7 @@ class LeftPanel extends HookWidget {
     Signal<bool> selectMode,
     Signal<Set<String>> selectedIds,
     bool headerHovered,
-    bool isCheckpointMode,
+    bool isLeftCheckpointMode,
   ) {
     if (selectMode.value) {
       return Row(
@@ -126,7 +123,7 @@ class LeftPanel extends HookWidget {
           Expanded(
             child: AppText(
               selectedIds.value.isEmpty
-                  ? (isCheckpointMode ? '选择检查点路径' : '选择会话')
+                  ? (isLeftCheckpointMode ? '选择检查点路径' : '选择会话')
                   : '已选 ${selectedIds.value.length} 项',
               variant: AppTextVariant.body,
               style: const TextStyle(fontWeight: FontWeight.w600),
@@ -140,7 +137,7 @@ class LeftPanel extends HookWidget {
                 size: ButtonSize.sm,
                 backgroundColor: custom.colors.danger,
                 tooltip: '删除选中',
-                onPressed: () => isCheckpointMode
+                onPressed: () => isLeftCheckpointMode
                     ? _batchDeleteCheckpoints(context, selectMode, selectedIds)
                     : _batchDelete(context, selectMode, selectedIds),
               ),
@@ -161,7 +158,7 @@ class LeftPanel extends HookWidget {
       children: [
         Expanded(
           child: AppText(
-            isCheckpointMode ? '检查点' : '对话',
+            isLeftCheckpointMode ? '检查点' : '对话',
             variant: AppTextVariant.body,
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
@@ -179,7 +176,7 @@ class LeftPanel extends HookWidget {
             },
           ),
         ),
-        if (!isCheckpointMode)
+        if (!isLeftCheckpointMode)
           AppIconButton(
             icon: 'plus',
             size: ButtonSize.sm,

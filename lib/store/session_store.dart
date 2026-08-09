@@ -22,6 +22,7 @@ import 'package:agent/rust_bridge/events.dart';
 import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
+import 'package:agent/store/checkpoint_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/message_queue_store.dart';
 import 'package:agent/store/notification_store.dart';
@@ -273,6 +274,9 @@ class SessionStore {
   /// 在统一 `ENGINE_SINK` 模型下，事件订阅是持续的（不依赖 stream lifecycle），
   /// 因此无需 buffer —— 切换会话期间产生的事件会立即通过订阅应用到状态。
   Future<void> switchTo(String sessionId) async {
+    // 打开会话时右侧主视图切回聊天内容（VS Code 式：右侧由列表项点击驱动）
+    CheckpointStore.instance.showChatView();
+
     if (!sessions.value.containsKey(sessionId)) {
       sessions.value = {...sessions.value, sessionId: SessionState(sessionId)};
     }

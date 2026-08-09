@@ -37,7 +37,7 @@ class AppIconTabBar extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (int i = 0; i < icons.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
+          if (i > 0) const SizedBox(width: 2),
           _IconTab(
             icon: icons[i],
             tooltip: tooltips[i],
@@ -102,23 +102,22 @@ class _IconTabState extends State<_IconTab> {
             clipBehavior: Clip.none,
             alignment: Alignment.center,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
+              SizedBox(
                 width: 32,
                 height: 32,
-                decoration: BoxDecoration(
-                  color: _hovered ? custom.colors.hover : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
+                // 底部无 padding（指示条贴分割线），图标上移 2px 使上下留白均衡
+                child: Align(
+                  alignment: const Alignment(0, -0.25),
+                  child: Icon(widget.icon, size: 16, color: iconColor),
                 ),
-                child: Icon(widget.icon, size: 20, color: iconColor),
               ),
-              // 激活指示条：按钮下方 5px 间隙，宽 18 高 2 圆角条
+              // 激活指示条：贴按钮底边，宽 18 高 1 圆角条
               if (widget.active)
                 Positioned(
-                  bottom: -7,
+                  bottom: 0,
                   child: Container(
                     width: 18,
-                    height: 2,
+                    height: 1,
                     decoration: BoxDecoration(
                       color: custom.colors.accent,
                       borderRadius: BorderRadius.circular(1),

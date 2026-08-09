@@ -5,6 +5,10 @@
 /// 2. 维护选中路径与其检查点列表（listCheckpoints）
 /// 3. 提供恢复操作（restoreCheckpoint，只恢复该次编辑涉及的文件）
 /// 4. 监听 `EngineEvent_CheckpointCreated` 实时刷新（路径计数 +1 / 插入列表顶部）
+///
+/// 左右解耦（VS Code 式）：[leftMode] 只控制左侧面板显示会话列表还是
+/// 检查点路径列表；右侧主视图（聊天内容 / 检查点列表）由 [showCheckpointView]
+/// 控制，仅在点击对应列表项时切换。
 library;
 
 import 'dart:async';
@@ -19,8 +23,13 @@ class CheckpointStore {
   static final instance = CheckpointStore._();
   CheckpointStore._();
 
-  /// 面板模式：false = 对话；true = 检查点
-  final activeMode = signal(false);
+  /// 左侧面板模式：false = 会话列表；true = 检查点路径列表。
+  /// 仅影响左侧面板显示（VS Code 式：左侧 tab 不切换右侧视图）。
+  final leftMode = signal(false);
+
+  /// 右侧主视图：false = 聊天内容；true = 检查点列表。
+  /// 左侧 tab 切换不改变它；点击会话切回聊天、点击检查点路径切到检查点。
+  final showCheckpointView = signal(false);
 
   /// 左侧路径列表（work_dir 聚合）
   final paths = signal<List<api_types.CheckpointPathInfo>>([]);
@@ -33,25 +42,29 @@ class CheckpointStore {
 
   final loading = signal(false);
 
-  bool get isCheckpointMode => activeMode.value;
+  bool get isLeftCheckpointMode => leftMode.value;
 
-  /// 切换对话/检查点模式；进入检查点模式时刷新数据。
+  /// 切换左侧面板模式；进入检查点模式时刷新数据。
   void toggleMode() {
-    activeMode.value = !activeMode.value;
-    if (activeMode.value) {
+    leftMode.value = !leftMode.value;
+    if (leftMode.value) {
       unawaited(refreshAll());
     }
   }
 
-  /// 进入检查点模式（已在检查点模式时不重复刷新）。
+  /// 左侧 tab 切到检查点（仅影响左侧列表；已在检查点模式时不重复刷新）。
   void switchToCheckpoints() {
-    if (!activeMode.value) {
-      activeMode.value = true;
+    if (!leftMode.value) {
+      leftMode.value = true;
       unawaited(refreshAll());
     }
   }
 
-  void switchToChat() => activeMode.value = false;
+  /// 左侧 tab 切回会话列表（仅影响左侧列表）。
+  void switchToChat() => leftMode.value = false;
+
+  /// 点击会话：右侧主视图切回聊天内容。
+  void showChatView() => showCheckpointView.value = false;
 
   /// 全量刷新：路径列表 + 当前路径的检查点列表。
   ///
@@ -81,7 +94,12 @@ class CheckpointStore {
     }
   }
 
+  /// 点击检查点路径：右侧切到检查点视图并加载其检查点列表。
+  ///
+  /// 即使选中的路径未变化也必须先把右侧切到检查点视图
+  /// （点击已选中项同样属于「点击列表项」）。
   Future<void> selectWorkDir(String workDir) async {
+    showCheckpointView.value = true;
     if (currentWorkDir.value == workDir) return;
     currentWorkDir.value = workDir;
     await loadCheckpoints(workDir);

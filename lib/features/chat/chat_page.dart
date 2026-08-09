@@ -187,7 +187,7 @@ class ChatPage extends StatelessWidget {
         expanded: SidebarStore.instance.leftExpanded,
         other: _ExpandableTerminalPanel(
           other: SignalBuilder(
-            builder: (_) => CheckpointStore.instance.activeMode.value
+            builder: (_) => CheckpointStore.instance.showCheckpointView.value
                 ? const CheckpointList()
                 : const ChatContent(),
           ),
@@ -206,7 +206,7 @@ class ChatPage extends StatelessWidget {
       expanded: SidebarStore.instance.leftExpanded,
       other: _ExpandableTerminalPanel(
         other: SignalBuilder(
-          builder: (_) => CheckpointStore.instance.activeMode.value
+          builder: (_) => CheckpointStore.instance.showCheckpointView.value
               ? const CheckpointList()
               : const ChatContent(),
         ),
