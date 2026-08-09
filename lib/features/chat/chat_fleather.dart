@@ -207,6 +207,16 @@ class _NoBounceScrollPhysics extends ScrollPhysics {
   bool get allowImplicitScrolling => false;
 }
 
+/// 点击 Fleather 编辑器时置位，供外层 ChatContent「点击空白取消焦点」消费。
+///
+/// Fleather 编辑器的渲染对象（RenderEditor 继承自 RenderEditableContainerBox）
+/// 未重写 hitTestSelf：点击文本行下方的空白区域时，编辑器不会出现在
+/// hit test 路径中，外层仅靠 hitEditable 判空会把输入框内的点击误判为
+/// 空白而 unfocus（点一下反而失焦）。pointer 事件按 hit test 路径
+/// 叶子→根分发：本文件内层 Listener 在 pointer up 置位，ChatContent 外层
+/// 读取后消费（每次 pointer down 由外层重置，见 chat_content.dart）。
+bool chatFleatherPointerUp = false;
+
 class ChatFleather extends StatefulWidget {
   const ChatFleather({
     super.key,
@@ -454,39 +464,45 @@ class _ChatFleatherState extends State<ChatFleather> {
             // aligns with where the editor actually renders its first line.
             final fleatherTheme = FleatherTheme.of(context)!;
             final paragraphTop = fleatherTheme.paragraph.spacing.top;
-            return Stack(
-              children: [
-                ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(context).copyWith(
-                    overscroll: false,
-                    physics: const _NoBounceScrollPhysics(),
-                  ),
-                  child: Focus(
-                    onKeyEvent: _onKeyEvent,
-                    child: FleatherEditor(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      expands: widget.expands,
-                      scrollPhysics: const _NoBounceScrollPhysics(),
-                      embedBuilder: _embedBuilder,
+            return Listener(
+              behavior: HitTestBehavior.translucent,
+              // 点击编辑器任意位置（含文本下方空白）不算「点击空白」，
+              // 内层先于外层 ChatContent 收到 pointer up 并置位标记
+              onPointerUp: (_) => chatFleatherPointerUp = true,
+              child: Stack(
+                children: [
+                  ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(context).copyWith(
+                      overscroll: false,
+                      physics: const _NoBounceScrollPhysics(),
                     ),
-                  ),
-                ),
-                // Placeholder shown when content is empty
-                if (_isEmpty && widget.placeholder != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: paragraphTop),
-                        child: AppText(
-                          widget.placeholder!,
-                          variant: AppTextVariant.body,
-                          color: custom.colors.textSecondary,
-                        ),
+                    child: Focus(
+                      onKeyEvent: _onKeyEvent,
+                      child: FleatherEditor(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        expands: widget.expands,
+                        scrollPhysics: const _NoBounceScrollPhysics(),
+                        embedBuilder: _embedBuilder,
                       ),
                     ),
                   ),
-              ],
+                  // Placeholder shown when content is empty
+                  if (_isEmpty && widget.placeholder != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Padding(
+                          padding: EdgeInsets.only(top: paragraphTop),
+                          child: AppText(
+                            widget.placeholder!,
+                            variant: AppTextVariant.body,
+                            color: custom.colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             );
           },
         ),
