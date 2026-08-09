@@ -13,7 +13,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'package:agent/rust_bridge/api/engine.dart' as api;
+import 'package:agent/rust_bridge/api/types.dart' as api_types;
 import 'package:agent/rust_bridge/events.dart';
+import 'package:agent/store/checkpoint_store.dart';
 
 /// 前端工具 handler 函数签名。
 ///
@@ -149,6 +151,23 @@ class EngineClient {
     if (event is EngineEvent_FrontendToolCall) {
       // 不 await，避免阻塞事件循环；handler 内部异步执行
       _dispatchToolCall(event);
+    }
+
+    if (event is EngineEvent_CheckpointCreated) {
+      // 检查点已创建（apply_patch 编辑成功 / turn 收尾）→ 实时刷新检查点面板
+      CheckpointStore.instance.onCheckpointCreated(
+        api_types.CheckpointInfo(
+          id: event.checkpointId,
+          sessionId: event.sessionId,
+          msgId: event.msgId,
+          partId: event.partId,
+          commitSha: event.commitSha,
+          workDir: event.workDir,
+          summary: event.summary,
+          files: const [],
+          createdAt: event.createdAt,
+        ),
+      );
     }
   }
 

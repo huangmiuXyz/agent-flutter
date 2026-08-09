@@ -94,6 +94,13 @@ void main() async {
               ),
             );
           });
+          // 检查点恢复：当前打开的文件受影响时重新加载
+          CrossWindowSync.on('checkpointRestored', (args) {
+            final affected = (args as List?)?.whereType<String>() ?? const [];
+            if (affected.contains(store.filePath.value)) {
+              store.reload();
+            }
+          });
 
           runApp(
             MaterialApp(

@@ -8,6 +8,7 @@ const Map<String, IconData> _registry = {
   'brush': LucideIcons.brushCleaning,
   'settings': LucideIcons.settings,
   'refresh': LucideIcons.rotateCw,
+  'rotateCcw': LucideIcons.rotateCcw,
   'trash': LucideIcons.trash2,
   'square': LucideIcons.square,
   'terminal': LucideIcons.terminal,

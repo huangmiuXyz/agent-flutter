@@ -263,7 +263,12 @@ class DiffCodeBlock extends StatefulWidget {
   /// Unified diff 原文（apply_patch 信封格式）
   final String diff;
 
-  const DiffCodeBlock({super.key, required this.diff});
+  /// 内容高度上限：超过后切换为封顶内部滚动（虚拟化只构建可见行）。
+  /// 默认 [CustomTheme.controls.chatPartExpandedMaxHeight]（聊天消息内嵌场景）；
+  /// 全屏/面板场景可传更大的值（如视口高度）。
+  final double? maxHeight;
+
+  const DiffCodeBlock({super.key, required this.diff, this.maxHeight});
 
   @override
   State<DiffCodeBlock> createState() => _DiffCodeBlockState();
@@ -758,7 +763,8 @@ class _DiffCodeBlockState extends State<DiffCodeBlock> {
         // VirtualParagraphText 的大输出处理），内部滚动跟随流式。
         // 高度约束放在横向滚动视图外层：滚动视图对子级交叉轴传递
         // 传入的 minHeight，仅内层 SizedBox 会随外部紧约束失真
-        final cap = custom.controls.chatPartExpandedMaxHeight;
+        final cap =
+            widget.maxHeight ?? custom.controls.chatPartExpandedMaxHeight;
         if (contentHeight > cap) {
           final innerWidth = contentWidth > _maxRowWidth
               ? contentWidth

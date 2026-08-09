@@ -8,6 +8,8 @@ import 'package:agent/features/chat/panels/chat_content.dart';
 import 'package:agent/features/chat/panels/left_panel.dart';
 import 'package:agent/features/chat/panels/right_panel.dart';
 import 'package:agent/features/chat/panels/terminal_panel.dart';
+import 'package:agent/features/checkpoints/checkpoint_list.dart';
+import 'package:agent/store/checkpoint_store.dart';
 import 'package:agent/store/sidebar_store.dart';
 import 'package:agent/store/xterm_store.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
@@ -29,10 +31,7 @@ bool _isRunningFromSource() {
 ///
 /// 折叠仍由用户拖拽控制（不自动折叠），保持用户手动控制权。
 class _ExpandableTerminalPanel extends HookWidget {
-  const _ExpandableTerminalPanel({
-    required this.other,
-    required this.child,
-  });
+  const _ExpandableTerminalPanel({required this.other, required this.child});
 
   final Widget other;
   final Widget child;
@@ -50,8 +49,9 @@ class _ExpandableTerminalPanel extends HookWidget {
         initialSize: _initialSize,
       ),
     );
-    final expandCount =
-        useExistingSignal(XtermStore.instance.expandRequestCount);
+    final expandCount = useExistingSignal(
+      XtermStore.instance.expandRequestCount,
+    );
 
     // 监听 expandRequestCount：每次递增都触发展开（无论当前是否已展开）
     useEffect(() {
@@ -62,8 +62,9 @@ class _ExpandableTerminalPanel extends HookWidget {
     }, [expandCount.value]);
 
     // 监听 collapseRequestCount：快捷键/命令请求折叠时执行折叠
-    final collapseCount =
-        useExistingSignal(XtermStore.instance.collapseRequestCount);
+    final collapseCount = useExistingSignal(
+      XtermStore.instance.collapseRequestCount,
+    );
     useEffect(() {
       if (collapseCount.value > 0) {
         controller.collapse();
@@ -73,8 +74,8 @@ class _ExpandableTerminalPanel extends HookWidget {
 
     // 面板展开状态同步到 store：用户拖拽也会更新，供 togglePanel 判断方向
     useEffect(() {
-      void sync() =>
-          XtermStore.instance.panelExpanded.value = !controller.isCollapsed.value;
+      void sync() => XtermStore.instance.panelExpanded.value =
+          !controller.isCollapsed.value;
       sync();
       controller.isCollapsed.addListener(sync);
       return () => controller.isCollapsed.removeListener(sync);
@@ -184,8 +185,12 @@ class ChatPage extends StatelessWidget {
         direction: ResizeDirection.right,
         toggleCount: SidebarStore.instance.leftToggleCount,
         expanded: SidebarStore.instance.leftExpanded,
-        other: const _ExpandableTerminalPanel(
-          other: ChatContent(),
+        other: _ExpandableTerminalPanel(
+          other: SignalBuilder(
+            builder: (_) => CheckpointStore.instance.activeMode.value
+                ? const CheckpointList()
+                : const ChatContent(),
+          ),
           child: TerminalPanel(),
         ),
         child: const LeftPanel(),
@@ -199,9 +204,13 @@ class ChatPage extends StatelessWidget {
       direction: ResizeDirection.right,
       toggleCount: SidebarStore.instance.leftToggleCount,
       expanded: SidebarStore.instance.leftExpanded,
-      other: const _ExpandableTerminalPanel(
-        other: ChatContent(),
-        child: TerminalPanel(),
+      other: _ExpandableTerminalPanel(
+        other: SignalBuilder(
+          builder: (_) => CheckpointStore.instance.activeMode.value
+              ? const CheckpointList()
+              : const ChatContent(),
+        ),
+        child: const TerminalPanel(),
       ),
       child: const LeftPanel(),
     );
