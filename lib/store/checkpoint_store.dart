@@ -116,6 +116,21 @@ class CheckpointStore {
     }
   }
 
+  /// 重新应用检查点（把该次编辑涉及的文件恢复到检查点状态，与恢复镜像）。
+  ///
+  /// 返回摘要供 UI 展示；失败返回 null。
+  Future<api_types.RestoreSummary?> apply(api_types.CheckpointInfo cp) async {
+    try {
+      return await api.applyCheckpoint(
+        commitSha: cp.commitSha,
+        workDir: cp.workDir,
+        files: cp.files,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 删除检查点路径（该 work_dir 下所有检查点记录；不影响 git 仓库）。
   ///
   /// 成功后刷新列表；失败返回 false。
