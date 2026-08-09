@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/chat/panels/session_list.dart';
@@ -10,7 +11,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
-import 'package:agent/widgets/tab/app_tab_bar.dart';
+import 'package:agent/widgets/tab/app_icon_tab_bar.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// 左侧面板 — 会话列表（支持批量选择与删除）
@@ -40,18 +41,19 @@ class LeftPanel extends HookWidget {
       color: custom.colors.panel,
       child: Column(
         children: [
-          // ── 模式 Tab：对话 / 检查点 ──
+          // ── 模式 Tab：对话 / 检查点（VS Code 图标风格） ──
           Padding(
             padding: EdgeInsets.fromLTRB(
               custom.spacing.sm,
               custom.spacing.xs,
               custom.spacing.sm,
-              0,
+              // 底部留出激活指示条的空间
+              custom.spacing.sm,
             ),
-            child: AppTabBar(
-              tabs: const ['对话', '检查点'],
+            child: AppIconTabBar(
+              icons: const [LucideIcons.messageSquareMore, LucideIcons.history],
+              tooltips: const ['对话', '检查点'],
               activeIndex: isCheckpointMode.value ? 1 : 0,
-              size: TabBarSize.sm,
               onChanged: (i) {
                 // 切换模式时退出批量选择状态
                 selectMode.value = false;
