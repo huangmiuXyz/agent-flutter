@@ -4,11 +4,13 @@ import 'package:fleather/fleather.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/image_store.dart';
 import 'package:agent/services/session/part_types.dart';
+import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -20,6 +22,7 @@ import 'chat_search_part.dart';
 
 import '../custom_tools_render/chat_diff_block.dart';
 import 'chat_text_part.dart';
+import 'package:agent/widgets/terminal/readonly_terminal.dart';
 
 /// 用户消息编辑重试回调
 ///
@@ -255,6 +258,10 @@ class ChatMessageItem extends HookWidget {
   /// 当前会话是否处于流式输出中（传递给 ChatTextPart 用于增量追加）
   final bool streaming;
 
+  /// part_id → 工具流式输出累积文本（ToolOutputDelta 事件实时追加，
+  /// 仅执行中的工具调用卡片使用只读终端展示）
+  final Map<String, String> toolStreamedOutputs;
+
   const ChatMessageItem({
     super.key,
     required this.sessionId,
@@ -266,6 +273,7 @@ class ChatMessageItem extends HookWidget {
     this.dimmed = false,
     this.onFocusChanged,
     this.streaming = false,
+    this.toolStreamedOutputs = const {},
   });
 
   @override
@@ -303,6 +311,22 @@ class ChatMessageItem extends HookWidget {
     final cacheStreaming = useRef<bool>(false);
     if (cacheStreaming.value != streaming) {
       cacheStreaming.value = streaming;
+      partCache.value.clear();
+    }
+    // 工具流式输出变化时工具卡片必须重建（part 实例未变但终端内容在增长）
+    final cacheStreamed = useRef<Map<String, String>>({});
+    if (cacheStreamed.value != toolStreamedOutputs) {
+      cacheStreamed.value = toolStreamedOutputs;
+      partCache.value.clear();
+    }
+    // Markdown 字体切换时聊天文本 part 必须重建（ChatTextPart 内部监听
+    // markdownFontFamily，但外层 partCache 缓存了 widget 实例）
+    final markdownFont = useExistingSignal(
+      ThemeStore.instance.markdownFontFamily,
+    );
+    final cacheMarkdownFont = useRef<String?>(null);
+    if (cacheMarkdownFont.value != markdownFont.value) {
+      cacheMarkdownFont.value = markdownFont.value;
       partCache.value.clear();
     }
 
@@ -404,12 +428,18 @@ class ChatMessageItem extends HookWidget {
     final part = visibleParts[index];
     final isLast = index == visibleParts.length - 1;
     // 缓存查找：part 实例与位置未变 → 复用整个（含薄壳的）widget 实例，
-    // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘
-    return partCache.putIfAbsent((
-      part,
-      isLast,
-      streaming,
-    ), () => _buildPartWithSpacingInner(part, custom, minPartHeight, isLast));
+    // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘。
+    // 流式输出文本纳入键：工具卡片内容增长时缓存失效重建。
+    return partCache.putIfAbsent(
+      (part, isLast, streaming, toolStreamedOutputs[part.id]),
+      () => _buildPartWithSpacingInner(
+        part,
+        custom,
+        minPartHeight,
+        isLast,
+        toolStreamedOutputs[part.id],
+      ),
+    );
   }
 
   Widget _buildPartWithSpacingInner(
@@ -417,8 +447,9 @@ class ChatMessageItem extends HookWidget {
     CustomTheme custom,
     double minPartHeight,
     bool isLast,
+    String? streamedText,
   ) {
-    final widget = _buildPart(part, custom);
+    final widget = _buildPart(part, custom, streamedText);
     final constrained = Container(
       constraints: BoxConstraints(minHeight: minPartHeight),
       alignment: Alignment.centerLeft,
@@ -435,7 +466,11 @@ class ChatMessageItem extends HookWidget {
     return isolated;
   }
 
-  Widget _buildPart(api.PartInfo part, CustomTheme custom) {
+  Widget _buildPart(
+    api.PartInfo part,
+    CustomTheme custom,
+    String? streamedText,
+  ) {
     return switch (part.partType) {
       PartTypes.text => ChatTextPart(
         content: part.content,
@@ -451,7 +486,7 @@ class ChatMessageItem extends HookWidget {
       ),
       PartTypes.image => ChatImagePart(content: part.content),
       PartTypes.toolCall ||
-      PartTypes.toolCallFrag => _buildToolCallPart(part, custom),
+      PartTypes.toolCallFrag => _buildToolCallPart(part, custom, streamedText),
       PartTypes.toolResult => const SizedBox.shrink(),
       PartTypes.webSearch => ChatSearchPart(content: part.content),
       PartTypes.subAgentText => _buildSubAgentPart(part, custom),
@@ -506,9 +541,24 @@ class ChatMessageItem extends HookWidget {
     return null;
   }
 
-  /// 工具调用卡片：apply_patch 走专用 diff 渲染，其余保持通用样式
-  Widget _buildToolCallPart(api.PartInfo part, CustomTheme custom) {
+  /// 工具调用卡片：apply_patch 走专用 diff 渲染，其余保持通用样式。
+  ///
+  /// 执行中的 shell_command 等工具（tool_call_frag 态）如有流式输出，
+  /// 在展开区渲染只读终端实时展示；命令结束后（tool_call 态）由
+  /// resultContent 展示最终结果，终端隐藏（与历史重载渲染一致）。
+  Widget _buildToolCallPart(
+    api.PartInfo part,
+    CustomTheme custom,
+    String? streamedText,
+  ) {
     final isPatch = _toolCallName(part.content) == 'apply_patch';
+    // 仅执行中的卡片展示流式终端；完成后 toolOutputBuffers 仍在会话内
+    // 保留，但不再渲染（结果以 tool_result 文本为准）
+    final isRunning = part.partType == PartTypes.toolCallFrag;
+    final streamed =
+        isRunning && streamedText != null && streamedText.isNotEmpty
+        ? streamedText
+        : null;
     return ChatExpandablePart(
       content: part.content,
       iconName: isPatch ? 'fileCode' : 'mousePointer2',
@@ -518,8 +568,11 @@ class ChatMessageItem extends HookWidget {
       argumentsBuilder: isPatch ? _buildPatchDiff : null,
       // 工具调用去掉左侧分割线（深度思考保留）
       showLeftDivider: false,
-      // 仅 apply_patch 默认展开便于直接查看 diff，其余工具调用保持收起
-      initiallyExpanded: isPatch,
+      // 仅 apply_patch 默认展开便于直接查看 diff，其余工具调用保持收起；
+      // 有流式输出时默认展开（用户能看到执行过程）
+      initiallyExpanded: isPatch || streamed != null,
+      // 流式输出：只读终端（xterm）实时展示，支持 ANSI/进度条/滚动
+      children: [if (streamed != null) ReadonlyTerminalView(text: streamed)],
     );
   }
 

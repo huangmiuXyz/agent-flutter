@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
+import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/markdown/markdown_preview.dart';
 import 'package:agent/widgets/text/code_block_view.dart';
@@ -56,14 +58,25 @@ class ChatTextPart extends HookWidget {
     }
 
     final custom = CustomTheme.of(context);
+    // Markdown 渲染字体：Markdown 专用设置 > 界面字体设置（代码块不受影响，
+    // 仍走 CodeBlockView 的等宽字体逻辑）
+    final markdownFontFamily = useExistingSignal(
+      ThemeStore.instance.markdownFontFamily,
+    );
     final textStyle = textStyleForFont(
-      custom.typography.effectiveFontFamily ?? kDefaultFontFamily,
+      markdownFontFamily.value ??
+          custom.typography.effectiveFontFamily ??
+          kDefaultFontFamily,
       fontSize: custom.typography.bodySize,
       color: custom.colors.textPrimary,
     );
 
-    Widget codeBlockBuilder(BuildContext context, String? language, String code,
-        bool isComplete) {
+    Widget codeBlockBuilder(
+      BuildContext context,
+      String? language,
+      String code,
+      bool isComplete,
+    ) {
       final name = language?.toLowerCase();
       if (name == 'diff' || name == 'patch') {
         // 走 ChatDiffBlock：纯文件操作（删除/移动）不渲染代码块，

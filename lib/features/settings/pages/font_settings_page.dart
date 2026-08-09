@@ -104,6 +104,12 @@ class FontSettingsPage extends HookWidget {
     final custom = CustomTheme.of(context);
     final store = ThemeStore.instance;
     final currentFont = useExistingSignal(store.fontFamily);
+    // 终端专用字体（null = 跟随界面字体）
+    final terminalFont = useExistingSignal(store.terminalFontFamily);
+    // Markdown 渲染专用字体（null = 跟随界面字体）
+    final markdownFont = useExistingSignal(store.markdownFontFamily);
+    // 0 = 界面字体，1 = 终端字体，2 = Markdown 字体
+    final target = useState(0);
     final searchTerm = useState('');
     final cachedFonts = useState<List<CachedFontInfo>>([]);
     final importedFonts = useState<List<ImportedFontInfo>>([]);
@@ -147,10 +153,30 @@ class FontSettingsPage extends HookWidget {
     }, []);
 
     void onSelectFont(String family) {
-      store.fontFamily.value = family;
-      SettingStore.instance.setFontFamily(family);
+      switch (target.value) {
+        case 1:
+          store.terminalFontFamily.value = family;
+          SettingStore.instance.setTerminalFontFamily(family);
+        case 2:
+          store.markdownFontFamily.value = family;
+          SettingStore.instance.setMarkdownFontFamily(family);
+        default:
+          store.fontFamily.value = family;
+          SettingStore.instance.setFontFamily(family);
+      }
       FontCacheService.instance.markSelected(family);
       rescanCache();
+    }
+
+    /// 恢复终端/Markdown 字体跟随界面字体（对应目标下点击「跟随界面字体」行）
+    void onFollowInterfaceFont() {
+      if (target.value == 1) {
+        store.terminalFontFamily.value = null;
+        SettingStore.instance.setTerminalFontFamily(null);
+      } else if (target.value == 2) {
+        store.markdownFontFamily.value = null;
+        SettingStore.instance.setMarkdownFontFamily(null);
+      }
     }
 
     Future<void> onDeleteFont(String family) async {
@@ -160,6 +186,14 @@ class FontSettingsPage extends HookWidget {
         if (store.fontFamily.value == family) {
           store.fontFamily.value = kDefaultFontFamily;
           SettingStore.instance.setFontFamily(kDefaultFontFamily);
+        }
+        if (store.terminalFontFamily.value == family) {
+          store.terminalFontFamily.value = null;
+          SettingStore.instance.setTerminalFontFamily(null);
+        }
+        if (store.markdownFontFamily.value == family) {
+          store.markdownFontFamily.value = null;
+          SettingStore.instance.setMarkdownFontFamily(null);
         }
         rescanImported();
       } else {
@@ -244,6 +278,13 @@ class FontSettingsPage extends HookWidget {
       return list;
     }, [systemFonts.value, searchTerm.value]);
 
+    // 当前目标的有效字体（列表选中判断用；未设置时为空 → 无选中行）
+    final effectiveCurrentFont = switch (target.value) {
+      1 => terminalFont.value ?? '',
+      2 => markdownFont.value ?? '',
+      _ => currentFont.value,
+    };
+
     final sections = useMemoized(
       () {
         final bundled = <Map<String, String>>[];
@@ -273,6 +314,29 @@ class FontSettingsPage extends HookWidget {
             : notCached.take(pageSize).toList();
 
         final result = <AppBigSection>[];
+        // 终端/Markdown 字体目标：最前面插入「跟随界面字体」行（未设置时选中）
+        final isSubTarget = target.value == 1 || target.value == 2;
+        if (isSubTarget) {
+          final following = target.value == 1
+              ? terminalFont.value == null
+              : markdownFont.value == null;
+          result.add(
+            AppBigSection(
+              label: '跟随界面字体',
+              itemCount: 1,
+              itemBuilder: (ctx, i, {required isFirst, required isLast}) =>
+                  AppBigRow(
+                    name: '跟随界面字体',
+                    description: following
+                        ? '当前使用中（默认，与界面字体一致）'
+                        : '点击后${target.value == 1 ? '终端' : 'Markdown'}恢复使用界面字体',
+                    dot: following,
+                    clickable: true,
+                    onTap: onFollowInterfaceFont,
+                  ),
+            ),
+          );
+        }
         // 本地类分区：全部 / 本地 tab 显示（在线 tab 隐藏）
         final showLocalSections = activeTab.value != 2;
         // 在线类分区：全部 / 在线 tab 显示（本地 tab 隐藏）
@@ -286,7 +350,7 @@ class FontSettingsPage extends HookWidget {
               itemBuilder: (ctx, i, {required isFirst, required isLast}) =>
                   _buildRow(
                     bundled[i],
-                    currentFont.value,
+                    effectiveCurrentFont,
                     FontCacheStatus.bundled,
                     null,
                     onSelectFont,
@@ -303,7 +367,7 @@ class FontSettingsPage extends HookWidget {
                 final f = filteredImported[i];
                 return _buildRow(
                   {'label': f.family, 'family': f.family},
-                  currentFont.value,
+                  effectiveCurrentFont,
                   FontCacheStatus.notCached,
                   () => onDeleteFont(f.family),
                   onSelectFont,
@@ -322,7 +386,7 @@ class FontSettingsPage extends HookWidget {
                 final f = filteredSystem[i];
                 return _buildRow(
                   {'label': f.family, 'family': f.family},
-                  currentFont.value,
+                  effectiveCurrentFont,
                   FontCacheStatus.notCached,
                   null,
                   onSelectFont,
@@ -340,7 +404,7 @@ class FontSettingsPage extends HookWidget {
               itemBuilder: (ctx, i, {required isFirst, required isLast}) =>
                   _buildRow(
                     cached[i],
-                    currentFont.value,
+                    effectiveCurrentFont,
                     FontCacheStatus.cached,
                     () => onDeleteFont(cached[i]['family']!),
                     onSelectFont,
@@ -365,7 +429,7 @@ class FontSettingsPage extends HookWidget {
                 }
                 return _buildRow(
                   notCachedDisplayed[i],
-                  currentFont.value,
+                  effectiveCurrentFont,
                   FontCacheStatus.notCached,
                   null,
                   onSelectFont,
@@ -381,6 +445,9 @@ class FontSettingsPage extends HookWidget {
         filteredImported,
         filteredSystem,
         currentFont.value,
+        terminalFont.value,
+        markdownFont.value,
+        target.value,
         cachedFonts.value,
         searchTerm.value,
         showAll.value,
@@ -399,7 +466,9 @@ class FontSettingsPage extends HookWidget {
             : (bundledShown ? 1 : 0) +
                   filteredImported.length +
                   filteredSystem.length) +
-        (tab == 1 ? 0 : filteredFonts.length);
+        (tab == 1 ? 0 : filteredFonts.length) +
+        // 终端/Markdown 字体目标多一行「跟随界面字体」
+        ((target.value == 1 || target.value == 2) ? 1 : 0);
 
     // 结构参考 [ModelListPage]：面包屑导航 + AppBigList 内容
     return ContentFrame(
@@ -417,6 +486,15 @@ class FontSettingsPage extends HookWidget {
             ],
           ),
           SizedBox(height: custom.spacing.lg),
+
+          // ---- 目标：界面字体 / 终端字体 / Markdown 字体 ----
+          AppTabBar(
+            tabs: const ['界面字体', '终端字体', 'Markdown 字体'],
+            activeIndex: target.value,
+            onChanged: (i) => target.value = i,
+            size: TabBarSize.md,
+          ),
+          SizedBox(height: custom.spacing.md),
 
           // ---- 来源分类 Tab ----
           AppTabBar(

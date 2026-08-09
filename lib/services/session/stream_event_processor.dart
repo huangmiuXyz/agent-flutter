@@ -107,6 +107,17 @@ class StreamEventProcessor {
           ),
         );
       }
+    } else if (event is EngineEvent_ToolOutputDelta) {
+      // 工具执行中的流式输出（shell_command 等）：按 (part_id, stream)
+      // 分桶去重后追加到缓冲，渲染端（只读终端）增量写入。
+      // 注意不能用全局 total_len 去重：stdout/stderr 各自累计，跨流
+      // 比较会把后到的短流事件误判为重复。
+      final key = '${event.partId}|${event.stream}';
+      final known = s.toolOutputLens[key] ?? BigInt.zero;
+      if (event.totalLen <= known) return;
+      s.toolOutputLens[key] = event.totalLen;
+      s.toolOutputBuffers[event.partId] =
+          (s.toolOutputBuffers[event.partId] ?? '') + event.chunk;
     }
     // FrontendToolCall / Done / Error 不在此处理 — 由上层（SessionStore / EngineClient）处理
   }

@@ -42,6 +42,10 @@ Future<void> initAppSync() async {
   // 主动初始化 SettingStore，并同步到 ThemeStore
   final settingStore = SettingStore.instance;
   ThemeStore.instance.fontFamily.value = settingStore.fontFamily;
+  ThemeStore.instance.terminalFontFamily.value =
+      settingStore.terminalFontFamily;
+  ThemeStore.instance.markdownFontFamily.value =
+      settingStore.markdownFontFamily;
   ThemeStore.instance.themeMode.value = settingStore.themeMode;
   ThemeStore.instance.fontSizeScale.value = settingStore.fontSizeScale;
 
@@ -94,6 +98,10 @@ void _handleRemoteSettingChanged(dynamic args) {
   _withSyncingGuard(() {
     SettingStore.instance.reload();
     ThemeStore.instance.fontFamily.value = SettingStore.instance.fontFamily;
+    ThemeStore.instance.terminalFontFamily.value =
+        SettingStore.instance.terminalFontFamily;
+    ThemeStore.instance.markdownFontFamily.value =
+        SettingStore.instance.markdownFontFamily;
     ThemeStore.instance.themeMode.value = SettingStore.instance.themeMode;
     ThemeStore.instance.fontSizeScale.value =
         SettingStore.instance.fontSizeScale;

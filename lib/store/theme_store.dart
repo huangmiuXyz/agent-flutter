@@ -16,6 +16,12 @@ class ThemeStore {
 
   final themeMode = signal(ThemeMode.system);
   final fontFamily = signal(kDefaultFontFamily);
+
+  /// 终端专用字体（null = 跟随界面字体）
+  final terminalFontFamily = signal<String?>(null);
+
+  /// Markdown 渲染专用字体（null = 跟随界面字体）
+  final markdownFontFamily = signal<String?>(null);
   final fontWeightValue = signal(400);
   final fontSizeScale = signal(1.0);
   final lightOverrides = signal(<AppColorRole, int>{});
@@ -97,6 +103,8 @@ class ThemeStore {
   void resetAll() {
     setThemeMode(ThemeMode.system);
     fontFamily.value = kDefaultFontFamily;
+    terminalFontFamily.value = null;
+    markdownFontFamily.value = null;
     fontWeightValue.value = 400;
     fontSizeScale.value = 1.0;
     lightOverrides.value = {};

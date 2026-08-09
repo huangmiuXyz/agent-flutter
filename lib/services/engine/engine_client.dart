@@ -164,6 +164,7 @@ class EngineClient {
     if (event is EngineEvent_QueueState) return event.sessionId;
     if (event is EngineEvent_SteerInjected) return event.sessionId;
     if (event is EngineEvent_SessionRenamed) return event.sessionId;
+    if (event is EngineEvent_ToolOutputDelta) return event.sessionId;
     return null;
   }
 

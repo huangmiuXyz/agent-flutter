@@ -28,6 +28,12 @@ class SettingStore extends JsonFileSignalStore {
   String get fontFamily =>
       data.value['fontFamily'] as String? ?? kDefaultFontFamily;
 
+  /// 终端专用字体（null/缺失 = 跟随界面字体）
+  String? get terminalFontFamily => data.value['terminalFontFamily'] as String?;
+
+  /// Markdown 渲染专用字体（null/缺失 = 跟随界面字体）
+  String? get markdownFontFamily => data.value['markdownFontFamily'] as String?;
+
   /// 全局字号缩放系数，缺失/非法值时回退 1.0。
   double get fontSizeScale =>
       (data.value['fontSizeScale'] as num?)?.toDouble() ?? 1.0;
@@ -43,6 +49,28 @@ class SettingStore extends JsonFileSignalStore {
 
   void setFontFamily(String family) {
     mutate((d) => d['fontFamily'] = family);
+  }
+
+  /// 设置终端专用字体；传 null/空串时恢复跟随界面字体。
+  void setTerminalFontFamily(String? family) {
+    mutate((d) {
+      if (family == null || family.isEmpty) {
+        d.remove('terminalFontFamily');
+      } else {
+        d['terminalFontFamily'] = family;
+      }
+    });
+  }
+
+  /// 设置 Markdown 渲染专用字体；传 null/空串时恢复跟随界面字体。
+  void setMarkdownFontFamily(String? family) {
+    mutate((d) {
+      if (family == null || family.isEmpty) {
+        d.remove('markdownFontFamily');
+      } else {
+        d['markdownFontFamily'] = family;
+      }
+    });
   }
 
   void setThemeMode(ThemeMode mode) {

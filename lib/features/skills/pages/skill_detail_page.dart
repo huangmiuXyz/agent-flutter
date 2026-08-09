@@ -9,9 +9,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/skills/models/skill_info.dart';
 import 'package:agent/rust_bridge/api/skills.dart' as bridge;
+import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
@@ -28,6 +30,10 @@ class SkillDetailPage extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    // Markdown 渲染字体：Markdown 专用设置 > 界面字体设置
+    final markdownFontFamily = useExistingSignal(
+      ThemeStore.instance.markdownFontFamily,
+    );
     final content = useState<String?>(
       skill.content.isNotEmpty ? skill.content : null,
     );
@@ -105,7 +111,9 @@ class SkillDetailPage extends HookWidget {
                           : '(空)'),
                       textStyle: TextStyle(
                         fontFamily:
-                            custom.typography.fontFamily ?? kDefaultFontFamily,
+                            markdownFontFamily.value ??
+                            custom.typography.fontFamily ??
+                            kDefaultFontFamily,
                         fontSize: 13,
                         height: 1.5,
                       ),

@@ -456,6 +456,11 @@ class SessionStore {
       }
       s.partLens.removeWhere((k, _) => tailPartIds.contains(k));
       s.reasoningPartLens.removeWhere((k, _) => tailPartIds.contains(k));
+      // 工具流式输出缓冲（key 为 part_id 或 "partId|stream"）同步清理
+      s.toolOutputBuffers.removeWhere((k, _) => tailPartIds.contains(k));
+      s.toolOutputLens.removeWhere(
+        (k, _) => tailPartIds.contains(k.split('|').first),
+      );
       s.messageOrder.removeRange(msgIndex + 1, s.messageOrder.length);
     }
 

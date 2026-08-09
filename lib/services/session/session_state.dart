@@ -20,6 +20,13 @@ class SessionState {
   /// reasoning part_id → 已知内容长度（用于去重）
   final Map<String, int> reasoningPartLens = {};
 
+  /// tool part_id → 流式输出累积文本（shell_command 等执行中的增量，
+  /// 由 ToolOutputDelta 事件追加；命令结束后由 ToolCall 事件的结果覆盖）
+  final Map<String, String> toolOutputBuffers = {};
+
+  /// "partId|stream" → 已接收字节数（stdout/stderr 分别累计，用于去重）
+  final Map<String, BigInt> toolOutputLens = {};
+
   /// msg_id → role（"user", "assistant", "tool" 等）
   final Map<String, String> messageRoles = {};
 
@@ -48,6 +55,10 @@ class SessionState {
     partsByMsg.clear();
     messageOrder.clear();
     partLens.clear();
+    // 流式输出缓冲仅在当次会话内有效（历史重载无增量数据，
+    // 渲染端会回退到 tool_result 一次性回放）
+    toolOutputBuffers.clear();
+    toolOutputLens.clear();
 
     for (final part in parts) {
       partsByMsg.putIfAbsent(part.msgId, () => []).add(part);

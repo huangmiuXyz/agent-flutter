@@ -76,13 +76,23 @@ class XtermTerminalWidget extends HookWidget {
       ThemeStore.instance.effectiveBrightness,
     );
     final theme = buildTerminalTheme(custom, brightness.value);
-    // 终端字体跟随主题设置（默认 JetBrainsMono，选其他字体时整体切换）
+    // 终端字体：终端专用设置 > 界面字体设置（默认 JetBrainsMono）
+    final terminalFontFamily = useExistingSignal(
+      ThemeStore.instance.terminalFontFamily,
+    );
     final textStyle = useMemoized(
       () => TerminalStyle(
         fontSize: custom.typography.bodySize,
-        fontFamily: custom.typography.fontFamily ?? kDefaultFontFamily,
+        fontFamily:
+            terminalFontFamily.value ??
+            custom.typography.fontFamily ??
+            kDefaultFontFamily,
       ),
-      [custom.typography.bodySize, custom.typography.fontFamily],
+      [
+        custom.typography.bodySize,
+        custom.typography.fontFamily,
+        terminalFontFamily.value,
+      ],
     );
 
     String escapePath(String path) {

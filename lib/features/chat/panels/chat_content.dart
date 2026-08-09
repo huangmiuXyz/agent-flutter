@@ -270,6 +270,7 @@ class _MessageList extends StatelessWidget {
         final partsByMsg = sessionState.partsByMsg;
         final messageRoles = sessionState.messageRoles;
         final messageModels = sessionState.messageModels;
+        final toolStreamedOutputs = sessionState.toolOutputBuffers;
 
         if (messageOrder.isEmpty) return const SizedBox.shrink();
 
@@ -441,6 +442,7 @@ class _MessageList extends StatelessWidget {
                 msgId: msgId,
                 role: messageRoles[msgId] ?? '',
                 parts: parts,
+                toolStreamedOutputs: toolStreamedOutputs,
                 // 历史消息（含用户消息）一律静态渲染：streaming
                 // 只对正在流式的 assistant 消息（buildPartItem）生效。
                 // 若按会话级 isStreaming 传值，每次发送新消息都会让全部
@@ -493,6 +495,7 @@ class _MessageList extends StatelessWidget {
                 msgId: msgId,
                 role: messageRoles[msgId] ?? '',
                 parts: [part],
+                toolStreamedOutputs: toolStreamedOutputs,
                 // 仅最新轮的 assistant 消息流式渲染
                 streaming:
                     hasLatestTurn && msgIndex > latestUserIndex && isStreaming,
