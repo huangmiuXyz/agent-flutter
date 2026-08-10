@@ -290,16 +290,16 @@ class _CheckpointItem extends HookWidget {
                   onPressed: () => expanded.value = !expanded.value,
                 ),
                 AppIconButton(
-                  icon: 'rotateCcw',
+                  icon: 'undo',
                   size: ButtonSize.sm,
-                  tooltip: '恢复',
+                  tooltip: '恢复到编辑前',
                   onPressed: () =>
                       _confirmRestore(context, onApplied: invalidateDiff),
                 ),
                 AppIconButton(
-                  icon: 'rotateCw',
+                  icon: 'redo',
                   size: ButtonSize.sm,
-                  tooltip: '重新应用',
+                  tooltip: '重新应用检查点',
                   onPressed: () =>
                       _confirmApply(context, onApplied: invalidateDiff),
                 ),

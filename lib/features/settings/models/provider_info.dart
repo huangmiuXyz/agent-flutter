@@ -86,26 +86,15 @@ const kReasoningEffortProviderDefault = 'provider-default';
 /// 最大程度的推理。
 const kReasoningEffortXhigh = 'xhigh';
 
-/// 各等级在下拉菜单中的标签（含简短说明）。
+/// 各等级在下拉菜单与按钮上的标签。
 const kReasoningEffortLabels = {
-  'provider-default': '默认（跟随提供商）',
-  'none': '无（禁用推理）',
-  'minimal': '极简（低延迟）',
-  'low': '低（快速简洁）',
-  'medium': '中（均衡）',
-  'high': '高（深入）',
-  'xhigh': '最高（最大推理）',
-};
-
-/// 各等级在按钮上的简短标签。
-const kReasoningEffortShortLabels = {
-  'provider-default': '默认',
-  'none': '无',
-  'minimal': '极简',
-  'low': '低',
-  'medium': '中',
-  'high': '高',
-  'xhigh': '最高',
+  'provider-default': 'Default',
+  'none': 'None',
+  'minimal': 'Minimal',
+  'low': 'Low',
+  'medium': 'Medium',
+  'high': 'High',
+  'xhigh': 'XHigh',
 };
 
 /// 检测 provider 在 config 的 `language_models` 中所处的协议段。
@@ -124,10 +113,7 @@ String? protocolFromConfig(Map<String, dynamic> data, String providerId) {
 
 /// 从智能体自包含 config 中检测 provider 所在的协议段。
 /// 检测不到时返回 null（调用方回退到按名称推断）。
-String? protocolFromAgentConfig(
-  Map<String, dynamic> cfg,
-  String? providerId,
-) {
+String? protocolFromAgentConfig(Map<String, dynamic> cfg, String? providerId) {
   if (providerId == null) return null;
   return protocolFromConfig(cfg, providerId);
 }

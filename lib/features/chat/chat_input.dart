@@ -56,7 +56,8 @@ class ChatInput extends HookWidget {
     );
     // controller 由本组件创建并负责 dispose（ChatFleather 只 dispose 内部创建的）
     useEffect(
-      () => () => controller.dispose(),
+      () =>
+          () => controller.dispose(),
       [],
     );
 

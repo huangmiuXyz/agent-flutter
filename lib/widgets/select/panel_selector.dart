@@ -96,6 +96,9 @@ class PanelSelector<T> extends HookWidget {
   /// 超过时选中文本以省略号截断。
   final double? maxWidth;
 
+  /// 按钮上选中文本左侧的前置图标（如推理强度选择器的灯泡）；null = 不显示。
+  final String? buttonIcon;
+
   const PanelSelector({
     super.key,
     this.value,
@@ -108,6 +111,7 @@ class PanelSelector<T> extends HookWidget {
     this.menuMaxWidth,
     this.fullWidth = false,
     this.maxWidth,
+    this.buttonIcon,
   });
 
   /// All flat options extracted from [data] (ignoring group info).
@@ -329,18 +333,27 @@ class PanelSelector<T> extends HookWidget {
       isOpen.value = true;
     }
 
-    // 按钮内容：文本 + chevron；fullWidth 时左对齐拉满，否则居中紧凑。
-    // 文本超长时以省略号截断（受 maxWidth 约束）。
+    // 按钮内容：前置图标（可选）+ 文本 + chevron；fullWidth 时左对齐拉满，
+    // 否则居中紧凑。文本超长时以省略号截断（受 maxWidth 约束）。
+    final textColor = selectedLabel != null
+        ? custom.colors.textPrimary
+        : custom.colors.textSecondary;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (buttonIcon != null) ...[
+          AppIcon(
+            buttonIcon!,
+            size: custom.typography.captionSize,
+            color: textColor,
+          ),
+          SizedBox(width: custom.spacing.xs),
+        ],
         Flexible(
           child: AppText(
             selectedLabel ?? placeholder ?? '',
             variant: AppTextVariant.caption,
-            color: selectedLabel != null
-                ? custom.colors.textPrimary
-                : custom.colors.textSecondary,
+            color: textColor,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -371,9 +384,7 @@ class PanelSelector<T> extends HookWidget {
                 : null,
             padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
             decoration: BoxDecoration(
-              color: isHovered.value
-                  ? custom.colors.hover
-                  : Colors.transparent,
+              color: isHovered.value ? custom.colors.hover : Colors.transparent,
               borderRadius: custom.radii.xs,
             ),
             child: fullWidth ? content : Center(child: content),

@@ -41,7 +41,7 @@ class AppSecondaryButton extends StatelessWidget {
       child: _buildChild(custom, sizing.iconSize, foregroundColor),
     );
 
-    if (size == ButtonSize.sm) return UnconstrainedBox(child: button);
+    // 强制高度 = sizing.height（sm=24），否则 Material 默认最小高度会把按钮撑高
     return UnconstrainedBox(
       child: SizedBox(height: sizing.height, child: button),
     );

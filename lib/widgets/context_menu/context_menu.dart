@@ -414,8 +414,9 @@ class _MenuPanel extends HookWidget {
         activeColor: custom.colors.accent.withValues(alpha: 0.12),
         // 激活/悬停背景圆角与面板（AppCard 默认 radii.sm）保持一致
         itemRadius: custom.radii.sm,
-        intrinsicHeight: false,
-        itemHeight: custom.controls.smallHeight,
+        // 内容自适应高度：字号缩放后文本行盒可能超过 smallHeight，
+        // 固定高度会把字母下伸部（g/j/p）顶到行尾遮住
+        intrinsicHeight: true,
         hoverActions: item.onHoverTap != null
             ? [
                 AppIconButton(
@@ -499,8 +500,18 @@ class _MenuPanel extends HookWidget {
     // Add a small tolerance so content exactly fits and SingleChildScrollView
     // doesn't allow spurious scrolling due to font-metric variances.
     const int maxVisibleItems = 10;
-    final double unitHeight =
-        custom.controls.smallHeight + custom.spacing.xs; // item + gap
+    // 菜单项为内容自适应高度：caption 行高 + 上下 padding；
+    // 用 TextPainter 实测行高，保证字号缩放后的估算仍准确
+    final captionStyle = custom.typography.styleForSize(
+      custom.typography.captionSize,
+      custom.colors.textPrimary,
+    );
+    final captionLine = TextPainter(
+      text: TextSpan(text: 'Ag', style: captionStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final itemHeight = captionLine.height + 2 * custom.spacing.xs;
+    final double unitHeight = itemHeight + custom.spacing.xs; // item + gap
     final double cardPadding = custom.spacing.sm; // top + bottom (xs×2)
     final double maxMenuHeight =
         cardPadding +

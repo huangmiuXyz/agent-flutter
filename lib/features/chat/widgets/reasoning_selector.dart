@@ -19,6 +19,7 @@ import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -34,12 +35,7 @@ class ReasoningSelector extends HookWidget {
 
     final items = <dynamic>[
       for (final v in kReasoningEffortValues)
-        {
-          'label': kReasoningEffortLabels[v],
-          // 选中后按钮显示「推理: 等级」，下拉菜单项仍显示完整标签
-          'displayLabel': '推理: ${kReasoningEffortShortLabels[v]}',
-          'value': v,
-        },
+        {'label': kReasoningEffortLabels[v], 'value': v},
     ];
 
     // 未配置模型时无 provider 可写，退化为占位文本
@@ -52,18 +48,17 @@ class ReasoningSelector extends HookWidget {
 
     return PanelSelector<String>(
       value: currentValue,
-      placeholder: '推理: ${kReasoningEffortShortLabels[kReasoningEffortProviderDefault]}',
+      placeholder: kReasoningEffortLabels[kReasoningEffortProviderDefault],
+      // 按钮以灯泡图标代替「推理:」文字前缀
+      buttonIcon: 'lightbulb',
       data: items,
-      menuMinWidth: 200,
-      // 按钮限宽，避免超长撑开工具栏
-      maxWidth: 110,
+      // 标签为简短英文，菜单宽度收窄；按钮不设限宽，避免文本被截断成省略号
+      menuMinWidth: 100,
       onChanged: (v) {
         AgentStore.instance.setReasoningEffort(v).then((ok) {
           if (!ok && context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: AppText('设置推理强度失败：找不到当前提供商的配置'),
-              ),
+              const SnackBar(content: AppText('设置推理强度失败：找不到当前提供商的配置')),
             );
           }
         });
@@ -73,10 +68,21 @@ class ReasoningSelector extends HookWidget {
 
   Widget _buildPlaceholder(BuildContext context) {
     final custom = CustomTheme.of(context);
-    return AppText(
-      '推理: ${kReasoningEffortShortLabels[kReasoningEffortProviderDefault]}',
-      variant: AppTextVariant.caption,
-      color: custom.colors.textSecondary,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppIcon(
+          'lightbulb',
+          size: custom.typography.captionSize,
+          color: custom.colors.textSecondary,
+        ),
+        SizedBox(width: custom.spacing.xs),
+        AppText(
+          kReasoningEffortLabels[kReasoningEffortProviderDefault]!,
+          variant: AppTextVariant.caption,
+          color: custom.colors.textSecondary,
+        ),
+      ],
     );
   }
 }

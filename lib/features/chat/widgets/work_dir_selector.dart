@@ -200,11 +200,23 @@ class _WorkDirMenu extends HookWidget {
 
     // 决定展开方向：按钮靠近屏幕下方则向上展开
     final viewport = View.of(context);
-    final screenHeight = viewport.physicalSize.height / viewport.devicePixelRatio;
+    final screenHeight =
+        viewport.physicalSize.height / viewport.devicePixelRatio;
     final showAbove = position.dy >= screenHeight - position.dy;
 
-    // 面板最大高度：最多显示 8 条历史 + 底部按钮区，超出由 AppCard 滚动
-    final unitHeight = custom.controls.smallHeight + custom.spacing.xs;
+    // 面板最大高度：最多显示 8 条历史 + 底部按钮区，超出由 AppCard 滚动。
+    // 历史项为内容自适应高度（caption 行高 + 上下 padding），
+    // 用 TextPainter 实测行高，保证字号缩放后的估算仍准确
+    final captionStyle = custom.typography.styleForSize(
+      custom.typography.captionSize,
+      custom.colors.textPrimary,
+    );
+    final captionLine = TextPainter(
+      text: TextSpan(text: 'Ag', style: captionStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final itemHeight = captionLine.height + 2 * custom.spacing.xs;
+    final unitHeight = itemHeight + custom.spacing.xs;
     final maxPanelHeight = 8 * unitHeight + custom.controls.smallHeight + 48;
 
     Future<void> pickFromFileSystem() async {
@@ -282,8 +294,9 @@ class _WorkDirMenu extends HookWidget {
                           alpha: 0.12,
                         ),
                         itemRadius: custom.radii.sm,
-                        intrinsicHeight: false,
-                        itemHeight: custom.controls.smallHeight,
+                        // 内容自适应高度：字号缩放后文本行盒可能超过 smallHeight，
+                        // 固定高度会把字母下伸部（g/j/p）顶到行尾遮住
+                        intrinsicHeight: true,
                         // hover 时行尾浮出 x 删除按钮（不关闭面板）
                         hoverActions: [
                           AppIconButton(
@@ -291,8 +304,7 @@ class _WorkDirMenu extends HookWidget {
                             size: ButtonSize.sm,
                             hoverStyle: false,
                             iconColor: custom.colors.danger,
-                            onPressed: () =>
-                                store.removeWorkDirHistory(path),
+                            onPressed: () => store.removeWorkDirHistory(path),
                           ),
                         ],
                         onTap: () {
@@ -303,7 +315,7 @@ class _WorkDirMenu extends HookWidget {
                       ),
                   ],
                 ),
-                // 底部按钮：从文件系统选择（紧凑，与历史行等高）
+              // 底部按钮：从文件系统选择（紧凑，与历史行等高）
               Padding(
                 padding: EdgeInsets.only(
                   left: custom.spacing.xs,
@@ -341,24 +353,14 @@ class _WorkDirMenu extends HookWidget {
         CompositedTransformFollower(
           link: link,
           targetAnchor: showAbove
-              ? (alignRight
-                    ? Alignment.topRight
-                    : Alignment.topLeft)
-              : (alignRight
-                    ? Alignment.bottomRight
-                    : Alignment.bottomLeft),
+              ? (alignRight ? Alignment.topRight : Alignment.topLeft)
+              : (alignRight ? Alignment.bottomRight : Alignment.bottomLeft),
           followerAnchor: showAbove
-              ? (alignRight
-                    ? Alignment.bottomRight
-                    : Alignment.bottomLeft)
-              : (alignRight
-                    ? Alignment.topRight
-                    : Alignment.topLeft),
+              ? (alignRight ? Alignment.bottomRight : Alignment.bottomLeft)
+              : (alignRight ? Alignment.topRight : Alignment.topLeft),
           offset: Offset(
             0,
-            showAbove
-                ? -custom.spacing.edgeMargin
-                : custom.spacing.edgeMargin,
+            showAbove ? -custom.spacing.edgeMargin : custom.spacing.edgeMargin,
           ),
           child: menuContent,
         ),
