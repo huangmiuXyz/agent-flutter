@@ -79,6 +79,8 @@ class AppProviderModelSelect extends HookWidget {
           AppSelectOption<String>(
             value: encodeKey(p.key, m),
             label: m,
+            // 选中后输入框显示「提供商/模型名」；下拉菜单项仍只显示模型名（按提供商分组）
+            displayLabel: '${p.key}/$m',
             group: p.key,
           ),
     ];

@@ -14,6 +14,10 @@ class PanelSelectorOption<T> {
   /// Display text.
   final String label;
 
+  /// 按钮（选中态）显示的文本；null 时回退用 [label]。
+  /// 仅影响按钮上展示的选中文本，不影响下拉菜单项。
+  final String? displayLabel;
+
   /// Optional icon name resolved via [AppIcon].
   final String? icon;
 
@@ -29,6 +33,7 @@ class PanelSelectorOption<T> {
   const PanelSelectorOption({
     required this.value,
     required this.label,
+    this.displayLabel,
     this.icon,
     this.enabled = true,
     this.hoverIcon,
@@ -87,6 +92,10 @@ class PanelSelector<T> extends HookWidget {
   /// 默认 false：内容宽度 + 居中（工具栏按钮风格）。
   final bool fullWidth;
 
+  /// 按钮最大宽度；null = 不限制（内容多宽按钮多宽）。
+  /// 超过时选中文本以省略号截断。
+  final double? maxWidth;
+
   const PanelSelector({
     super.key,
     this.value,
@@ -98,6 +107,7 @@ class PanelSelector<T> extends HookWidget {
     this.menuMinWidth = 160,
     this.menuMaxWidth,
     this.fullWidth = false,
+    this.maxWidth,
   });
 
   /// All flat options extracted from [data] (ignoring group info).
@@ -115,6 +125,7 @@ class PanelSelector<T> extends HookWidget {
         return PanelSelectorOption<T>(
           value: val,
           label: label,
+          displayLabel: item is Map ? item['displayLabel'] as String? : null,
           icon: item is Map ? item['icon'] as String? : null,
           hoverIcon: item is Map ? item['hoverIcon'] as String? : null,
           onHoverTap: item is Map ? item['onHoverTap'] as VoidCallback? : null,
@@ -138,11 +149,12 @@ class PanelSelector<T> extends HookWidget {
     // Memoize options so they don't recreate on every build.
     final allOptions = useMemoized(() => _allOptions, [data, options]);
 
-    // 找出当前选中值的显示文本
+    // 找出当前选中值的显示文本（优先 displayLabel，用于按钮上展示）
     final selectedLabel = useMemoized(() {
       if (value == null) return null;
       final idx = allOptions.indexWhere((o) => o.value == value);
-      return idx >= 0 ? allOptions[idx].label : null;
+      if (idx < 0) return null;
+      return allOptions[idx].displayLabel ?? allOptions[idx].label;
     }, [value, allOptions]);
 
     // 上次打开菜单时的位置，用于原地刷新
@@ -218,7 +230,43 @@ class PanelSelector<T> extends HookWidget {
       ];
     }
 
-    // 当 data/options 变化时，如果下拉面板已打开，原地刷新内容
+    // options/data 的内容签名：只有内容真正变化时才触发原地刷新。
+    // 调用方每次 build 都会传新数组（如 AgentSelector 的列表推导），
+    // 直接依赖 [data, options] 会导致任意 rebuild（如其他信号触发）都
+    // 把已打开的全局菜单内容替换成自己的（点击智能体却弹出模型列表）。
+    final refreshKey = useMemoized<String>(() {
+      if (data != null) {
+        return data!
+            .map((item) {
+              if (item is! Map) return '${item.runtimeType}:$item';
+              return [
+                item['label'],
+                item['name'],
+                item['displayLabel'],
+                item['value'],
+                item['icon'],
+                item['group'],
+                item['hoverIcon'],
+                item['disabled'],
+              ].join('|');
+            })
+            .join('\n');
+      }
+      return options
+          .map(
+            (o) => [
+              o.value,
+              o.label,
+              o.displayLabel,
+              o.icon,
+              o.hoverIcon,
+              o.enabled,
+            ].join('|'),
+          )
+          .join('\n');
+    }, [data, options]);
+
+    // 当 data/options 内容变化时，如果下拉面板已打开，原地刷新内容
     useEffect(() {
       if (!ContextMenu.isOpen || lastPosition.value == null) return null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -235,7 +283,7 @@ class PanelSelector<T> extends HookWidget {
         );
       });
       return null;
-    }, [data, options]);
+    }, [refreshKey]);
 
     void onTap() {
       // 菜单已打开且属于本按钮 → 再次点击收起（不刷新、不重建）。
@@ -281,16 +329,21 @@ class PanelSelector<T> extends HookWidget {
       isOpen.value = true;
     }
 
-    // 按钮内容：文本 + chevron；fullWidth 时左对齐拉满，否则居中紧凑
+    // 按钮内容：文本 + chevron；fullWidth 时左对齐拉满，否则居中紧凑。
+    // 文本超长时以省略号截断（受 maxWidth 约束）。
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppText(
-          selectedLabel ?? placeholder ?? '',
-          variant: AppTextVariant.caption,
-          color: selectedLabel != null
-              ? custom.colors.textPrimary
-              : custom.colors.textSecondary,
+        Flexible(
+          child: AppText(
+            selectedLabel ?? placeholder ?? '',
+            variant: AppTextVariant.caption,
+            color: selectedLabel != null
+                ? custom.colors.textPrimary
+                : custom.colors.textSecondary,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
         SizedBox(width: custom.spacing.xs),
         AppIcon(
@@ -313,6 +366,9 @@ class PanelSelector<T> extends HookWidget {
             key: buttonKey,
             width: fullWidth ? double.infinity : null,
             height: custom.controls.smallHeight,
+            constraints: maxWidth != null
+                ? BoxConstraints(maxWidth: maxWidth!)
+                : null,
             padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
             decoration: BoxDecoration(
               color: isHovered.value

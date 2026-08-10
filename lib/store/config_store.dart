@@ -32,6 +32,8 @@ class ConfigStore extends JsonFileSignalStore {
     'mcpServers': <Map<String, dynamic>>[],
     'skills': <String, dynamic>{},
     'work_dir': '',
+    // 最近使用的工作目录历史（最近的在最前，供输入栏快捷选择）
+    'work_dir_history': <String>[],
     // 最近选中的智能体 ID（空字符串 = 未设置，回退全局智能体）
     'current_agent': '',
   };
@@ -70,9 +72,60 @@ class ConfigStore extends JsonFileSignalStore {
     return data.value['work_dir'] as String? ?? '';
   });
 
-  /// 更新工作目录
+  /// 最近使用工作目录的历史记录（最近的在最前）
+  late final workDirHistory = computed<List<String>>(() {
+    final list = data.value['work_dir_history'];
+    return list is List ? list.whereType<String>().toList() : const [];
+  });
+
+  /// 历史记录最多保留条数。
+  static const int workDirHistoryLimit = 10;
+
+  /// 把 [path] 置顶写入历史列表（去重、超出上限丢弃最旧记录）。
+  static List<String> _bumpHistory(List<String> history, String path) {
+    final list = history.toList()
+      ..remove(path)
+      ..insert(0, path);
+    if (list.length > workDirHistoryLimit) {
+      list.removeRange(workDirHistoryLimit, list.length);
+    }
+    return list;
+  }
+
+  /// 更新全局工作目录，并写入历史。
   void updateWorkDir(String path) {
-    mutate((data) => data['work_dir'] = path);
+    final normalized = path.replaceAll('\\', '/');
+    mutate((data) {
+      data['work_dir'] = normalized;
+      data['work_dir_history'] = _bumpHistory(
+        workDirHistory.value,
+        normalized,
+      );
+    });
+  }
+
+  /// 仅把 [path] 记入历史（不改全局 work_dir；
+  /// 用于工作目录写入智能体自身配置的场景）。
+  void recordWorkDirHistory(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    mutate((data) {
+      data['work_dir_history'] = _bumpHistory(
+        workDirHistory.value,
+        normalized,
+      );
+    });
+  }
+
+  /// 从历史记录中删除一个工作目录；若删除的正是当前 work_dir 则同时清空当前值。
+  void removeWorkDirHistory(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    mutate((data) {
+      final history = workDirHistory.value.toList()..remove(normalized);
+      data['work_dir_history'] = history;
+      if (data['work_dir'] == normalized) {
+        data['work_dir'] = '';
+      }
+    });
   }
 
   /// 持久化的最近选中智能体 ID，空字符串表示未设置（回退全局）

@@ -15,6 +15,10 @@ class AppSelectOption<T> {
   /// Display text.
   final String label;
 
+  /// 输入框（选中态）显示的文本；null 时回退用 [label]。
+  /// 仅影响输入框里展示的选中文本，不影响下拉菜单项。
+  final String? displayLabel;
+
   /// Optional icon name resolved via [AppIcon].
   final String? icon;
 
@@ -27,6 +31,7 @@ class AppSelectOption<T> {
   const AppSelectOption({
     required this.value,
     required this.label,
+    this.displayLabel,
     this.icon,
     this.enabled = true,
     this.group,
@@ -137,11 +142,12 @@ class AppSelect<T> extends HookWidget {
 
     final enabled = !disabled && onChanged != null;
 
-    // Find the label for the current value.
+    // Find the label for the current value (prefer displayLabel for the field).
     final selectedLabel = useMemoized(() {
       if (value == null) return null;
       final idx = options.indexWhere((o) => o.value == value);
-      return idx >= 0 ? options[idx].label : null;
+      if (idx < 0) return null;
+      return options[idx].displayLabel ?? options[idx].label;
     }, [value, options]);
 
     final custom = CustomTheme.of(context);

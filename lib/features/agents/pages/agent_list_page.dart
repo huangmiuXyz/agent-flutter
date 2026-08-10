@@ -3,7 +3,7 @@
 /// 结构和 [SkillListPage] 一致：
 /// - "全局智能体"置顶（始终显示，不可删除）
 /// - 自定义智能体按已启用/已禁用分组，每行可开关、点击编辑
-/// - 顶部有 "创建智能体" 按钮
+/// - 顶部有 "重新扫描" 与 "创建智能体" 按钮
 library;
 
 import 'package:flutter/material.dart';
@@ -50,25 +50,42 @@ class AgentListPage extends HookWidget {
     // 缓存每个自定义智能体的启用状态（configPath → bool）
     final enabledMap = useState(<String, bool>{});
 
+    // 刷新进行中（按钮禁用，避免重复点击）
+    final refreshing = useState(false);
+
     // 加载所有自定义智能体的启用状态
-    useEffect(() {
+    Future<void> loadEnabledStates() async {
       final customs = agents.where((a) => !a.isGlobal).toList();
       if (customs.isEmpty) {
         enabledMap.value = {};
-        return null;
+        return;
       }
-      Future<void> load() async {
-        final map = <String, bool>{};
-        for (final a in customs) {
-          final cfg = await AgentConfigHelper.readConfig(a.configPath);
-          map[a.configPath] =
-              cfg != null ? AgentConfigHelper.enabled(cfg) : false;
-        }
-        enabledMap.value = map;
+      final map = <String, bool>{};
+      for (final a in customs) {
+        final cfg = await AgentConfigHelper.readConfig(a.configPath);
+        map[a.configPath] = cfg != null
+            ? AgentConfigHelper.enabled(cfg)
+            : false;
       }
-      load();
+      enabledMap.value = map;
+    }
+
+    // 列表变化时加载启用状态
+    useEffect(() {
+      loadEnabledStates();
       return null;
     }, [agents.length]);
+
+    // 手动刷新：重新从 Rust 扫描智能体列表 + 重载启用状态
+    Future<void> refreshList() async {
+      refreshing.value = true;
+      try {
+        await store.refresh();
+        await loadEnabledStates();
+      } finally {
+        refreshing.value = false;
+      }
+    }
 
     bool isEnabled(AgentInfo a) {
       if (a.isGlobal) return true;
@@ -133,6 +150,12 @@ class AgentListPage extends HookWidget {
         ],
       ),
       actions: [
+        AppPrimaryButton(
+          text: '重新扫描',
+          size: ButtonSize.sm,
+          onPressed: refreshing.value ? null : refreshList,
+        ),
+        const SizedBox(width: 8),
         AppPrimaryButton(
           text: '创建智能体',
           icon: 'plus',

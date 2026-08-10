@@ -10,6 +10,7 @@ import 'package:signals/signals.dart';
 
 import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
+import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/agent.dart' as bridge;
 import 'package:agent/rust_bridge/api/agents.dart' as bridge_api;
 import 'package:agent/store/config_store.dart';
@@ -105,6 +106,66 @@ class AgentStore {
     return AgentConfigHelper.defaultModel(cfg ?? {}) ?? fallback;
   }
 
+  /// 把 default_model 写入「当前生效位置」并刷新列表。
+  ///
+  /// 与 [resolveModel] 的读取规则保持一致：
+  /// - 当前是全局智能体 → 写全局 config.json（ConfigStore）；
+  /// - 当前是非全局智能体 → 写入该智能体自己的 config.json。
+  ///
+  /// 返回是否成功（智能体配置写入失败时返回 false）。
+  Future<bool> setDefaultModel(String provider, String model) async {
+    final agent = currentAgent.value;
+    if (agent == null || agent.isGlobal) {
+      ConfigStore.instance.mutate((m) {
+        m['default_model'] = {'provider': provider, 'model': model};
+      });
+      return true;
+    }
+    try {
+      final cfg = await AgentConfigHelper.readConfig(agent.configPath) ?? {};
+      cfg['default_model'] = {'provider': provider, 'model': model};
+      await bridge_api.writeAgentConfig(
+        configPath: agent.configPath,
+        configJson: AgentConfigHelper.encode(cfg),
+      );
+      // 刷新列表使 resolveModel 的新结果通过信号传导到 UI
+      await refresh();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 把工作目录写入「当前生效位置」并刷新列表。
+  ///
+  /// 与 [resolveWorkDir] 的读取规则保持一致：
+  /// - 当前是全局智能体 → 写全局 config.json（ConfigStore）；
+  /// - 当前是非全局智能体 → 写入该智能体自己的 config.json。
+  ///
+  /// 无论写入哪里，都会记入全局历史记录（最近使用列表）。
+  /// 返回是否成功（智能体配置写入失败时返回 false）。
+  Future<bool> setWorkDir(String path) async {
+    final agent = currentAgent.value;
+    if (agent == null || agent.isGlobal) {
+      ConfigStore.instance.updateWorkDir(path);
+      return true;
+    }
+    try {
+      final cfg = await AgentConfigHelper.readConfig(agent.configPath) ?? {};
+      cfg['work_dir'] = path;
+      await bridge_api.writeAgentConfig(
+        configPath: agent.configPath,
+        configJson: AgentConfigHelper.encode(cfg),
+      );
+      ConfigStore.instance.recordWorkDirHistory(path);
+      // 刷新列表使 resolveWorkDir 的新结果通过信号传导到 UI
+      await refresh();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 解析聊天应使用的工作目录。
   ///
   /// 当前智能体的 config.json 中有 `work_dir` 时优先使用；
@@ -116,5 +177,128 @@ class AgentStore {
     final cfg = AgentConfigHelper.readConfigSync(agent.configPath);
     final wd = AgentConfigHelper.workDir(cfg ?? {});
     return wd.isNotEmpty ? wd : fallback;
+  }
+
+  /// 解析当前生效的推理强度等级（provider-default / none / minimal / low /
+  /// medium / high / xhigh）。
+  ///
+  /// 读取规则与 [resolveModel] 一致：非全局智能体优先读自己的 config.json，
+  /// 否则读全局配置；按「真正生效」的 (provider, model) 定位 `available_models`
+  /// 中该模型的条目，其 `reasoning_effort` 优先，回退到 provider 级字段。
+  /// 字段缺失或为空 = provider-default（省略参数）；旧配置遗留的 "max"
+  /// 等价于标准化等级 "xhigh"。
+  String resolveReasoningEffort() {
+    final resolved = resolveModel();
+    final agent = currentAgent.value;
+    final data =
+        (agent == null || agent.isGlobal)
+            ? ConfigStore.instance.data.value
+            : (AgentConfigHelper.readConfigSync(agent.configPath) ?? {});
+    final cfg = findProviderConfig(data, resolved.provider);
+    if (cfg == null) return kReasoningEffortProviderDefault;
+    // 模型条目上的字段优先
+    final loc = _locateModelEntry(data, resolved.provider, resolved.model);
+    if (loc != null) {
+      final item = loc.list[loc.index];
+      if (item is Map) {
+        final v = item['reasoning_effort'] as String?;
+        if (v != null && v.isNotEmpty) {
+          return v == 'max' ? kReasoningEffortXhigh : v;
+        }
+      }
+    }
+    // 回退到 provider 级字段
+    final raw = cfg['reasoning_effort'] as String?;
+    if (raw == null || raw.isEmpty) return kReasoningEffortProviderDefault;
+    if (raw == 'max') return kReasoningEffortXhigh;
+    return raw;
+  }
+
+  /// 把推理强度写入「当前生效位置」（`available_models` 中该模型条目的
+  /// `reasoning_effort` 字段）。
+  ///
+  /// 与 [resolveReasoningEffort] 的读写规则保持一致：
+  /// - 当前是全局智能体 → 写全局 config.json（ConfigStore）；
+  /// - 当前是非全局智能体 → 写入该智能体自己的 config.json；
+  /// - [effort] 为 null 或 provider-default 时删除该字段（= 省略参数，
+  ///   使用该模型提供商的默认推理行为，并回退到 provider 级字段）。
+  ///
+  /// 返回是否成功（找不到当前模型的条目或写入失败时返回 false）。
+  Future<bool> setReasoningEffort(String? effort) async {
+    final resolved = resolveModel();
+    if (resolved.provider.isEmpty || resolved.model.isEmpty) return false;
+    final agent = currentAgent.value;
+    if (agent == null || agent.isGlobal) {
+      if (_locateModelEntry(
+            ConfigStore.instance.data.value,
+            resolved.provider,
+            resolved.model,
+          ) ==
+          null) {
+        return false;
+      }
+      ConfigStore.instance.mutate((m) {
+        _applyModelReasoningEffort(m, resolved.provider, resolved.model, effort);
+      });
+      return true;
+    }
+    try {
+      final cfg = await AgentConfigHelper.readConfig(agent.configPath) ?? {};
+      if (_locateModelEntry(cfg, resolved.provider, resolved.model) == null) {
+        return false;
+      }
+      _applyModelReasoningEffort(cfg, resolved.provider, resolved.model, effort);
+      await bridge_api.writeAgentConfig(
+        configPath: agent.configPath,
+        configJson: AgentConfigHelper.encode(cfg),
+      );
+      // 刷新列表使 resolveReasoningEffort 的新结果通过信号传导到 UI
+      await refresh();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 在 provider 配置的 `available_models` 中定位模型条目，返回 (列表, 下标)；
+  /// provider 配置或模型条目不存在时返回 null。
+  static ({List<dynamic> list, int index})? _locateModelEntry(
+    Map<String, dynamic> data,
+    String provider,
+    String model,
+  ) {
+    final cfg = findProviderConfig(data, provider);
+    if (cfg == null) return null;
+    final rawList = cfg['available_models'];
+    if (rawList is! List) return null;
+    for (int i = 0; i < rawList.length; i++) {
+      final item = rawList[i];
+      final name = item is String
+          ? item
+          : (item is Map ? item['name'] as String? : null);
+      if (name == model) return (list: rawList, index: i);
+    }
+    return null;
+  }
+
+  /// 在模型条目上写入/删除 `reasoning_effort`（字符串条目自动升级为
+  /// `{"name": ..., "reasoning_effort": ...}` 对象）。调用前须先经
+  /// [_locateModelEntry] 确认条目存在。
+  static void _applyModelReasoningEffort(
+    Map<String, dynamic> data,
+    String provider,
+    String model,
+    String? effort,
+  ) {
+    final loc = _locateModelEntry(data, provider, model)!;
+    final item = loc.list[loc.index];
+    if (effort == null || effort == kReasoningEffortProviderDefault) {
+      if (item is Map) item.remove('reasoning_effort');
+      // 字符串条目本来就没有该字段，无需改动
+    } else if (item is Map) {
+      item['reasoning_effort'] = effort;
+    } else {
+      loc.list[loc.index] = {'name': item, 'reasoning_effort': effort};
+    }
   }
 }

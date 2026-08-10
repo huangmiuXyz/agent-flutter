@@ -64,6 +64,50 @@ Map<String, dynamic>? findProviderConfig(
   return null;
 }
 
+// ── 推理强度（reasoning_effort）──
+
+/// 推理强度标准化等级，对应模型条目（`available_models` 中的
+/// `{"name": ..., "reasoning_effort": ...}`）的 `reasoning_effort` 字段，
+/// 未设置时回退到 provider 配置的同名字段。
+/// 提供从「无」到「最大」的等级；`provider-default` 为省略该参数时的默认值。
+const kReasoningEffortValues = [
+  'provider-default',
+  'none',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+];
+
+/// 使用该模型提供商的默认推理行为（省略 reasoning_effort 参数时的默认值）。
+const kReasoningEffortProviderDefault = 'provider-default';
+
+/// 最大程度的推理。
+const kReasoningEffortXhigh = 'xhigh';
+
+/// 各等级在下拉菜单中的标签（含简短说明）。
+const kReasoningEffortLabels = {
+  'provider-default': '默认（跟随提供商）',
+  'none': '无（禁用推理）',
+  'minimal': '极简（低延迟）',
+  'low': '低（快速简洁）',
+  'medium': '中（均衡）',
+  'high': '高（深入）',
+  'xhigh': '最高（最大推理）',
+};
+
+/// 各等级在按钮上的简短标签。
+const kReasoningEffortShortLabels = {
+  'provider-default': '默认',
+  'none': '无',
+  'minimal': '极简',
+  'low': '低',
+  'medium': '中',
+  'high': '高',
+  'xhigh': '最高',
+};
+
 /// 检测 provider 在 config 的 `language_models` 中所处的协议段。
 /// 找不到返回 null（调用方回退到按名称推断）。
 String? protocolFromConfig(Map<String, dynamic> data, String providerId) {

@@ -16,6 +16,9 @@ class AppTextButton extends StatelessWidget {
   final bool disabled;
   final ButtonSize size;
 
+  /// 是否撑满父级宽度（内容居中）；默认 false：内容宽度 + 左对齐。
+  final bool fullWidth;
+
   const AppTextButton({
     super.key,
     this.text,
@@ -24,6 +27,7 @@ class AppTextButton extends StatelessWidget {
     this.style,
     this.disabled = false,
     this.size = ButtonSize.md,
+    this.fullWidth = false,
   });
 
   @override
@@ -52,7 +56,19 @@ class AppTextButton extends StatelessWidget {
       ),
     );
 
-    return UnconstrainedBox(alignment: Alignment.centerLeft, child: button);
+    // 强制高度 = sizing.height（sm=24），否则 Material 默认 36px
+    // 最小高度会把按钮撑高
+    if (fullWidth) {
+      return SizedBox(
+        width: double.infinity,
+        height: sizing.height,
+        child: button,
+      );
+    }
+    return UnconstrainedBox(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(height: sizing.height, child: button),
+    );
   }
 
   Widget _buildChild(
@@ -60,6 +76,7 @@ class AppTextButton extends StatelessWidget {
     double iconSize,
     Color foregroundColor,
   ) {
+    // 小按钮用 caption 变体，避免 14px 正文把按钮撑得厚重
     if (icon != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
@@ -67,11 +84,19 @@ class AppTextButton extends StatelessWidget {
         children: [
           AppIcon(icon!, size: iconSize, color: foregroundColor),
           SizedBox(width: custom.spacing.sm),
-          AppText(text ?? '', color: foregroundColor),
+          AppText(
+            text ?? '',
+            variant: AppTextVariant.caption,
+            color: foregroundColor,
+          ),
         ],
       );
     }
-    return AppText(text ?? '', color: foregroundColor);
+    return AppText(
+      text ?? '',
+      variant: AppTextVariant.caption,
+      color: foregroundColor,
+    );
   }
 
   ButtonStyle _buildStyle(
