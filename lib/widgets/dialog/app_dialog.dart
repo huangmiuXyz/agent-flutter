@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -155,6 +156,52 @@ class _AppDialogRootState extends State<_AppDialogRoot> {
   /// 头部拖拽累计位移
   Offset _dragOffset = Offset.zero;
 
+  /// 确认：与主按钮行为一致（无 footer/OK 按钮时不响应回车）。
+  void _confirm() {
+    if (!widget.showFooter) return;
+    final w = widget;
+    try {
+      w.onOk?.call();
+    } finally {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  /// 取消：与取消按钮/头部关闭按钮行为一致。
+  void _cancel() {
+    final w = widget;
+    try {
+      w.onCancel?.call();
+    } finally {
+      Navigator.of(context).pop(false);
+    }
+  }
+
+  /// 回车确认、Esc 取消；只响应无修饰键的首次按下（按住不重复触发）。
+  /// 弹窗内 TextField 等焦点节点若自己消费了按键（如单行输入的回车），
+  /// 事件不会冒泡到这里，避免误确认。
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isControlPressed ||
+        keyboard.isMetaPressed ||
+        keyboard.isShiftPressed ||
+        keyboard.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      _confirm();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      _cancel();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
@@ -162,149 +209,138 @@ class _AppDialogRootState extends State<_AppDialogRoot> {
 
     final effectiveWidth = w.width ?? custom.controls.dialogWidth;
 
-    return Align(
-      alignment: w.alignment,
-      child: Transform.translate(
-        offset: _dragOffset,
-        child: Material(
-          type: MaterialType.transparency,
-          child: Container(
-            width: effectiveWidth,
-            constraints: BoxConstraints(
-              maxHeight:
-                  MediaQuery.of(context).size.height *
-                  _AppDialogRoot._maxHeightFactor,
-            ),
-            decoration: BoxDecoration(
-              color: custom.colors.cardBackground,
-              borderRadius: custom.radii.md,
-              border: Border.all(color: custom.colors.cardBorder),
-              boxShadow: custom.shadows.large,
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ---- Header (draggable) ----
-                if (w.title != null)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanUpdate: (details) {
-                      setState(() => _dragOffset += details.delta);
-                    },
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.move,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: custom.spacing.sm,
-                          vertical: w.compactHeader ? 4 : custom.spacing.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: custom.colors.border),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _onKeyEvent,
+      child: Align(
+        alignment: w.alignment,
+        child: Transform.translate(
+          offset: _dragOffset,
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: effectiveWidth,
+              constraints: BoxConstraints(
+                maxHeight:
+                    MediaQuery.of(context).size.height *
+                    _AppDialogRoot._maxHeightFactor,
+              ),
+              decoration: BoxDecoration(
+                color: custom.colors.cardBackground,
+                borderRadius: custom.radii.md,
+                border: Border.all(color: custom.colors.cardBorder),
+                boxShadow: custom.shadows.large,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ---- Header (draggable) ----
+                  if (w.title != null)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanUpdate: (details) {
+                        setState(() => _dragOffset += details.delta);
+                      },
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.move,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: custom.spacing.sm,
+                            vertical: w.compactHeader ? 4 : custom.spacing.sm,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: AppText(
-                                w.title!,
-                                variant: w.compactHeader
-                                    ? AppTextVariant.caption
-                                    : AppTextVariant.body,
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: custom.colors.border),
                             ),
-                            if (w.compactHeader)
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: IconButton(
-                                  padding: EdgeInsets.zero,
-                                  tooltip: '关闭',
-                                  icon: AppIcon(
-                                    'x',
-                                    size: 14,
-                                    color: custom.colors.textPrimary,
-                                  ),
-                                  onPressed: () {
-                                    widget.onCancel?.call();
-                                    Navigator.of(context).pop(false);
-                                  },
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: AppText(
+                                  w.title!,
+                                  variant: w.compactHeader
+                                      ? AppTextVariant.caption
+                                      : AppTextVariant.body,
+                                  style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
-                              )
-                            else
-                              AppIconButton(
-                                icon: 'x',
-                                size: ButtonSize.sm,
-                                onPressed: () {
-                                  widget.onCancel?.call();
-                                  Navigator.of(context).pop(false);
-                                },
                               ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ---- Body ----
-                Flexible(
-                  child: Padding(
-                    padding: w.bodyPadding ?? EdgeInsets.all(custom.spacing.lg),
-                    child: w.child,
-                  ),
-                ),
-
-                // ---- Footer ----
-                if (w.showFooter)
-                  Container(
-                    padding: EdgeInsets.fromLTRB(
-                      custom.spacing.lg,
-                      custom.spacing.sm,
-                      custom.spacing.sm,
-                      custom.spacing.sm,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: custom.colors.border),
-                      ),
-                      color: custom.colors.background,
-                      borderRadius: BorderRadius.vertical(
-                        bottom: custom.radii.md.topLeft,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (w.showCancel)
-                          Padding(
-                            padding: EdgeInsets.only(right: custom.spacing.sm),
-                            child: AppSecondaryButton(
-                              text: w.cancelText ?? '取消',
-                              onPressed: () {
-                                try {
-                                  w.onCancel?.call();
-                                } finally {
-                                  Navigator.of(context).pop(false);
-                                }
-                              },
-                            ),
+                              if (w.compactHeader)
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: IconButton(
+                                    padding: EdgeInsets.zero,
+                                    tooltip: '关闭',
+                                    icon: AppIcon(
+                                      'x',
+                                      size: 14,
+                                      color: custom.colors.textPrimary,
+                                    ),
+                                    onPressed: _cancel,
+                                  ),
+                                )
+                              else
+                                AppIconButton(
+                                  icon: 'x',
+                                  size: ButtonSize.sm,
+                                  onPressed: _cancel,
+                                ),
+                            ],
                           ),
-                        AppPrimaryButton(
-                          text: w.okText ?? '确认',
-                          onPressed: () {
-                            try {
-                              w.onOk?.call();
-                            } finally {
-                              Navigator.of(context).pop(true);
-                            }
-                          },
                         ),
-                      ],
+                      ),
+                    ),
+
+                  // ---- Body ----
+                  Flexible(
+                    child: Padding(
+                      padding:
+                          w.bodyPadding ?? EdgeInsets.all(custom.spacing.lg),
+                      child: w.child,
                     ),
                   ),
-              ],
+
+                  // ---- Footer ----
+                  if (w.showFooter)
+                    Container(
+                      padding: EdgeInsets.fromLTRB(
+                        custom.spacing.lg,
+                        custom.spacing.sm,
+                        custom.spacing.sm,
+                        custom.spacing.sm,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: custom.colors.border),
+                        ),
+                        color: custom.colors.background,
+                        borderRadius: BorderRadius.vertical(
+                          bottom: custom.radii.md.topLeft,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (w.showCancel)
+                            Padding(
+                              padding: EdgeInsets.only(
+                                right: custom.spacing.sm,
+                              ),
+                              child: AppSecondaryButton(
+                                text: w.cancelText ?? '取消',
+                                onPressed: _cancel,
+                              ),
+                            ),
+                          AppPrimaryButton(
+                            text: w.okText ?? '确认',
+                            onPressed: _confirm,
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
