@@ -7,6 +7,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -26,16 +27,86 @@ import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/tab/app_tab_bar.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
-String _formatTime(int timestampSec) {
-  final now = DateTime.now();
-  final date = DateTime.fromMillisecondsSinceEpoch(timestampSec * 1000);
-  final diff = now.difference(date);
+/// 检查点操作类型（由快照副本 before/after 存在性推断；无副本/消息级为 unknown）。
+enum CheckpointOperation { added, modified, deleted, unknown }
 
-  if (diff.inMinutes < 1) return '刚刚';
-  if (diff.inHours < 1) return '${diff.inMinutes} 分钟前';
-  if (diff.inDays < 1) return '${diff.inHours} 小时前';
-  if (diff.inDays < 7) return '${diff.inDays} 天前';
-  return '${date.month}/${date.day}';
+/// 推断检查点操作类型：
+/// - before 无 + after 有 = 新增（本次编辑新建的文件）
+/// - before 有 + after 有 = 修改
+/// - before 有 + after 无 = 删除
+/// 多个文件混合时按优先级取：修改 > 新增 > 删除。
+Future<CheckpointOperation> _inferOperation(api_types.CheckpointInfo cp) async {
+  if (cp.files.isEmpty) return CheckpointOperation.unknown;
+  final gitDir = await _resolveGitDir(cp.workDir);
+  if (gitDir == null) return CheckpointOperation.unknown;
+  final root = '$gitDir/checkpoint-snapshots/${cp.commitSha}';
+  var added = false;
+  var modified = false;
+  var deleted = false;
+  for (final f in cp.files) {
+    final before = File('$root/before/$f').existsSync();
+    final after = File('$root/after/$f').existsSync();
+    if (before && after) {
+      modified = true;
+    } else if (!before && after) {
+      added = true;
+    } else if (before && !after) {
+      deleted = true;
+    }
+  }
+  if (modified) return CheckpointOperation.modified;
+  if (added) return CheckpointOperation.added;
+  if (deleted) return CheckpointOperation.deleted;
+  return CheckpointOperation.unknown;
+}
+
+/// 解析 gitdir：`.git` 目录，或 worktree/submodule 的 `gitdir:` 指针文件。
+Future<String?> _resolveGitDir(String workDir) async {
+  final git = File('$workDir/.git');
+  if (!await git.exists()) return null;
+  final type = await git.stat().then((s) => s.type);
+  if (type == FileSystemEntityType.directory) return '$workDir/.git';
+  final content = await git.readAsString();
+  final match = RegExp(r'gitdir:\s*(.+)').firstMatch(content);
+  if (match == null) return null;
+  final p = match.group(1)!.trim();
+  // 绝对路径（盘符或 / 开头）直接用；否则相对 workDir 解析
+  final isAbsolute =
+      RegExp(r'^[A-Za-z]:').hasMatch(p) ||
+      p.startsWith('/') ||
+      p.startsWith('\\');
+  return isAbsolute ? p : '$workDir/$p';
+}
+
+/// 操作类型徽标（新增=绿 / 修改=强调色 / 删除=红）。
+Widget _operationBadge(CustomTheme custom, CheckpointOperation op) {
+  final (label, color) = switch (op) {
+    CheckpointOperation.added => ('新增', custom.colors.success),
+    CheckpointOperation.modified => ('修改', custom.colors.accent),
+    CheckpointOperation.deleted => ('删除', custom.colors.danger),
+    CheckpointOperation.unknown => ('', custom.colors.textSecondary),
+  };
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.15),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: AppText(
+      label,
+      variant: AppTextVariant.caption,
+      color: color,
+      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+    ),
+  );
+}
+
+/// 详细时间：`yyyy-MM-dd HH:mm:ss`（精确到秒）。
+String _formatTime(int timestampSec) {
+  final date = DateTime.fromMillisecondsSinceEpoch(timestampSec * 1000);
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${date.year}-${two(date.month)}-${two(date.day)} '
+      '${two(date.hour)}:${two(date.minute)}:${two(date.second)}';
 }
 
 /// 右侧检查点列表（替换聊天内容区显示）。
@@ -144,6 +215,10 @@ class _CheckpointItem extends HookWidget {
     final custom = CustomTheme.of(context);
     final isMessageLevel = cp.partId == null;
     final fileCount = cp.files.length;
+    // 操作类型徽标（推断自快照副本；无副本/消息级 → unknown 不显示）
+    final operation = useFuture(
+      useMemoized(() => _inferOperation(cp), [cp.id, cp.commitSha]),
+    );
     // 展开状态 + 恢复/重新应用细节（懒加载，展开时才拉取，按方向缓存一份）
     final expanded = useState(false);
     final applyMode = useState(false); // false = 恢复；true = 重新应用
@@ -255,6 +330,11 @@ class _CheckpointItem extends HookWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            SizedBox(width: custom.spacing.xs),
+                          ],
+                          if (operation.data case final op?
+                              when op != CheckpointOperation.unknown) ...[
+                            _operationBadge(custom, op),
                             SizedBox(width: custom.spacing.xs),
                           ],
                           AppText(
