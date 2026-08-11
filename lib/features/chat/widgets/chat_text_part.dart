@@ -47,6 +47,9 @@ class ChatTextPart extends HookWidget {
     // 若 hook 放在提前返回之后会破坏顺序触发断言。
     final controllerRef = useRef<MarkdownPreviewController?>(null);
     final textRef = useRef('');
+    // 是否曾以流式管线渲染：流结束后保持同一管线（done() 定型），
+    // 不切回静态渲染重建，避免完成瞬间 1-2 帧空白闪动
+    final everStreamedRef = useRef(false);
     // 卸载时释放最后一个 controller（streamdown 会自行取消订阅，
     // 这里只需关闭 StreamController；替换场景在下方即时 dispose）
     useEffect(() {
@@ -89,9 +92,9 @@ class ChatTextPart extends HookWidget {
       );
     }
 
-    // 非流式（历史加载/静态内容）：同步全量渲染，行为与 streamdown 的
-    // text 模式一致（无订阅前缓冲/异步重放）
-    if (!streaming) {
+    if (!streaming && !everStreamedRef.value) {
+      // 非流式（历史加载/静态内容）：同步全量渲染，行为与 streamdown 的
+      // text 模式一致（无订阅前缓冲/异步重放）
       return MarkdownPreview(
         text: text,
         selectable: true,
@@ -105,20 +108,41 @@ class ChatTextPart extends HookWidget {
     // 的未完成行（无换行）由 tokenizer 缓冲，并通过 provisional 渲染
     // 即时显示（随内容增长原位替换），换行后按真实 markdown 语义定型。
     final controller = controllerRef.value ??= MarkdownPreviewController();
-    final prevText = textRef.value;
-    if (text.length > prevText.length && text.startsWith(prevText)) {
-      // 纯追加：只喂增量
-      controller.append(text.substring(prevText.length));
-      textRef.value = text;
-    } else if (text != prevText) {
-      // 非追加（整体替换/截断）：新建 controller，内容走订阅前缓冲。
-      // controller.stream 是稳定实例，引用变化会让 Streamdown 的
-      // didUpdateWidget 重建管线并重新订阅，无需额外重建信号；
-      // 旧 controller 的订阅在同帧被取消，这里直接释放其资源。
-      final fresh = MarkdownPreviewController()..append(text);
-      controllerRef.value = fresh;
-      textRef.value = text;
-      controller.dispose();
+    if (streaming) {
+      everStreamedRef.value = true;
+      if (controller.isClosed) {
+        // 完成态后再次进入流式（罕见）：旧流已关闭无法再 append，
+        // 重建 controller 并重放全文
+        final fresh = MarkdownPreviewController()..append(text);
+        controllerRef.value = fresh;
+        textRef.value = text;
+        controller.dispose();
+      } else {
+        final prevText = textRef.value;
+        if (text.length > prevText.length && text.startsWith(prevText)) {
+          // 纯追加：只喂增量
+          controller.append(text.substring(prevText.length));
+          textRef.value = text;
+        } else if (text != prevText) {
+          // 非追加（整体替换/截断）：新建 controller，内容走订阅前缓冲。
+          // controller.stream 是稳定实例，引用变化会让 Streamdown 的
+          // didUpdateWidget 重建管线并重新订阅，无需额外重建信号；
+          // 旧 controller 的订阅在同帧被取消，这里直接释放其资源。
+          final fresh = MarkdownPreviewController()..append(text);
+          controllerRef.value = fresh;
+          textRef.value = text;
+          controller.dispose();
+        }
+      }
+    } else {
+      // 流式完成（Done/Error）：不切回静态渲染 —— 静态是另一套
+      // Streamdown.text 子树，重建管线 + 全量重解析在完成瞬间会有
+      // 1-2 帧空白（贴底观看时的闪动）。保持同一 controller 管线，
+      // 关闭流后 streamdown 在 onDone 定型最后一行（未闭合的代码
+      // 围栏等），渲染结果与静态一致且不重建。
+      if (!controller.isClosed) {
+        controller.done();
+      }
     }
 
     return MarkdownPreview(

@@ -218,6 +218,11 @@ class _VirtualParagraphTextState extends State<VirtualParagraphText> {
     if (!_scrollController.hasClients) return;
     if (!widget.stickToBottom) return;
 
+    // 只在用户主动滚动时更新贴底状态：程序化 jumpTo（贴底跟随）也会
+    // 触发 onScroll，而懒加载 maxScrollExtent 是估算值，按中间位置更新
+    // 会把 _isPinnedToBottom 抖成 false → 跟随中断、来回跳（闪动）
+    if (!_scrollController.position.isScrollingNotifier.value) return;
+
     final nearBottom = _isNearBottom();
     if (nearBottom != _isPinnedToBottom) {
       setState(() {

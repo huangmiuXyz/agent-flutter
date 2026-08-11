@@ -299,11 +299,17 @@ class _MessageList extends StatelessWidget {
             // 初始挂载后首次评估时惰性初始化（以实际位置为准）。
             final isPinnedRef = useRef<bool?>(null);
 
-            // 监听滚动位置：更新贴底状态；离开底部时清空 physics 保留位
+            // 监听滚动位置：更新贴底状态；离开底部时清空 physics 保留位。
+            // 只在用户主动滚动（拖动/惯性/滚轮）时更新：程序化 jumpTo
+            // 与布局期 physics 校正也会触发 onScroll，而懒加载下
+            // maxScrollExtent 是估算值，按中间位置更新会把贴底状态/保留位
+            // 抖掉 —— 跟随中断后再被 postFrame 跳转拽回，表现为流式输出
+            // 时列表来回跳（闪动）。
             useEffect(() {
               void onScroll() {
                 if (!scrollController.hasClients) return;
                 final pos = scrollController.position;
+                if (!pos.isScrollingNotifier.value) return;
                 // 视口底下没剩内容（== 0）即贴底
                 isPinnedRef.value = pos.extentAfter <= 0;
                 if (pos.extentAfter > 0) {
