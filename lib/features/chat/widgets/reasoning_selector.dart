@@ -6,7 +6,8 @@
 /// 选中结果持久化到当前生效配置（全局或当前智能体的 config.json）中
 /// 对应模型的 `reasoning_effort` 字段（模型级优先，回退 provider 级），
 /// 后端发送请求时按 (provider, model) 读取生效：
-/// - provider-default：删除模型条目上的字段（省略参数，使用该模型提供商的默认推理行为）
+/// - provider-default：在模型条目上写入 `provider-default`（覆盖 provider 级配置，
+///   省略参数，使用该模型提供商的默认推理行为）
 /// - none：禁用推理
 /// - minimal / low / medium / high / xhigh：由弱到强的推理强度
 library;

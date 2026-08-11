@@ -220,8 +220,9 @@ class AgentStore {
   /// 与 [resolveReasoningEffort] 的读写规则保持一致：
   /// - 当前是全局智能体 → 写全局 config.json（ConfigStore）；
   /// - 当前是非全局智能体 → 写入该智能体自己的 config.json；
-  /// - [effort] 为 null 或 provider-default 时删除该字段（= 省略参数，
-  ///   使用该模型提供商的默认推理行为，并回退到 provider 级字段）。
+  /// - [effort] 为 null 时删除该字段（= 回退到 provider 级字段）；
+  /// - [effort] 为 provider-default 时写入 `provider-default`（= 显式省略参数，
+  ///   使用该模型提供商的默认推理行为，覆盖 provider 级配置）。
   ///
   /// 返回是否成功（找不到当前模型的条目或写入失败时返回 false）。
   Future<bool> setReasoningEffort(String? effort) async {
@@ -281,9 +282,14 @@ class AgentStore {
     return null;
   }
 
-  /// 在模型条目上写入/删除 `reasoning_effort`（字符串条目自动升级为
+  /// 在模型条目上写入 `reasoning_effort`（字符串条目自动升级为
   /// `{"name": ..., "reasoning_effort": ...}` 对象）。调用前须先经
   /// [_locateModelEntry] 确认条目存在。
+  ///
+  /// [effort] 为 null 时删除模型条目上的字段（回退到 provider 级字段）；
+  /// 为 [kReasoningEffortProviderDefault] 时显式写入 `provider-default`，
+  /// 覆盖 provider 级配置（否则删除字段会回退到 provider 级的 `none` 等值，
+  /// 导致 UI 上选择 Default 后仍显示 provider 级的值）。
   static void _applyModelReasoningEffort(
     Map<String, dynamic> data,
     String provider,
@@ -292,7 +298,7 @@ class AgentStore {
   ) {
     final loc = _locateModelEntry(data, provider, model)!;
     final item = loc.list[loc.index];
-    if (effort == null || effort == kReasoningEffortProviderDefault) {
+    if (effort == null) {
       if (item is Map) item.remove('reasoning_effort');
       // 字符串条目本来就没有该字段，无需改动
     } else if (item is Map) {
