@@ -15,7 +15,9 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:agent/rust_bridge/api/engine.dart' as api;
 import 'package:agent/rust_bridge/api/types.dart' as api_types;
 import 'package:agent/rust_bridge/events.dart';
+import 'package:agent/router/router.dart';
 import 'package:agent/store/checkpoint_store.dart';
+import 'package:agent/widgets/dialog/tool_permission_dialog.dart';
 
 /// 前端工具 handler 函数签名。
 ///
@@ -153,6 +155,14 @@ class EngineClient {
       _dispatchToolCall(event);
     }
 
+    if (event is EngineEvent_ToolPermissionRequest) {
+      // part_id 非空时由 SessionStore 挂到工具卡片做内联确认（Zed 式），
+      // 这里只处理非流式场景（无卡片可挂）的弹窗回退
+      if (event.partId.isEmpty) {
+        _handleToolPermissionRequest(event);
+      }
+    }
+
     if (event is EngineEvent_CheckpointCreated) {
       // 检查点已创建（apply_patch 编辑成功 / turn 收尾）→ 实时刷新检查点面板
       CheckpointStore.instance.onCheckpointCreated(
@@ -184,6 +194,7 @@ class EngineClient {
     if (event is EngineEvent_SteerInjected) return event.sessionId;
     if (event is EngineEvent_SessionRenamed) return event.sessionId;
     if (event is EngineEvent_ToolOutputDelta) return event.sessionId;
+    if (event is EngineEvent_ToolPermissionRequest) return event.sessionId;
     return null;
   }
 
@@ -212,6 +223,31 @@ class EngineClient {
         callId: event.callId,
         result: 'Error: $e\n$st',
       );
+    }
+  }
+
+  /// 工具权限确认（回退路径）：part_id 为空（非流式，无卡片可挂）时弹确认框，
+  /// 把决定回传给 Rust。
+  ///
+  /// 任何异常/关闭都回传 "deny"，确保 Rust 侧挂起的工具调用必然被恢复。
+  Future<void> _handleToolPermissionRequest(
+    EngineEvent_ToolPermissionRequest event,
+  ) async {
+    try {
+      final ctx = rootNavigatorContext;
+      if (ctx == null) {
+        // 根 Navigator 尚未挂载（理论上不会发生）：按拒绝处理
+        await api.submitToolPermission(callId: event.callId, decision: 'deny');
+        return;
+      }
+      final decision = await showToolPermissionDialog(
+        context: ctx,
+        toolName: event.toolName,
+        arguments: event.arguments,
+      );
+      await api.submitToolPermission(callId: event.callId, decision: decision);
+    } catch (_) {
+      await api.submitToolPermission(callId: event.callId, decision: 'deny');
     }
   }
 }

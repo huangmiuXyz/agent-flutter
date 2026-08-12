@@ -39,6 +39,11 @@ class AppFormPage extends StatelessWidget {
   /// 是否允许整页滚动，默认 `true`。
   final bool scrollable;
 
+  /// 是否渲染标题区（h2 标题 + 副标题）。
+  ///
+  /// 设置面板根 tab 页面（左侧栏已有 tab 名）时置 false，仅保留面包屑。
+  final bool showTitle;
+
   const AppFormPage({
     super.key,
     required this.title,
@@ -48,6 +53,7 @@ class AppFormPage extends StatelessWidget {
     this.children = const [],
     this.actions,
     this.scrollable = true,
+    this.showTitle = true,
   });
 
   @override
@@ -66,8 +72,10 @@ class AppFormPage extends StatelessWidget {
               AppBreadcrumb(items: breadcrumbItems),
               SizedBox(height: custom.spacing.lg),
             ],
-            _buildHeader(custom),
-            SizedBox(height: custom.spacing.lg + 4),
+            if (showTitle) ...[
+              _buildHeader(custom),
+              SizedBox(height: custom.spacing.lg + 4),
+            ],
             ..._buildBody(custom),
             if (actions != null) ...[
               SizedBox(height: custom.spacing.lg + 4),

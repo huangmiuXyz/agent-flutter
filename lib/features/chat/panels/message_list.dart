@@ -39,10 +39,12 @@ class _KeepAtBottomPhysics extends ScrollPhysics {
   }) {
     if (savedMaxExtent != null) {
       final growth = newPosition.maxScrollExtent - savedMaxExtent!;
-      debugPrint('[AutoScroll][List] physics: savedMax=$savedMaxExtent '
-          'oldMax=${oldPosition.maxScrollExtent} '
-          'newMax=${newPosition.maxScrollExtent} growth=$growth '
-          'isScrolling=$isScrolling velocity=$velocity');
+      debugPrint(
+        '[AutoScroll][List] physics: savedMax=$savedMaxExtent '
+        'oldMax=${oldPosition.maxScrollExtent} '
+        'newMax=${newPosition.maxScrollExtent} growth=$growth '
+        'isScrolling=$isScrolling velocity=$velocity',
+      );
       if (growth.abs() > 0) {
         // 用户在底部 → 滚到新底部
         debugPrint('[AutoScroll][List] physics: growth>0 -> jump to newMax');
@@ -100,7 +102,10 @@ class _ReportMsgOffsetState extends State<_ReportMsgOffset> {
     if (box == null || !box.attached) return;
     final viewport = RenderAbstractViewport.of(box);
     // alignment 0.0：滚动到返回的偏移时本消息顶部与视口顶部对齐
-    widget.onMeasured(widget.msgId, viewport.getOffsetToReveal(box, 0.0).offset);
+    widget.onMeasured(
+      widget.msgId,
+      viewport.getOffsetToReveal(box, 0.0).offset,
+    );
   }
 
   @override
@@ -189,7 +194,11 @@ class MessageList extends StatelessWidget {
             final activeMsgId = useMemoized(() => ValueNotifier<String?>(null));
             // 离屏测量：跳转未测量消息 / 会话滚底共用
             final measure = useOffscreenMeasure();
-            useEffect(() => () => activeMsgId.dispose(), []);
+            useEffect(
+              () =>
+                  () => activeMsgId.dispose(),
+              [],
+            );
 
             // ── 会话切换后自动滚底：先测量、后渲染，零过程 ──
             // 滚底测量完成前列表不渲染（占位）；attach 后估算收敛期间
@@ -251,11 +260,13 @@ class MessageList extends StatelessWidget {
                 if (!pos.isScrollingNotifier.value) return;
                 // 视口底下没剩内容（== 0）即贴底
                 final newPinned = pos.extentAfter <= 0;
-                debugPrint('[AutoScroll][List] onScroll(用户滚动): '
-                    'pixels=${pos.pixels.toStringAsFixed(1)} '
-                    'max=${pos.maxScrollExtent.toStringAsFixed(1)} '
-                    'extentAfter=${pos.extentAfter.toStringAsFixed(1)} '
-                    'pinned ${isPinnedRef.value} -> $newPinned');
+                debugPrint(
+                  '[AutoScroll][List] onScroll(用户滚动): '
+                  'pixels=${pos.pixels.toStringAsFixed(1)} '
+                  'max=${pos.maxScrollExtent.toStringAsFixed(1)} '
+                  'extentAfter=${pos.extentAfter.toStringAsFixed(1)} '
+                  'pinned ${isPinnedRef.value} -> $newPinned',
+                );
                 isPinnedRef.value = newPinned;
                 if (pos.extentAfter > 0) {
                   savedMaxExtent.value = null;
@@ -322,9 +333,11 @@ class MessageList extends StatelessWidget {
             void jumpToBottom() {
               final sc = scrollController.value;
               if (sc == null || !sc.hasClients) return;
-              debugPrint('[AutoScroll][List] jumpToBottom: '
-                  'pixels=${sc.position.pixels.toStringAsFixed(1)} -> '
-                  'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}');
+              debugPrint(
+                '[AutoScroll][List] jumpToBottom: '
+                'pixels=${sc.position.pixels.toStringAsFixed(1)} -> '
+                'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}',
+              );
               sc.jumpTo(sc.position.maxScrollExtent);
             }
 
@@ -341,11 +354,13 @@ class MessageList extends StatelessWidget {
                 if (sc == null || !sc.hasClients) return;
                 isPinnedRef.value ??=
                     pinnedAtSchedule ?? sc.position.extentAfter <= 0;
-                debugPrint('[AutoScroll][List] converge: '
-                    'pinnedAtSchedule=$pinnedAtSchedule '
-                    'pinned=${isPinnedRef.value} '
-                    'extentAfter=${sc.position.extentAfter.toStringAsFixed(1)} '
-                    'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}');
+                debugPrint(
+                  '[AutoScroll][List] converge: '
+                  'pinnedAtSchedule=$pinnedAtSchedule '
+                  'pinned=${isPinnedRef.value} '
+                  'extentAfter=${sc.position.extentAfter.toStringAsFixed(1)} '
+                  'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}',
+                );
                 // 贴底才跟随：用户在中间翻历史时不拽回底部
                 if (isPinnedRef.value != true) return;
                 // 已被估算偏差推出视口才需要收敛；估算恰好精确时无事可做
@@ -434,6 +449,7 @@ class MessageList extends StatelessWidget {
                             (_) => check(),
                           );
                         }
+
                         WidgetsBinding.instance.addPostFrameCallback(
                           (_) => check(),
                         );
@@ -452,8 +468,10 @@ class MessageList extends StatelessWidget {
             useEffect(() {
               final prevItemCount = lastItemCount.value;
               lastItemCount.value = itemCount;
-              debugPrint('[AutoScroll][List] itemCount: $prevItemCount -> '
-                  '$itemCount');
+              debugPrint(
+                '[AutoScroll][List] itemCount: $prevItemCount -> '
+                '$itemCount',
+              );
               // 初始挂载（切换会话后首次构建）不跳底
               if (prevItemCount == itemCount) return null;
               convergeToBottomIfPinned();
@@ -474,15 +492,12 @@ class MessageList extends StatelessWidget {
               activeMsgId.value = msgId;
               final cached = msgOffsetCache.value[msgId];
               if (cached != null) {
-                sc.jumpTo(
-                  cached.clamp(0.0, sc.position.maxScrollExtent),
-                );
+                sc.jumpTo(cached.clamp(0.0, sc.position.maxScrollExtent));
                 return;
               }
               final targetMsgIndex = messageOrder.indexOf(msgId);
               final targetItemIndex = flatItems.indexWhere(
-                (it) =>
-                    it is FlatMessageItem && it.msgIndex == targetMsgIndex,
+                (it) => it is FlatMessageItem && it.msgIndex == targetMsgIndex,
               );
               if (targetItemIndex < 0) return;
               final estOffset = userAnchors
@@ -506,9 +521,7 @@ class MessageList extends StatelessWidget {
                       msgOffsetCache.value[msgId] = exact;
                     }
                     final target = exact ?? estOffset;
-                    sc.jumpTo(
-                      target.clamp(0.0, sc.position.maxScrollExtent),
-                    );
+                    sc.jumpTo(target.clamp(0.0, sc.position.maxScrollExtent));
                   },
                 ),
               );
@@ -517,15 +530,19 @@ class MessageList extends StatelessWidget {
             // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
               final mgr = SessionStore.instance;
-              debugPrint('[AutoScroll][List] 注册 onBeforeEmit '
-                  'session=$sessionId');
+              debugPrint(
+                '[AutoScroll][List] 注册 onBeforeEmit '
+                'session=$sessionId',
+              );
               void onBeforeEmit() {
                 // 回调可能被覆盖/清空，先确认调用与 sc 状态
-                debugPrint('[AutoScroll][List] onBeforeEmit 被调用: '
-                    'session=$sessionId sc=${scrollController.value != null} '
-                    'hasClients=${scrollController.value?.hasClients} '
-                    'streaming='
-                    '${mgr.streamingSessionIds.value.contains(sessionId)}');
+                debugPrint(
+                  '[AutoScroll][List] onBeforeEmit 被调用: '
+                  'session=$sessionId sc=${scrollController.value != null} '
+                  'hasClients=${scrollController.value?.hasClients} '
+                  'streaming='
+                  '${mgr.streamingSessionIds.value.contains(sessionId)}',
+                );
                 final sc = scrollController.value;
                 if (sc == null || !sc.hasClients) return;
                 final streaming = mgr.streamingSessionIds.value.contains(
@@ -537,18 +554,23 @@ class MessageList extends StatelessWidget {
                 }
                 if (sc.position.extentAfter <= 0) {
                   savedMaxExtent.value = sc.position.maxScrollExtent;
-                  debugPrint('[AutoScroll][List] onBeforeEmit: 贴底，保存 '
-                      'savedMax=${savedMaxExtent.value} '
-                      'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}');
+                  debugPrint(
+                    '[AutoScroll][List] onBeforeEmit: 贴底，保存 '
+                    'savedMax=${savedMaxExtent.value} '
+                    'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}',
+                  );
                   // 文本增长（无新 part，itemCount 不变不触发跳底）时，
                   // 若懒加载估算偏差把最新内容/loading 推出视口，
                   // 帧后收敛恢复贴底；安排后用户滚走则不打扰。
                   convergeToBottomIfPinned(pinnedAtSchedule: true);
                 } else {
-                  debugPrint('[AutoScroll][List] onBeforeEmit: 未贴底 '
-                      '(extentAfter=${sc.position.extentAfter.toStringAsFixed(1)}>0)，不保存');
+                  debugPrint(
+                    '[AutoScroll][List] onBeforeEmit: 未贴底 '
+                    '(extentAfter=${sc.position.extentAfter.toStringAsFixed(1)}>0)，不保存',
+                  );
                 }
               }
+
               mgr.addBeforeEmitListener(onBeforeEmit);
               return () {
                 debugPrint('[AutoScroll][List] 注销 onBeforeEmit');
@@ -591,6 +613,7 @@ class MessageList extends StatelessWidget {
                 role: messageRoles[msgId] ?? '',
                 parts: parts,
                 toolStreamedOutputs: toolStreamedOutputs,
+                pendingPermissions: sessionState.pendingPermissions,
                 // 历史消息（含用户消息）一律静态渲染：streaming
                 // 只对正在流式的 assistant 消息（buildPartItem）生效。
                 // 若按会话级 isStreaming 传值，每次发送新消息都会让全部
@@ -644,6 +667,7 @@ class MessageList extends StatelessWidget {
                 role: messageRoles[msgId] ?? '',
                 parts: [part],
                 toolStreamedOutputs: toolStreamedOutputs,
+                pendingPermissions: sessionState.pendingPermissions,
                 // 仅最新轮的 assistant 消息流式渲染
                 streaming:
                     hasLatestTurn && msgIndex > latestUserIndex && isStreaming,
@@ -723,16 +747,20 @@ class MessageList extends StatelessWidget {
               final sc = scrollController.value;
               if (sc == null || !sc.hasClients) return false;
               if (n.metrics.extentAfter > 0) {
-                debugPrint('[AutoScroll][List] 滚轮/惯性滚动离开底部: '
-                    'extentAfter=${n.metrics.extentAfter.toStringAsFixed(1)} '
-                    'pinned ${isPinnedRef.value} -> false，清 savedMax');
+                debugPrint(
+                  '[AutoScroll][List] 滚轮/惯性滚动离开底部: '
+                  'extentAfter=${n.metrics.extentAfter.toStringAsFixed(1)} '
+                  'pinned ${isPinnedRef.value} -> false，清 savedMax',
+                );
                 isPinnedRef.value = false;
                 savedMaxExtent.value = null;
               } else if (isPinnedRef.value == false) {
                 // 滚回底部：恢复跟随（滚轮滚动时 onScroll 不更新状态，
                 // 这里补上，回到底部后继续跟随流式）
-                debugPrint('[AutoScroll][List] 滚轮/惯性滚动回到底部: '
-                    '恢复跟随');
+                debugPrint(
+                  '[AutoScroll][List] 滚轮/惯性滚动回到底部: '
+                  '恢复跟随',
+                );
                 isPinnedRef.value = true;
               }
               return false;

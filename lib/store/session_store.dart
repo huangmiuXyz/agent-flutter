@@ -15,6 +15,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:signals_flutter/signals_flutter.dart';
+import 'package:agent/rust_bridge/api/engine.dart' as api;
 import 'package:agent/rust_bridge/api/steer.dart' as api;
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/rust_bridge/events.dart';
@@ -665,6 +666,23 @@ class SessionStore {
     }
 
     _emit();
+  }
+
+  /// 用户对工具权限确认的选择：立即隐藏卡片上的按钮并回传 Rust。
+  ///
+  /// [decision] 取值：`"allow_once"`（本次通过）/ `"always_allow"`（总是运行）/
+  /// `"deny"`（拒绝，仅本次生效不落盘）。
+  Future<void> resolveToolPermission(
+    String sessionId,
+    String partId,
+    String decision,
+  ) async {
+    final s = sessions.value[sessionId];
+    final pending = s?.pendingPermissions.remove(partId);
+    // 乐观隐藏按钮（Rust 侧 ToolCall 事件到达后也会再次清除）
+    _emit();
+    if (pending == null) return;
+    await api.submitToolPermission(callId: pending.callId, decision: decision);
   }
 
   /// 子智能体结果注入后的自动继续：用该会话最近一次发送的模型，

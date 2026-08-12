@@ -18,16 +18,18 @@ import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
 import 'package:agent/features/settings/pages/provider_config_page.dart';
 import 'package:agent/features/settings/pages/provider_list_page.dart';
+import 'package:agent/features/settings/pages/tool_permission_page.dart';
 import 'package:agent/features/skills/models/skill_info.dart';
 import 'package:agent/features/skills/pages/skill_detail_page.dart';
 import 'package:agent/features/skills/pages/skill_list_page.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api/skills.dart' as bridge;
+import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/list/app_list.dart';
 
 /// Settings category tabs.
-enum SettingsTab { display, models, mcp, skills, agents }
+enum SettingsTab { display, models, mcp, skills, tools, agents }
 
 /// 设置面板的跳转目标（tab / 提供商 / 智能体）。
 ///
@@ -49,6 +51,7 @@ const _sidebarsItems = [
   _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
   _TabItem(SettingsTab.mcp, 'MCP 服务器', 'server'),
   _TabItem(SettingsTab.skills, '技能', 'puzzle'),
+  _TabItem(SettingsTab.tools, '工具权限', 'lock'),
   _TabItem(SettingsTab.agents, '智能体', 'robot'),
 ];
 
@@ -204,6 +207,11 @@ class SettingsPage extends HookWidget {
             },
           );
         }
+      case SettingsTab.tools:
+        // 工具权限（全局 config.json）；与智能体编辑页的入口共用同一编辑页
+        content = ToolPermissionPage(
+          configPath: ConfigStore.instance.configPath,
+        );
       case SettingsTab.agents:
         if (showAgentEditor.value) {
           content = AgentEditPage(

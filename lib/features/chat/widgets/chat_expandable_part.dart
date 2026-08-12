@@ -50,6 +50,9 @@ class ChatExpandablePart extends HookWidget {
   /// 自动滚到底部；用户主动上滚后暂停，回到底部附近才恢复
   final bool stickToBottom;
 
+  /// 卡片底部附加内容（如工具权限确认按钮），始终渲染在展开内容下方
+  final Widget? footer;
+
   const ChatExpandablePart({
     super.key,
     required this.content,
@@ -62,6 +65,7 @@ class ChatExpandablePart extends HookWidget {
     this.showLeftDivider = true,
     this.initiallyExpanded = false,
     this.stickToBottom = false,
+    this.footer,
   });
 
   @override
@@ -301,6 +305,13 @@ class ChatExpandablePart extends HookWidget {
                 ),
               ),
             ),
+          ),
+
+        // ── 卡片底部附加内容（如工具权限确认按钮）──
+        if (footer != null)
+          Padding(
+            padding: EdgeInsets.only(top: custom.spacing.sm),
+            child: footer,
           ),
       ],
     );

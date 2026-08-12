@@ -69,6 +69,16 @@ class StreamEventProcessor {
         event.arguments,
         event.result,
       );
+    } else if (event is EngineEvent_ToolPermissionRequest) {
+      // 工具权限确认请求：把 pending 状态挂到对应卡片（part_id 为空时
+      // 由 EngineClient 走弹窗回退，不在此处理）
+      if (event.partId.isNotEmpty) {
+        s.pendingPermissions[event.partId] = PendingToolPermission(
+          callId: event.callId,
+          toolName: event.toolName,
+          arguments: event.arguments,
+        );
+      }
     } else if (event is EngineEvent_ReasoningChunk) {
       if (s.isReasoningRedundant(event.partId, event.totalLen)) return;
       s.trackReasoningLength(event.partId, event.totalLen);
@@ -218,6 +228,8 @@ class StreamEventProcessor {
     }
 
     s.messageRoles[msgId] = 'assistant';
+    // 工具结果已到达：无论执行还是被拒绝，确认按钮都不再需要
+    s.pendingPermissions.remove(partId);
   }
 
   /// 确保消息存在

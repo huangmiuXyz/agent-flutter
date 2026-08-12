@@ -10,9 +10,13 @@ import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/image_store.dart';
 import 'package:agent/services/session/part_types.dart';
+import 'package:agent/services/session/session_state.dart';
+import 'package:agent/store/session_store.dart';
 import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
+import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -145,9 +149,7 @@ class _UserMessage extends HookWidget {
 
     /// 添加图片：复制到 File 目录后插入标签
     Future<void> pickImages() async {
-      final result = await FilePicker.pickFiles(
-        type: FileType.image,
-      );
+      final result = await FilePicker.pickFiles(type: FileType.image);
       if (result == null || result.files.isEmpty) return;
       for (final file in result.files) {
         final src = file.path;
@@ -261,6 +263,9 @@ class ChatMessageItem extends HookWidget {
   /// 仅执行中的工具调用卡片使用只读终端展示）
   final Map<String, String> toolStreamedOutputs;
 
+  /// part_id → 等待用户确认的工具调用（有值 = 卡片显示三选一按钮）
+  final Map<String, PendingToolPermission> pendingPermissions;
+
   const ChatMessageItem({
     super.key,
     required this.sessionId,
@@ -273,6 +278,7 @@ class ChatMessageItem extends HookWidget {
     this.onFocusChanged,
     this.streaming = false,
     this.toolStreamedOutputs = const {},
+    this.pendingPermissions = const {},
   });
 
   @override
@@ -316,6 +322,12 @@ class ChatMessageItem extends HookWidget {
     final cacheStreamed = useRef<Map<String, String>>({});
     if (cacheStreamed.value != toolStreamedOutputs) {
       cacheStreamed.value = toolStreamedOutputs;
+      partCache.value.clear();
+    }
+    // 权限确认到达/解除时工具卡片必须重建（按钮出现/消失）
+    final cachePending = useRef<Map<String, PendingToolPermission>>({});
+    if (cachePending.value != pendingPermissions) {
+      cachePending.value = pendingPermissions;
       partCache.value.clear();
     }
     // Markdown 字体切换时聊天文本 part 必须重建（ChatTextPart 内部监听
@@ -430,13 +442,20 @@ class ChatMessageItem extends HookWidget {
     // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘。
     // 流式输出文本纳入键：工具卡片内容增长时缓存失效重建。
     return partCache.putIfAbsent(
-      (part, isLast, streaming, toolStreamedOutputs[part.id]),
+      (
+        part,
+        isLast,
+        streaming,
+        toolStreamedOutputs[part.id],
+        pendingPermissions[part.id],
+      ),
       () => _buildPartWithSpacingInner(
         part,
         custom,
         minPartHeight,
         isLast,
         toolStreamedOutputs[part.id],
+        pendingPermissions[part.id],
       ),
     );
   }
@@ -447,8 +466,9 @@ class ChatMessageItem extends HookWidget {
     double minPartHeight,
     bool isLast,
     String? streamedText,
+    PendingToolPermission? pending,
   ) {
-    final widget = _buildPart(part, custom, streamedText);
+    final widget = _buildPart(part, custom, streamedText, pending);
     final constrained = Container(
       constraints: BoxConstraints(minHeight: minPartHeight),
       alignment: Alignment.centerLeft,
@@ -469,6 +489,7 @@ class ChatMessageItem extends HookWidget {
     api.PartInfo part,
     CustomTheme custom,
     String? streamedText,
+    PendingToolPermission? pending,
   ) {
     return switch (part.partType) {
       PartTypes.text => ChatTextPart(
@@ -484,8 +505,12 @@ class ChatMessageItem extends HookWidget {
         stickToBottom: true,
       ),
       PartTypes.image => ChatImagePart(content: part.content),
-      PartTypes.toolCall ||
-      PartTypes.toolCallFrag => _buildToolCallPart(part, custom, streamedText),
+      PartTypes.toolCall || PartTypes.toolCallFrag => _buildToolCallPart(
+        part,
+        custom,
+        streamedText,
+        pending,
+      ),
       PartTypes.toolResult => const SizedBox.shrink(),
       PartTypes.webSearch => ChatSearchPart(content: part.content),
       PartTypes.subAgentText => _buildSubAgentPart(part, custom),
@@ -549,6 +574,7 @@ class ChatMessageItem extends HookWidget {
     api.PartInfo part,
     CustomTheme custom,
     String? streamedText,
+    PendingToolPermission? pending,
   ) {
     final isPatch = _toolCallName(part.content) == 'apply_patch';
     // 仅执行中的卡片展示流式终端；完成后 toolOutputBuffers 仍在会话内
@@ -570,8 +596,48 @@ class ChatMessageItem extends HookWidget {
       // 仅 apply_patch 默认展开便于直接查看 diff，其余工具调用保持收起；
       // 有流式输出时默认展开（用户能看到执行过程）
       initiallyExpanded: isPatch || streamed != null,
+      // 等待用户确认：卡片底部渲染三选一按钮
+      footer: pending != null ? _buildPermissionBar(part.id, pending) : null,
       // 流式输出：只读终端（xterm）实时展示，支持 ANSI/进度条/滚动
       children: [if (streamed != null) ReadonlyTerminalView(text: streamed)],
+    );
+  }
+
+  /// 工具权限确认按钮栏（Zed 式内联确认）：本次通过 / 总是运行 / 拒绝。
+  Widget _buildPermissionBar(String partId, PendingToolPermission pending) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppSecondaryButton(
+          text: '拒绝',
+          size: ButtonSize.sm,
+          onPressed: () => SessionStore.instance.resolveToolPermission(
+            sessionId,
+            partId,
+            'deny',
+          ),
+        ),
+        SizedBox(width: 8),
+        AppSecondaryButton(
+          text: '本次通过',
+          size: ButtonSize.sm,
+          onPressed: () => SessionStore.instance.resolveToolPermission(
+            sessionId,
+            partId,
+            'allow_once',
+          ),
+        ),
+        SizedBox(width: 8),
+        AppPrimaryButton(
+          text: '总是运行',
+          size: ButtonSize.sm,
+          onPressed: () => SessionStore.instance.resolveToolPermission(
+            sessionId,
+            partId,
+            'always_allow',
+          ),
+        ),
+      ],
     );
   }
 

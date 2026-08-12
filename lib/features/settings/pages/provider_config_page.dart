@@ -11,9 +11,9 @@ import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
+import 'package:agent/hooks/use_debounced_callback.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
-import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
@@ -110,15 +110,11 @@ class _ConfigForm extends HookWidget {
       return null;
     }, [configVersion, provider.name]);
 
-    // ── Save handler ──
-    Future<void> handleSave() async {
+    // ── 实时保存：字段变更即落盘（文本防抖 400ms，选择/开关变更立即）──
+    Future<void> saveNow() async {
       final newProtocol = protocol.value;
       if (newProtocol == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('请选择协议类型')));
-        }
+        // 协议未选时无法定位协议段：跳过本次保存（用户选协议后触发全量保存）
         return;
       }
 
@@ -162,12 +158,6 @@ class _ConfigForm extends HookWidget {
             cfg.remove('web_search');
           }
         });
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('配置保存成功')));
-        }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -176,6 +166,8 @@ class _ConfigForm extends HookWidget {
         }
       }
     }
+
+    final debouncedSave = useDebouncedCallback(saveNow);
 
     return AppFormPage(
       breadcrumbItems: [
@@ -186,7 +178,6 @@ class _ConfigForm extends HookWidget {
       title: provider.label,
       subtitle: provider.baseUrl,
       actions: FormActions(
-        primary: [AppPrimaryButton(text: '保存', onPressed: handleSave)],
         secondary: [
           // 始终显示：从聊天页选择器跳转时也可能携带未标记 configured 的
           // ProviderInfo，但按钮操作本身与 configured 状态无关
@@ -209,6 +200,7 @@ class _ConfigForm extends HookWidget {
             if (v == 'openai_compatible') {
               webSearch.value = false;
             }
+            debouncedSave();
           },
         ),
         AppField(
@@ -216,15 +208,20 @@ class _ConfigForm extends HookWidget {
           placeholder: '输入 ${provider.label} 的 API Key',
           obscureText: false,
           controller: apiKeyCtrl,
+          onChanged: (_) => debouncedSave(),
         ),
         AppField(
           label: 'API Endpoint（可选）',
           placeholder: provider.baseUrl ?? 'https://api.example.com/v1',
           controller: endpointCtrl,
+          onChanged: (_) => debouncedSave(),
         ),
         AppSwitch(
           value: webSearch.value,
-          onChanged: (v) => webSearch.value = v,
+          onChanged: (v) {
+            webSearch.value = v;
+            debouncedSave();
+          },
           disabled: protocol.value == 'openai_compatible',
           label: '启用联网搜索（服务端执行，仅 Anthropic / OpenAI Responses 协议支持）',
         ),

@@ -6,11 +6,11 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
+import 'package:agent/hooks/use_debounced_callback.dart';
 
 import 'package:agent/rust_bridge/api/mcp.dart' as api;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
-import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/field/app_field.dart';
@@ -69,7 +69,7 @@ class McpServerConfigPage extends HookWidget {
       return null;
     }, [configVersion, server.name]);
 
-    Future<void> handleSave() async {
+    Future<void> saveNow() async {
       final name = nameCtrl.text.trim();
       if (name.isEmpty) {
         nameError.value = '请输入服务器名称';
@@ -114,24 +114,14 @@ class McpServerConfigPage extends HookWidget {
           }
         });
 
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('配置保存成功')));
-          // 通知 Rust 后端重新连接该服务器
-          if (oldName != newName) {
-            // 原名已从配置中移除，断开旧连接
-            api.reloadMcpServer(
-              configPath: store.configPath,
-              serverName: oldName,
-            );
-          }
+        // 通知 Rust 后端重新连接该服务器（改名时先断开旧连接）
+        if (oldName != newName) {
           api.reloadMcpServer(
             configPath: store.configPath,
-            serverName: newName,
+            serverName: oldName,
           );
-          onBack();
         }
+        api.reloadMcpServer(configPath: store.configPath, serverName: newName);
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(
@@ -140,6 +130,9 @@ class McpServerConfigPage extends HookWidget {
         }
       }
     }
+
+    // 文本输入/下拉/开关变更都走防抖保存（400ms，停顿后落盘全量状态）
+    final debouncedSave = useDebouncedCallback(saveNow);
 
     Future<void> handleDelete() async {
       final confirmed = await AppDialog.show(
@@ -184,7 +177,6 @@ class McpServerConfigPage extends HookWidget {
       title: latestServer.name,
       subtitle: '编辑 MCP 服务器配置',
       actions: FormActions(
-        primary: [AppPrimaryButton(text: '保存', onPressed: handleSave)],
         secondary: [
           AppSecondaryButton(text: '管理详情', onPressed: onManageDetail),
           AppSecondaryButton(text: '删除', onPressed: handleDelete),
@@ -196,7 +188,10 @@ class McpServerConfigPage extends HookWidget {
           placeholder: '例如：filesystem',
           controller: nameCtrl,
           errorText: nameError.value,
-          onChanged: (_) => nameError.value = null,
+          onChanged: (_) {
+            nameError.value = null;
+            debouncedSave();
+          },
         ),
         AppSelect<String>(
           label: '传输方式',
@@ -206,7 +201,10 @@ class McpServerConfigPage extends HookWidget {
             AppSelectOption(value: 'http', label: 'HTTP'),
           ],
           onChanged: (v) {
-            if (v != null) isStdio.value = v == 'stdio';
+            if (v != null) {
+              isStdio.value = v == 'stdio';
+              debouncedSave();
+            }
           },
         ),
         if (isStdio.value) ...[
@@ -215,12 +213,16 @@ class McpServerConfigPage extends HookWidget {
             placeholder: '例如：npx',
             controller: commandCtrl,
             errorText: commandError.value,
-            onChanged: (_) => commandError.value = null,
+            onChanged: (_) {
+              commandError.value = null;
+              debouncedSave();
+            },
           ),
           AppField(
             label: '参数（空格分隔）',
             placeholder: '-y @modelcontextprotocol/server-filesystem /path',
             controller: argsCtrl,
+            onChanged: (_) => debouncedSave(),
           ),
         ] else
           AppField(
@@ -228,11 +230,17 @@ class McpServerConfigPage extends HookWidget {
             placeholder: 'http://localhost:3000/mcp',
             controller: urlCtrl,
             errorText: urlError.value,
-            onChanged: (_) => urlError.value = null,
+            onChanged: (_) {
+              urlError.value = null;
+              debouncedSave();
+            },
           ),
         AppSwitch(
           value: !disabled.value,
-          onChanged: (v) => disabled.value = !v,
+          onChanged: (v) {
+            disabled.value = !v;
+            debouncedSave();
+          },
           size: SwitchSize.md,
           label: disabled.value ? '已禁用' : '已启用',
         ),

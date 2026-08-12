@@ -18,7 +18,9 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/features/agents/models/agent_config_helper.dart';
 import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
+import 'package:agent/features/settings/pages/tool_permission_page.dart';
 import 'package:agent/features/settings/models/mcp_server_info.dart';
+import 'package:agent/hooks/use_debounced_callback.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 import 'package:agent/rust_bridge/api/builtin_tools.dart' as bridge;
@@ -34,6 +36,7 @@ import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/field/app_file_path_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
+import 'package:agent/widgets/reactive/form_row.dart';
 import 'package:agent/widgets/select/app_multi_select.dart';
 import 'package:agent/widgets/select/app_provider_model_select.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
@@ -88,6 +91,7 @@ class AgentEditPage extends HookWidget {
     final injectEnvPrompt = useState(true);
     final saving = useState(false);
     final loaded = useState(false);
+    final showToolPermissions = useState(false);
 
     // ── 全局 MCP 服务器列表 ──
     final mcpServers = useMemoized(
@@ -146,130 +150,146 @@ class AgentEditPage extends HookWidget {
       return null;
     }, const []);
 
-    // ── 保存 ──
-    Future<void> save() async {
+    // ── 构建配置（编辑模式实时保存 / 创建模式共用）──
+    // 校验失败返回 null；编辑模式以现有配置为底，创建模式从空开始
+    Future<Map<String, dynamic>?> buildCfg() async {
       final name = nameController.text.trim();
       if (name.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: AppText('请填写名称')));
-        return;
-      }
-      final id = idController.text.trim();
-      if (isCreate) {
-        if (id.isEmpty ||
-            id == kGlobalAgentId ||
-            id.contains(RegExp(r'[\\/:*?"<>|]'))) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: AppText('标识无效：不能为空、不能为 全局、不能包含路径字符')),
-          );
-          return;
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: AppText('请填写名称')));
         }
+        return null;
       }
 
-      saving.value = true;
+      final global = configStore.data.value;
+
+      // 编辑模式以现有配置为底，保留 UI 不管理的字段；创建模式从空开始
+      Map<String, dynamic> cfg = {};
+      if (!isCreate) {
+        final existing = await AgentConfigHelper.readConfig(agent!.configPath);
+        if (existing != null) cfg = existing;
+      }
+
+      if (isGlobal) {
+        // 全局智能体：只更新 default_model、title_model、work_dir、builtinTools
+        if (selectedProvider.value != null && selectedModel.value != null) {
+          cfg['default_model'] = {
+            'provider': selectedProvider.value,
+            'model': selectedModel.value,
+          };
+        } else {
+          cfg.remove('default_model');
+        }
+        _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
+        final workDir = workDirController.text.trim();
+        if (workDir.isNotEmpty) {
+          cfg['work_dir'] = workDir;
+        } else {
+          cfg.remove('work_dir');
+        }
+
+        // 内置工具：只写入启用的
+        cfg['builtinTools'] = {
+          for (final id in selectedTools.value) id: {'enabled': true},
+        };
+        _writeInjectEnvPrompt(cfg, injectEnvPrompt);
+      } else {
+        cfg['name'] = name;
+        cfg['description'] = descController.text.trim();
+        if (!enabled.value) {
+          cfg['enable'] = false;
+        } else {
+          cfg['enable'] = true;
+        }
+        if (selectedProvider.value != null && selectedModel.value != null) {
+          cfg['default_model'] = {
+            'provider': selectedProvider.value,
+            'model': selectedModel.value,
+          };
+        } else {
+          cfg.remove('default_model');
+        }
+        _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
+        final workDir = workDirController.text.trim();
+        if (workDir.isNotEmpty) {
+          cfg['work_dir'] = workDir;
+        } else {
+          cfg.remove('work_dir');
+        }
+
+        // MCP 服务器：从全局配置中拷贝勾选项的完整定义
+        final globalMcp = global['mcpServers'] as Map<String, dynamic>? ?? {};
+        cfg['mcpServers'] = {
+          for (final name in selectedMcp.value)
+            if (globalMcp.containsKey(name)) name: globalMcp[name],
+        };
+
+        // 技能：只写入启用的
+        cfg['skills'] = {
+          for (final id in selectedSkills.value) id: {'enabled': true},
+        };
+
+        // 内置工具：只写入启用的
+        cfg['builtinTools'] = {
+          for (final id in selectedTools.value) id: {'enabled': true},
+        };
+        _writeInjectEnvPrompt(cfg, injectEnvPrompt);
+
+        // 自包含：拷贝 provider 列表与模型凭证（聊天时按此配置寻址 LLM）
+        cfg['provider'] = global['provider'] ?? <String>[];
+        cfg['language_models'] =
+            global['language_models'] ?? <String, dynamic>{};
+      }
+      return cfg;
+    }
+
+    /// 编辑模式实时保存：字段变更即落盘，不跳转、不弹成功提示。
+    Future<void> saveNow() async {
+      if (isCreate) return;
       try {
-        final global = configStore.data.value;
-
-        // 编辑模式以现有配置为底，保留 UI 不管理的字段；创建模式从空开始
-        Map<String, dynamic> cfg = {};
-        if (!isCreate) {
-          final existing = await AgentConfigHelper.readConfig(
-            agent!.configPath,
-          );
-          if (existing != null) cfg = existing;
-        }
-
-        if (isGlobal) {
-          // 全局智能体：只更新 default_model、title_model、work_dir、builtinTools
-          if (selectedProvider.value != null && selectedModel.value != null) {
-            cfg['default_model'] = {
-              'provider': selectedProvider.value,
-              'model': selectedModel.value,
-            };
-          } else {
-            cfg.remove('default_model');
-          }
-          _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
-          final workDir = workDirController.text.trim();
-          if (workDir.isNotEmpty) {
-            cfg['work_dir'] = workDir;
-          } else {
-            cfg.remove('work_dir');
-          }
-
-          // 内置工具：只写入启用的
-          cfg['builtinTools'] = {
-            for (final id in selectedTools.value) id: {'enabled': true},
-          };
-          _writeInjectEnvPrompt(cfg, injectEnvPrompt);
-        } else {
-          cfg['name'] = name;
-          cfg['description'] = descController.text.trim();
-          if (!enabled.value) {
-            cfg['enable'] = false;
-          } else {
-            cfg['enable'] = true;
-          }
-          if (selectedProvider.value != null && selectedModel.value != null) {
-            cfg['default_model'] = {
-              'provider': selectedProvider.value,
-              'model': selectedModel.value,
-            };
-          } else {
-            cfg.remove('default_model');
-          }
-          _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
-          final workDir = workDirController.text.trim();
-          if (workDir.isNotEmpty) {
-            cfg['work_dir'] = workDir;
-          } else {
-            cfg.remove('work_dir');
-          }
-
-          // MCP 服务器：从全局配置中拷贝勾选项的完整定义
-          final globalMcp = global['mcpServers'] as Map<String, dynamic>? ?? {};
-          cfg['mcpServers'] = {
-            for (final name in selectedMcp.value)
-              if (globalMcp.containsKey(name)) name: globalMcp[name],
-          };
-
-          // 技能：只写入启用的
-          cfg['skills'] = {
-            for (final id in selectedSkills.value) id: {'enabled': true},
-          };
-
-          // 内置工具：只写入启用的
-          cfg['builtinTools'] = {
-            for (final id in selectedTools.value) id: {'enabled': true},
-          };
-          _writeInjectEnvPrompt(cfg, injectEnvPrompt);
-
-          // 自包含：拷贝 provider 列表与模型凭证（聊天时按此配置寻址 LLM）
-          cfg['provider'] = global['provider'] ?? <String>[];
-          cfg['language_models'] =
-              global['language_models'] ?? <String, dynamic>{};
-        }
-
-        final json = AgentConfigHelper.encode(cfg);
-
-        if (isCreate) {
-          await bridge.createAgent(
-            configPath: configStore.configPath,
-            agentId: id,
-            configJson: json,
-          );
-        } else {
-          await bridge.writeAgentConfig(
-            configPath: agent!.configPath,
-            configJson: json,
-          );
-        }
-
+        final cfg = await buildCfg();
+        if (cfg == null) return;
+        await bridge.writeAgentConfig(
+          configPath: agent!.configPath,
+          configJson: AgentConfigHelper.encode(cfg),
+        );
         await AgentStore.instance.refresh();
         if (isGlobal) {
           configStore.reload();
         }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
+        }
+      }
+    }
+
+    /// 创建模式：提交创建并返回列表（仅创建模式有提交动作）。
+    Future<void> saveCreate() async {
+      final id = idController.text.trim();
+      if (id.isEmpty ||
+          id == kGlobalAgentId ||
+          id.contains(RegExp(r'[\\/:*?"<>|]'))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: AppText('标识无效：不能为空、不能为 全局、不能包含路径字符')),
+        );
+        return;
+      }
+
+      saving.value = true;
+      try {
+        final cfg = await buildCfg();
+        if (cfg == null) return;
+        await bridge.createAgent(
+          configPath: configStore.configPath,
+          agentId: id,
+          configJson: AgentConfigHelper.encode(cfg),
+        );
+        await AgentStore.instance.refresh();
         onSaved();
       } catch (e) {
         if (context.mounted) {
@@ -281,6 +301,9 @@ class AgentEditPage extends HookWidget {
         saving.value = false;
       }
     }
+
+    // 编辑模式实时保存：文本输入防抖 400ms，选择/开关变更同样走防抖（停顿后全量落盘）
+    final debouncedSave = useDebouncedCallback(saveNow);
 
     // 把 AppProviderModelSelect 的复合键回填到 provider/model 状态；空值清除选择
     void applyModelSelection(
@@ -300,6 +323,15 @@ class AgentEditPage extends HookWidget {
       }
     }
 
+    // ── 工具权限编辑页（智能体级）：直接写回该智能体 config.json ──
+    // 注意：必须放在所有 hooks 之后（hooks 数量一致性），仅编辑已有智能体时可用
+    if (showToolPermissions.value) {
+      return ToolPermissionPage(
+        configPath: agent!.configPath,
+        onBack: () => showToolPermissions.value = false,
+      );
+    }
+
     return AppFormPage(
       breadcrumbItems: [
         AppBreadcrumbItem('设置', onTap: () {}),
@@ -309,11 +341,13 @@ class AgentEditPage extends HookWidget {
       title: isCreate ? '创建智能体' : agent!.name,
       actions: FormActions(
         primary: [
-          AppPrimaryButton(
-            text: saving.value ? '保存中...' : '保存',
-            disabled: saving.value,
-            onPressed: save,
-          ),
+          // 创建模式有显式提交动作（新建目录 + 写配置）；编辑模式实时保存，无保存按钮
+          if (isCreate)
+            AppPrimaryButton(
+              text: saving.value ? '创建中...' : '创建',
+              disabled: saving.value,
+              onPressed: saveCreate,
+            ),
         ],
         secondary: [
           if (!isCreate && !isGlobal)
@@ -336,11 +370,13 @@ class AgentEditPage extends HookWidget {
             label: '名称',
             placeholder: '显示名称（必填）',
             controller: nameController,
+            onChanged: (_) => debouncedSave(),
           ),
           AppField(
             label: '描述',
             placeholder: '这个智能体擅长什么？',
             controller: descController,
+            onChanged: (_) => debouncedSave(),
           ),
         ],
         // ── 默认模型（与聊天页同款分组，样式与其他 select 一致）──
@@ -354,8 +390,10 @@ class AgentEditPage extends HookWidget {
                 )
               : null,
           allowClear: true,
-          onChanged: (v) =>
-              applyModelSelection(selectedProvider, selectedModel, v),
+          onChanged: (v) {
+            applyModelSelection(selectedProvider, selectedModel, v);
+            debouncedSave();
+          },
         ),
         // ── 标题生成模型（可选）──
         // 会话自动生成标题时使用；留空则 Rust 端回退使用上面的默认模型
@@ -371,8 +409,10 @@ class AgentEditPage extends HookWidget {
                 )
               : null,
           allowClear: true,
-          onChanged: (v) =>
-              applyModelSelection(selectedTitleProvider, selectedTitleModel, v),
+          onChanged: (v) {
+            applyModelSelection(selectedTitleProvider, selectedTitleModel, v);
+            debouncedSave();
+          },
         ),
         if (!isGlobal)
           AppMultiSelect<String>(
@@ -383,7 +423,10 @@ class AgentEditPage extends HookWidget {
               for (final s in mcpServers)
                 AppMultiSelectOption(value: s.name, label: s.name),
             ],
-            onChanged: (v) => selectedMcp.value = v,
+            onChanged: (v) {
+              selectedMcp.value = v;
+              debouncedSave();
+            },
           ),
         if (!isGlobal)
           AppMultiSelect<String>(
@@ -394,7 +437,10 @@ class AgentEditPage extends HookWidget {
               for (final s in skills)
                 AppMultiSelectOption(value: s.id, label: s.name),
             ],
-            onChanged: (v) => selectedSkills.value = v,
+            onChanged: (v) {
+              selectedSkills.value = v;
+              debouncedSave();
+            },
           ),
         if (builtinToolOptions.value.isNotEmpty)
           AppMultiSelect<String>(
@@ -408,13 +454,35 @@ class AgentEditPage extends HookWidget {
                   label: '${t.name} — ${t.description}',
                 ),
             ],
-            onChanged: (v) => selectedTools.value = v,
+            onChanged: (v) {
+              selectedTools.value = v;
+              debouncedSave();
+            },
+          ),
+        // ── 工具权限（智能体级 tool_permissions，聊天时按此判定是否弹确认框）──
+        if (!isCreate)
+          FormRow(
+            label: '工具权限',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSecondaryButton(
+                  text: '编辑',
+                  icon: 'lock',
+                  size: ButtonSize.sm,
+                  onPressed: () => showToolPermissions.value = true,
+                ),
+              ],
+            ),
           ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: AppSwitch(
             value: injectEnvPrompt.value,
-            onChanged: (v) => injectEnvPrompt.value = v,
+            onChanged: (v) {
+              injectEnvPrompt.value = v;
+              debouncedSave();
+            },
             label: '注入运行环境提示词（平台 / 终端 / 工作目录）',
           ),
         ),
@@ -422,6 +490,7 @@ class AgentEditPage extends HookWidget {
           controller: workDirController,
           label: 'work_dir（可选）',
           placeholder: '留空则跟随全局配置',
+          onChanged: (_) => debouncedSave(),
         ),
         if (agent != null)
           AppSecondaryButton(

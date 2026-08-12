@@ -47,6 +47,9 @@ class AppFilePathField extends StatelessWidget {
   /// 是否禁用。
   final bool enabled;
 
+  /// 文本变化回调（输入 + 文件选择器选中后均触发）。
+  final ValueChanged<String>? onChanged;
+
   const AppFilePathField({
     super.key,
     required this.controller,
@@ -54,6 +57,7 @@ class AppFilePathField extends StatelessWidget {
     this.placeholder,
     this.pickerType = PickerType.directory,
     this.enabled = true,
+    this.onChanged,
   });
 
   @override
@@ -83,6 +87,7 @@ class AppFilePathField extends StatelessWidget {
                 placeholder: placeholder,
                 icon: 'folderOpen',
                 enabled: enabled,
+                onChanged: onChanged,
               ),
             ),
             const SizedBox(width: 8),
@@ -108,6 +113,7 @@ class AppFilePathField extends StatelessWidget {
       }
       if (result != null && context.mounted) {
         controller.text = result.replaceAll('\\', '/');
+        onChanged?.call(controller.text);
       }
     } catch (e) {
       if (context.mounted) {

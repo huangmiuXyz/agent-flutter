@@ -5,6 +5,24 @@ import 'package:agent/rust_bridge/api/types.dart' as api;
 
 import 'part_types.dart';
 
+/// 等待用户确认的工具调用（Zed 式内联确认：卡片上显示三个按钮）。
+class PendingToolPermission {
+  const PendingToolPermission({
+    required this.callId,
+    required this.toolName,
+    required this.arguments,
+  });
+
+  /// 回传决定用的唯一调用标识（来自 ToolPermissionRequest 事件）
+  final String callId;
+
+  /// 待确认的工具名
+  final String toolName;
+
+  /// 工具入参（JSON 字符串，供展示）
+  final String arguments;
+}
+
 class SessionState {
   final String sessionId;
 
@@ -26,6 +44,10 @@ class SessionState {
 
   /// "partId|stream" → 已接收字节数（stdout/stderr 分别累计，用于去重）
   final Map<String, BigInt> toolOutputLens = {};
+
+  /// part_id → 等待用户确认的工具调用（ToolPermissionRequest 事件写入，
+  /// 用户点击按钮或工具结果到达后移除）
+  final Map<String, PendingToolPermission> pendingPermissions = {};
 
   /// msg_id → role（"user", "assistant", "tool" 等）
   final Map<String, String> messageRoles = {};
@@ -59,6 +81,8 @@ class SessionState {
     // 渲染端会回退到 tool_result 一次性回放）
     toolOutputBuffers.clear();
     toolOutputLens.clear();
+    // 权限确认同样只在当次会话内有效
+    pendingPermissions.clear();
 
     for (final part in parts) {
       partsByMsg.putIfAbsent(part.msgId, () => []).add(part);
