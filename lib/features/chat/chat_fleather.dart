@@ -257,6 +257,11 @@ class ChatFleather extends StatefulWidget {
 class _ChatFleatherState extends State<ChatFleather> {
   late FleatherController _controller;
   late final FocusNode _focusNode;
+  // macOS 输入法候选框跟随：fleather 不向系统上报光标矩形，候选框
+  // 会落到系统默认位置（远离文字）。这里通过 FleatherEditor 的
+  // editorKey 拿到 EditorState（注意：传 key: 拿不到，editorKey 才是
+  // RawEditor 的 State key），计算光标矩形并经公共通道上报。
+  final GlobalKey<EditorState> _editorKey = GlobalKey<EditorState>();
 
   @override
   void initState() {
@@ -265,11 +270,13 @@ class _ChatFleatherState extends State<ChatFleather> {
     _controller.addListener(_onControllerChanged);
     // 外部传入的 FocusNode 由外部负责 dispose，内部创建的由自己 dispose
     _focusNode = widget.focusNode ?? FocusNode();
+    _focusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    _focusNode.removeListener(_onFocusChanged);
     // 仅 dispose 内部创建的 controller；外部传入的由创建方负责
     // （ChatInput 在 useEffect cleanup 中 dispose），避免外部持有者
     // 在异步回调中继续使用已销毁的 controller。
@@ -282,9 +289,48 @@ class _ChatFleatherState extends State<ChatFleather> {
     super.dispose();
   }
 
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      _scheduleCaretRectReport();
+    }
+  }
+
   void _onControllerChanged() {
     // Rebuild to show/hide placeholder.
     setState(() {});
+    _scheduleCaretRectReport();
+  }
+
+  void _scheduleCaretRectReport() {
+    // 等布局完成再取光标矩形（内容/光标变化后需一帧布局）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _reportCaretRect();
+    });
+  }
+
+  /// 上报光标矩形给系统，macOS 输入法候选框据此定位。
+  /// 引擎（FlutterTextInputPlugin）期望**编辑器局部坐标**的
+  /// `{x, y, width, height}`：fleather 已上报 setEditableSizeAndTransform
+  /// 变换矩阵，引擎会自行转成屏幕坐标。
+  void _reportCaretRect() {
+    if (!_focusNode.hasFocus) return;
+    final state = _editorKey.currentState;
+    if (state == null) return;
+    final renderEditor = state.renderEditor;
+    if (!renderEditor.attached) return;
+    final caretRect = renderEditor.getLocalRectForCaret(
+      _controller.selection.extent,
+    );
+    SystemChannels.textInput.invokeMethod<void>(
+      'TextInput.setCaretRect',
+      {
+        'x': caretRect.left,
+        'y': caretRect.top,
+        'width': caretRect.width,
+        'height': caretRect.height,
+      },
+    );
   }
 
   /// 文档是否为空：无文本且无图片标签
@@ -479,6 +525,7 @@ class _ChatFleatherState extends State<ChatFleather> {
                     child: Focus(
                       onKeyEvent: _onKeyEvent,
                       child: FleatherEditor(
+                        editorKey: _editorKey,
                         controller: _controller,
                         focusNode: _focusNode,
                         expands: widget.expands,
