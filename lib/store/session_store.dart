@@ -69,6 +69,14 @@ class SessionStore {
   /// 当前正在流式输出的会话 ID 集合
   final streamingSessionIds = signal(<String>{});
 
+  /// 用户消息发送成功信号（计数递增触发监听）：
+  /// 发送后聊天列表无条件滚动到底部（即使之前在翻历史）
+  final userMessageSent = signal(0);
+
+  /// 消息重排版本号（重试/编辑等会删除或重写既有内容）：
+  /// 递增后锚点偏移缓存全部失效，防止旧偏移继续生效导致跳转不准
+  final messagesRevision = signal(0);
+
   /// 标题自动生成中的会话 ID 集合（TitleGenerating → SessionRenamed 之间）
   final titleGeneratingIds = signal(<String>{});
 
@@ -349,6 +357,8 @@ class SessionStore {
     s.messageRoles[userMsgId] = 'user';
 
     _emit();
+    // 发送后无条件滚动到底部（_MessageList 监听此信号）
+    userMessageSent.value++;
 
     // ── 确保订阅 + 标记流式 ──
     _ensureSessionSubscription(sessionId);
@@ -467,6 +477,8 @@ class SessionStore {
       );
       s.messageOrder.removeRange(msgIndex + 1, s.messageOrder.length);
     }
+    // 本地后续消息已清除（内容重排）：锚点偏移缓存全部失效
+    messagesRevision.value++;
 
     // 3. 触发后端重试（事件通过订阅异步到达）
     _ensureSessionSubscription(sessionId);
