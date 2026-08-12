@@ -66,17 +66,17 @@ class SystemFontService {
   /// 通过注册表枚举已安装字体名。
   List<String> _enumerateWindowsFonts() {
     final names = <String>{};
-    final phk = calloc<IntPtr>();
+    final phk = calloc<Pointer>();
     try {
       final status = RegOpenKeyEx(
         HKEY_LOCAL_MACHINE,
-        _fontsKey.toNativeUtf16(),
+        PCWSTR(_fontsKey.toNativeUtf16()),
         0,
         KEY_READ | KEY_WOW64_64KEY,
         phk,
       );
       if (status != ERROR_SUCCESS) return names.toList();
-      final hKey = phk.value;
+      final hKey = HKEY(phk.value);
 
       final valueNameBuf = calloc<Uint16>(512).cast<Utf16>();
       final nameLen = calloc<Uint32>();
@@ -88,9 +88,8 @@ class SystemFontService {
           final rc = RegEnumValue(
             hKey,
             index,
-            valueNameBuf,
+            PWSTR(valueNameBuf),
             nameLen,
-            nullptr,
             type,
             nullptr,
             nullptr,

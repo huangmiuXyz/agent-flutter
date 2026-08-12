@@ -92,7 +92,6 @@ class ChatInput extends HookWidget {
     Future<void> pickImages() async {
       final result = await FilePicker.pickFiles(
         type: FileType.image,
-        allowMultiple: true,
       );
       if (result == null || result.files.isEmpty) return;
       for (final file in result.files) {

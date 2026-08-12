@@ -204,7 +204,6 @@ class FontSettingsPage extends HookWidget {
 
     Future<void> onImportFont() async {
       final result = await FilePicker.pickFiles(
-        allowMultiple: true,
         type: FileType.custom,
         allowedExtensions: ['ttf', 'otf'],
         dialogTitle: '导入字体文件',
