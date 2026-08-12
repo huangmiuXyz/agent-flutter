@@ -330,6 +330,28 @@ class _MessageList extends StatelessWidget {
               scrollController.jumpTo(p.maxScrollExtent);
             }
 
+            /// 帧后收敛跳底：贴底且被懒加载估算偏差推出视口时跳回真实底部。
+            /// 用户已滚走（isPinnedRef == false）时不打扰，避免流式输出时
+            /// 向上滚动被持续拽回。统一新消息跳底（itemCount 变化）与
+            /// 文本增长收敛两条路径。
+            /// [pinnedAtSchedule]：安排收敛时已知用户贴底（onBeforeEmit
+            /// 路径在 extentAfter <= 0 时才安排）；itemCount 路径传 null，
+            /// 以帧后实际位置做首次评估（新会话从顶部开始 → 不贴底 → 不跳）。
+            void convergeToBottomIfPinned({bool? pinnedAtSchedule}) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!scrollController.hasClients) return;
+                isPinnedRef.value ??=
+                    pinnedAtSchedule ??
+                        scrollController.position.extentAfter <= 0;
+                // 贴底才跟随：用户在中间翻历史时不拽回底部
+                if (isPinnedRef.value != true) return;
+                // 已被估算偏差推出视口才需要收敛；估算恰好精确时无事可做
+                if (scrollController.position.extentAfter > 0) {
+                  jumpToBottom();
+                }
+              });
+            }
+
             // 全部消息拍平到 item 粒度（见下方「全量拍平」），视口外的
             // item 由 ListView 跳过构建。若把整轮打包进单个 item
             // （旧 _LatestTurnLayout 方案），一轮内数百/上千个 parts（工具
@@ -378,15 +400,7 @@ class _MessageList extends StatelessWidget {
               lastItemCount.value = itemCount;
               // 初始挂载（切换会话后首次构建）不跳底
               if (prevItemCount == itemCount) return null;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!scrollController.hasClients) return;
-                // 首次评估以实际位置为准（新会话从顶部开始 → 不贴底 → 不跳）
-                isPinnedRef.value ??=
-                    scrollController.position.extentAfter <= 0;
-                // 贴底才跟随：用户在中间翻历史时不拽回底部
-                if (isPinnedRef.value != true) return;
-                jumpToBottom();
-              });
+              convergeToBottomIfPinned();
               return null;
             }, [itemCount]);
 
@@ -405,16 +419,10 @@ class _MessageList extends StatelessWidget {
                 if (scrollController.position.extentAfter <= 0) {
                   savedMaxExtent.value =
                       scrollController.position.maxScrollExtent;
-                  // 文本增长（无新 part，itemCount 不变不触发 jumpTo）时，
+                  // 文本增长（无新 part，itemCount 不变不触发跳底）时，
                   // 若懒加载估算偏差把最新内容/loading 推出视口，
-                  // 下一帧收敛跳底恢复贴底。仅在用户贴底时安排，
-                  // 用户滚动离开底部后（extentAfter > 0）不再打扰。
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!scrollController.hasClients) return;
-                    if (scrollController.position.extentAfter > 0) {
-                      jumpToBottom();
-                    }
-                  });
+                  // 帧后收敛恢复贴底；安排后用户滚走则不打扰。
+                  convergeToBottomIfPinned(pinnedAtSchedule: true);
                 }
               };
               return () {
