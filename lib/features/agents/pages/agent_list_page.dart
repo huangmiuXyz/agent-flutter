@@ -15,6 +15,7 @@ import 'package:agent/features/agents/models/agent_info.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 import 'package:agent/widgets/button/app_primary_button.dart';
+import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/list/app_big_list.dart';
 import 'package:agent/widgets/list/toggle_group_list.dart';
@@ -156,7 +157,7 @@ class AgentListPage extends HookWidget {
           onPressed: refreshing.value ? null : refreshList,
         ),
         const SizedBox(width: 8),
-        AppPrimaryButton(
+        AppSecondaryButton(
           text: '创建智能体',
           icon: 'plus',
           size: ButtonSize.sm,

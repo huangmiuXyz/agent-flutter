@@ -39,8 +39,13 @@ class _KeepAtBottomPhysics extends ScrollPhysics {
   }) {
     if (savedMaxExtent != null) {
       final growth = newPosition.maxScrollExtent - savedMaxExtent!;
+      debugPrint('[AutoScroll][List] physics: savedMax=$savedMaxExtent '
+          'oldMax=${oldPosition.maxScrollExtent} '
+          'newMax=${newPosition.maxScrollExtent} growth=$growth '
+          'isScrolling=$isScrolling velocity=$velocity');
       if (growth.abs() > 0) {
         // 用户在底部 → 滚到新底部
+        debugPrint('[AutoScroll][List] physics: growth>0 -> jump to newMax');
         return newPosition.maxScrollExtent;
       }
     }
@@ -245,7 +250,13 @@ class MessageList extends StatelessWidget {
                 updateActiveFromPos();
                 if (!pos.isScrollingNotifier.value) return;
                 // 视口底下没剩内容（== 0）即贴底
-                isPinnedRef.value = pos.extentAfter <= 0;
+                final newPinned = pos.extentAfter <= 0;
+                debugPrint('[AutoScroll][List] onScroll(用户滚动): '
+                    'pixels=${pos.pixels.toStringAsFixed(1)} '
+                    'max=${pos.maxScrollExtent.toStringAsFixed(1)} '
+                    'extentAfter=${pos.extentAfter.toStringAsFixed(1)} '
+                    'pinned ${isPinnedRef.value} -> $newPinned');
+                isPinnedRef.value = newPinned;
                 if (pos.extentAfter > 0) {
                   savedMaxExtent.value = null;
                 }
@@ -311,6 +322,9 @@ class MessageList extends StatelessWidget {
             void jumpToBottom() {
               final sc = scrollController.value;
               if (sc == null || !sc.hasClients) return;
+              debugPrint('[AutoScroll][List] jumpToBottom: '
+                  'pixels=${sc.position.pixels.toStringAsFixed(1)} -> '
+                  'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}');
               sc.jumpTo(sc.position.maxScrollExtent);
             }
 
@@ -327,6 +341,11 @@ class MessageList extends StatelessWidget {
                 if (sc == null || !sc.hasClients) return;
                 isPinnedRef.value ??=
                     pinnedAtSchedule ?? sc.position.extentAfter <= 0;
+                debugPrint('[AutoScroll][List] converge: '
+                    'pinnedAtSchedule=$pinnedAtSchedule '
+                    'pinned=${isPinnedRef.value} '
+                    'extentAfter=${sc.position.extentAfter.toStringAsFixed(1)} '
+                    'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}');
                 // 贴底才跟随：用户在中间翻历史时不拽回底部
                 if (isPinnedRef.value != true) return;
                 // 已被估算偏差推出视口才需要收敛；估算恰好精确时无事可做
@@ -433,6 +452,8 @@ class MessageList extends StatelessWidget {
             useEffect(() {
               final prevItemCount = lastItemCount.value;
               lastItemCount.value = itemCount;
+              debugPrint('[AutoScroll][List] itemCount: $prevItemCount -> '
+                  '$itemCount');
               // 初始挂载（切换会话后首次构建）不跳底
               if (prevItemCount == itemCount) return null;
               convergeToBottomIfPinned();
@@ -496,7 +517,15 @@ class MessageList extends StatelessWidget {
             // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
               final mgr = SessionStore.instance;
-              mgr.onBeforeEmit = () {
+              debugPrint('[AutoScroll][List] 注册 onBeforeEmit '
+                  'session=$sessionId');
+              void onBeforeEmit() {
+                // 回调可能被覆盖/清空，先确认调用与 sc 状态
+                debugPrint('[AutoScroll][List] onBeforeEmit 被调用: '
+                    'session=$sessionId sc=${scrollController.value != null} '
+                    'hasClients=${scrollController.value?.hasClients} '
+                    'streaming='
+                    '${mgr.streamingSessionIds.value.contains(sessionId)}');
                 final sc = scrollController.value;
                 if (sc == null || !sc.hasClients) return;
                 final streaming = mgr.streamingSessionIds.value.contains(
@@ -508,14 +537,22 @@ class MessageList extends StatelessWidget {
                 }
                 if (sc.position.extentAfter <= 0) {
                   savedMaxExtent.value = sc.position.maxScrollExtent;
+                  debugPrint('[AutoScroll][List] onBeforeEmit: 贴底，保存 '
+                      'savedMax=${savedMaxExtent.value} '
+                      'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}');
                   // 文本增长（无新 part，itemCount 不变不触发跳底）时，
                   // 若懒加载估算偏差把最新内容/loading 推出视口，
                   // 帧后收敛恢复贴底；安排后用户滚走则不打扰。
                   convergeToBottomIfPinned(pinnedAtSchedule: true);
+                } else {
+                  debugPrint('[AutoScroll][List] onBeforeEmit: 未贴底 '
+                      '(extentAfter=${sc.position.extentAfter.toStringAsFixed(1)}>0)，不保存');
                 }
-              };
+              }
+              mgr.addBeforeEmitListener(onBeforeEmit);
               return () {
-                SessionStore.instance.onBeforeEmit = null;
+                debugPrint('[AutoScroll][List] 注销 onBeforeEmit');
+                mgr.removeBeforeEmitListener(onBeforeEmit);
               };
             }, [sessionId, scrollController.value]);
 
@@ -669,24 +706,59 @@ class MessageList extends StatelessWidget {
               };
             }
 
+            // ── 非拖拽用户滚动（滚轮/触控板/键盘/惯性）的贴底状态同步 ──
+            // onScroll 用 isScrollingNotifier 区分用户滚动，但 Flutter 中
+            // 滚轮/触控板滚动（pointerScroll）期间 activity 是 Idle，
+            // isScrollingNotifier 为 false → onScroll 直接 return，
+            // pinned/savedMaxExtent 都不更新 → 用户滚走后 savedMaxExtent
+            // 残留，下个 chunk 内容增长时 _KeepAtBottomPhysics 误判为
+            // 「贴底」拽回底部。这里补上：非拖拽滚动（dragDetails 为 null）
+            // 且是外层列表自身（depth==0，排除内层滚动冒泡）时，
+            // 按实际位置同步贴底状态。
+            // dragDetails != null（按住拖动）仍由 onScroll 处理。
+            bool onUserScrollNotification(ScrollNotification n) {
+              if (n is! ScrollUpdateNotification) return false;
+              if (n.dragDetails != null) return false;
+              if (n.depth != 0) return false;
+              final sc = scrollController.value;
+              if (sc == null || !sc.hasClients) return false;
+              if (n.metrics.extentAfter > 0) {
+                debugPrint('[AutoScroll][List] 滚轮/惯性滚动离开底部: '
+                    'extentAfter=${n.metrics.extentAfter.toStringAsFixed(1)} '
+                    'pinned ${isPinnedRef.value} -> false，清 savedMax');
+                isPinnedRef.value = false;
+                savedMaxExtent.value = null;
+              } else if (isPinnedRef.value == false) {
+                // 滚回底部：恢复跟随（滚轮滚动时 onScroll 不更新状态，
+                // 这里补上，回到底部后继续跟随流式）
+                debugPrint('[AutoScroll][List] 滚轮/惯性滚动回到底部: '
+                    '恢复跟随');
+                isPinnedRef.value = true;
+              }
+              return false;
+            }
+
             // 列表：滚底测量完成前不渲染（占位）；attach 后估算收敛
             // 期间不可见（Opacity 0），收敛完成精确跳底后才显示
             final listView = scrollController.value != null
-                ? Opacity(
-                    opacity: listVisible.value ? 1.0 : 0.0,
-                    child: ListView.builder(
-                      controller: scrollController.value,
-                      physics: savedMaxExtent.value != null
-                          ? _KeepAtBottomPhysics(
-                              savedMaxExtent: savedMaxExtent.value,
-                            )
-                          : null,
-                      padding: EdgeInsets.only(
-                        top: 0,
-                        bottom: hasLatestTurn ? 0 : _listBottomSpacing,
+                ? NotificationListener<ScrollNotification>(
+                    onNotification: onUserScrollNotification,
+                    child: Opacity(
+                      opacity: listVisible.value ? 1.0 : 0.0,
+                      child: ListView.builder(
+                        controller: scrollController.value,
+                        physics: savedMaxExtent.value != null
+                            ? _KeepAtBottomPhysics(
+                                savedMaxExtent: savedMaxExtent.value,
+                              )
+                            : null,
+                        padding: EdgeInsets.only(
+                          top: 0,
+                          bottom: hasLatestTurn ? 0 : _listBottomSpacing,
+                        ),
+                        itemCount: itemCount,
+                        itemBuilder: (context, index) => buildListItem(index),
                       ),
-                      itemCount: itemCount,
-                      itemBuilder: (context, index) => buildListItem(index),
                     ),
                   )
                 : null;

@@ -819,44 +819,47 @@ class AppListItem extends HookWidget {
                     ),
                   );
 
-                  if (hoverActions != null) {
-                    final minHoverHeight = isSmall
-                        ? custom.controls.smallHeight
-                        : custom.controls.mediumHeight;
-                    content = ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: minHoverHeight,
-                        // 行尾无内容时也预留一个按钮宽度：否则浮出的按钮是
-                        // Positioned 溢出子项，绘制可见但 hit-test 不可命中，
-                        // 点击会穿透到下层导致菜单误关闭
-                        minWidth: minHoverHeight,
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: [
-                          content,
-                          if (isHovered.value)
-                            Positioned(
-                              right: 0,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: hoverActions!
-                                    .map(
-                                      (action) => Padding(
-                                        padding: EdgeInsets.only(
-                                          left: custom.spacing.xs,
-                                        ),
-                                        child: action,
-                                      ),
-                                    )
-                                    .toList(),
-                              ),
-                            ),
-                        ],
-                      ),
-                    );
-                  }
+                  // 行尾区域最小高度无条件应用（选中模式隐藏悬停按钮时
+                  // hoverActions 为 null，行高仍与非选中模式一致，
+                  // 避免进入/退出批量选择时列表项高度跳动）。
+                  final minHoverHeight = isSmall
+                      ? custom.controls.smallHeight
+                      : custom.controls.mediumHeight;
+                  content = ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: minHoverHeight,
+                      // 有悬停按钮时预留一个按钮宽度：否则浮出的按钮是
+                      // Positioned 溢出子项，绘制可见但 hit-test 不可命中，
+                      // 点击会穿透到下层导致菜单误关闭；无按钮时不预留
+                      minWidth: hoverActions != null ? minHoverHeight : 0,
+                    ),
+                    child: hoverActions != null
+                        ? Stack(
+                            alignment: Alignment.center,
+                            clipBehavior: Clip.none,
+                            children: [
+                              content,
+                              if (isHovered.value)
+                                Positioned(
+                                  right: 0,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: hoverActions!
+                                        .map(
+                                          (action) => Padding(
+                                            padding: EdgeInsets.only(
+                                              left: custom.spacing.xs,
+                                            ),
+                                            child: action,
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ),
+                            ],
+                          )
+                        : content,
+                  );
 
                   return content;
                 }(),

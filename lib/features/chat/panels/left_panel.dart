@@ -136,6 +136,8 @@ class LeftPanel extends HookWidget {
                 icon: 'trash2',
                 size: ButtonSize.sm,
                 backgroundColor: custom.colors.danger,
+                // 红底需配白色图标（默认 textPrimary 为深色，红底上不可读）
+                iconColor: custom.colors.onDanger,
                 tooltip: '删除选中',
                 onPressed: () => isLeftCheckpointMode
                     ? _batchDeleteCheckpoints(context, selectMode, selectedIds)

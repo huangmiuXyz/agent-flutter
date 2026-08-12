@@ -98,12 +98,29 @@ class SessionStore {
   /// cancel 后等待旧流在途事件落定的时间
   static const Duration _cancelSettleDelay = Duration(milliseconds: 50);
 
-  /// 数据变更前的回调（供 ChatScrollObserver 记录位置）
-  void Function()? onBeforeEmit;
+  /// 数据变更前的监听器（消息列表等注册，用于流式输出前记录滚动位置）。
+  ///
+  /// 用列表而非单回调：多会话/多窗口的 MessageList 各自注册互不覆盖；
+  /// 单回调时一个实例的 cleanup 会把另一个实例的注册清成 null，
+  /// 导致流式期间 onBeforeEmit 不触发、自动滚动跟随失效。
+  final List<void Function()> _beforeEmitListeners = [];
+
+  void addBeforeEmitListener(void Function() fn) {
+    if (!_beforeEmitListeners.contains(fn)) {
+      _beforeEmitListeners.add(fn);
+    }
+  }
+
+  void removeBeforeEmitListener(void Function() fn) {
+    _beforeEmitListeners.remove(fn);
+  }
 
   /// 全量变更（新增/删除消息 / 流完成）
   void _emit() {
-    onBeforeEmit?.call();
+    // 遍历时可能触发注册/注销（监听器内可能安排帧后回调），拷贝快照
+    for (final listener in List.of(_beforeEmitListeners)) {
+      listener();
+    }
     sessions.value = Map.from(sessions.value);
   }
 
