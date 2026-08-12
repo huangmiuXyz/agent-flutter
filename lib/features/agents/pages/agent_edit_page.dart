@@ -355,7 +355,6 @@ class AgentEditPage extends HookWidget {
               text: '删除',
               onPressed: () => _handleDelete(context),
             ),
-          AppSecondaryButton(text: '取消', onPressed: onBack),
         ],
       ),
       children: [
