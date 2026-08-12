@@ -15,6 +15,11 @@ class McpServerInfo {
   final List<String> disabledTools;
   final List<String> disabledResources;
 
+  /// 工具权限：工具短名 → default（"ask" / "allow"）。
+  /// 持久化到本服务器配置的 `tool_permissions.tools`（MCP 工具权限
+  /// 不放在顶层 tool_permissions，随服务器配置走）。
+  final Map<String, String> toolPermissions;
+
   /// [command] 不为空时为 stdio 模式，否则为 http 模式。
   const McpServerInfo({
     required this.name,
@@ -26,6 +31,7 @@ class McpServerInfo {
     this.disabled = false,
     this.disabledTools = const [],
     this.disabledResources = const [],
+    this.toolPermissions = const {},
   });
 
   /// 是否 stdio 模式
@@ -60,6 +66,13 @@ class McpServerInfo {
     if (disabledResources.isNotEmpty) {
       result['disabledResources'] = disabledResources;
     }
+    if (toolPermissions.isNotEmpty) {
+      result['tool_permissions'] = {
+        'tools': {
+          for (final e in toolPermissions.entries) e.key: {'default': e.value},
+        },
+      };
+    }
     return result;
   }
 
@@ -78,6 +91,19 @@ class McpServerInfo {
             ?.map((e) => e.toString())
             .toList() ??
         [];
+    // 工具权限：tool_permissions.tools.<工具名>.default
+    final toolPermissions = <String, String>{};
+    final permTools =
+        json['tool_permissions']?['tools'] as Map<String, dynamic>?;
+    if (permTools != null) {
+      for (final e in permTools.entries) {
+        final cfg = e.value as Map<String, dynamic>?;
+        final def = cfg?['default'] as String?;
+        if (e.key.isNotEmpty && def != null) {
+          toolPermissions[e.key] = def;
+        }
+      }
+    }
 
     if (command.isNotEmpty) {
       return McpServerInfo(
@@ -96,6 +122,7 @@ class McpServerInfo {
         disabled: disabled,
         disabledTools: disabledTools,
         disabledResources: disabledResources,
+        toolPermissions: toolPermissions,
       );
     }
     return McpServerInfo(
@@ -109,6 +136,7 @@ class McpServerInfo {
       disabled: disabled,
       disabledTools: disabledTools,
       disabledResources: disabledResources,
+      toolPermissions: toolPermissions,
     );
   }
 
@@ -122,6 +150,7 @@ class McpServerInfo {
     bool? disabled,
     List<String>? disabledTools,
     List<String>? disabledResources,
+    Map<String, String>? toolPermissions,
   }) => McpServerInfo(
     name: name ?? this.name,
     command: command ?? this.command,
@@ -132,6 +161,7 @@ class McpServerInfo {
     disabled: disabled ?? this.disabled,
     disabledTools: disabledTools ?? this.disabledTools,
     disabledResources: disabledResources ?? this.disabledResources,
+    toolPermissions: toolPermissions ?? this.toolPermissions,
   );
 
   @override

@@ -1,5 +1,9 @@
 /// 工具权限设置页 — 编辑 config.json 的 `tool_permissions.tools`。
 ///
+/// **仅内置工具**；MCP 工具的权限保存在各自服务器配置里
+/// （`mcpServers.<server>.tool_permissions.tools`，在 MCP 服务器配置页设置），
+/// 不在这里出现。保存时会顺带清理顶层残留的 MCP 工具条目（工具名含 `/`）。
+///
 /// 每个工具一行：两态选择（允许 / 询问）。格式与 Zed 的 `tool_permissions` 一致：
 ///
 /// ```json
@@ -69,11 +73,13 @@ class ToolPermissionPage extends HookWidget {
           names.add(t.name);
         }
         if (cfg != null) {
+          // 兼容历史数据：顶层 tool_permissions 里可能有 MCP 工具条目
+          // （工具名含 `/`），仅保留内置工具名（MCP 权限已迁移到服务器配置）
           final configured =
               cfg['tool_permissions']?['tools'] as Map<String, dynamic>?;
           if (configured != null) {
             for (final name in configured.keys) {
-              if (!names.contains(name)) {
+              if (!name.contains('/') && !names.contains(name)) {
                 names.add(name);
               }
             }
@@ -106,6 +112,16 @@ class ToolPermissionPage extends HookWidget {
         for (final name in defaults.value.keys) {
           tools[name] = {'default': defaults.value[name] ?? 'ask'};
         }
+        // 清理顶层残留的 MCP 工具条目（工具名含 `/`；权限已迁移到服务器配置）
+        final legacyTools =
+            existing['tool_permissions']?['tools'] as Map<String, dynamic>?;
+        if (legacyTools != null) {
+          for (final name in legacyTools.keys) {
+            if (name.contains('/')) {
+              tools.remove(name);
+            }
+          }
+        }
         existing['tool_permissions'] = {'tools': tools};
         await bridge_agents.writeAgentConfig(
           configPath: configPath,
@@ -129,11 +145,8 @@ class ToolPermissionPage extends HookWidget {
       saveQueue.value = saveQueue.value.then((_) => doSave(), onError: (_) {});
     }
 
-    // ── 分组：内置工具 / 其它（MCP 等）──
+    // ── 仅内置工具（MCP 工具的权限在各自服务器配置里设置）──
     final toolNames = defaults.value.keys.toList();
-    final builtinNames = builtinDescriptions.value.keys.toSet();
-    final builtin = toolNames.where(builtinNames.contains).toList();
-    final others = toolNames.where((n) => !builtinNames.contains(n)).toList();
 
     Widget row(String name) {
       return AppBigRow(
@@ -178,15 +191,10 @@ class ToolPermissionPage extends HookWidget {
           // 本页无头部操作按钮，传空列表占位
           actions: const [],
           children: [
-            if (builtin.isNotEmpty)
+            if (toolNames.isNotEmpty)
               AppBigGroup(
                 label: '内置工具',
-                children: [for (final name in builtin) row(name)],
-              ),
-            if (others.isNotEmpty)
-              AppBigGroup(
-                label: '其它',
-                children: [for (final name in others) row(name)],
+                children: [for (final name in toolNames) row(name)],
               ),
           ],
         ),

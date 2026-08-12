@@ -15,6 +15,7 @@ import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
+import 'package:agent/widgets/list/app_big_list.dart';
 import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -48,6 +49,11 @@ class McpServerConfigPage extends HookWidget {
     final nameError = useState<String?>(null);
     final commandError = useState<String?>(null);
     final urlError = useState<String?>(null);
+    // 工具权限：工具短名 → default（"ask" / "allow"），随本服务器配置持久化
+    final toolPerms = useState<Map<String, String>>({});
+    // 服务器实际提供的工具短名（来自已连接详情的 tools；未连接时为空，
+    // 此时仅展示配置里已有的权限条目）
+    final serverTools = useState<List<String>>([]);
 
     // 从 ConfigStore 取最新的 server 数据（响应式）
     final latestServer = useMemoized(() {
@@ -66,8 +72,22 @@ class McpServerConfigPage extends HookWidget {
       urlCtrl.text = updated.url;
       isStdio.value = updated.isStdio;
       disabled.value = updated.disabled;
+      toolPerms.value = Map.of(updated.toolPermissions);
       return null;
     }, [configVersion, server.name]);
+
+    // ── 加载服务器实际工具列表（权限设置只针对真实工具；失败回退配置已有条目）──
+    useEffect(() {
+      api
+          .getMcpServerDetail(serverName: server.name)
+          .then((detail) {
+            serverTools.value = detail.tools.map((t) => t.name).toList();
+          })
+          .catchError((_) {
+            // 服务器未连接（懒初始化尚未触发）：保持空列表
+          });
+      return null;
+    }, [server.name]);
 
     Future<void> saveNow() async {
       final name = nameCtrl.text.trim();
@@ -94,11 +114,13 @@ class McpServerConfigPage extends HookWidget {
                   .where((a) => a.isNotEmpty)
                   .toList(),
               disabled: disabled.value,
+              toolPermissions: toolPerms.value,
             )
           : McpServerInfo(
               name: name,
               url: urlCtrl.text.trim(),
               disabled: disabled.value,
+              toolPermissions: toolPerms.value,
             );
 
       try {
@@ -167,6 +189,12 @@ class McpServerConfigPage extends HookWidget {
         }
       }
     }
+
+    // ── 工具权限候选：服务器实际工具 ∪ 配置里已有的条目（未连接时只有后者）──
+    final permissionTools = <String>{
+      ...serverTools.value,
+      ...toolPerms.value.keys,
+    }.toList()..sort();
 
     return AppFormPage(
       breadcrumbItems: [
@@ -243,6 +271,40 @@ class McpServerConfigPage extends HookWidget {
           },
           size: SwitchSize.md,
           label: disabled.value ? '已禁用' : '已启用',
+        ),
+        // ── 工具权限（随本服务器配置保存，MCP 工具不走顶层 tool_permissions）──
+        AppBigGroup(
+          label: '工具权限',
+          children: [
+            for (final tool in permissionTools)
+              AppBigRow(
+                key: ValueKey('mcp_perm_$tool'),
+                name: tool,
+                mono: true,
+                description: toolPerms.value[tool] == 'allow'
+                    ? null
+                    : '每次调用前确认',
+                actions: [
+                  SizedBox(
+                    width: 140,
+                    child: AppSelect<String>(
+                      value: toolPerms.value[tool] ?? 'ask',
+                      size: FieldSize.sm,
+                      options: const [
+                        AppSelectOption(value: 'ask', label: '询问'),
+                        AppSelectOption(value: 'allow', label: '允许'),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          toolPerms.value = {...toolPerms.value, tool: v};
+                          debouncedSave();
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+          ],
         ),
       ],
     );
