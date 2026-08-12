@@ -7,7 +7,6 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -27,56 +26,16 @@ import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/tab/app_tab_bar.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
-/// 检查点操作类型（由快照副本 before/after 存在性推断；无副本/消息级为 unknown）。
+/// 检查点操作类型（由 Rust 侧比较检查点与其父提交中文件的存在性推断）。
 enum CheckpointOperation { added, modified, deleted, unknown }
 
-/// 推断检查点操作类型：
-/// - before 无 + after 有 = 新增（本次编辑新建的文件）
-/// - before 有 + after 有 = 修改
-/// - before 有 + after 无 = 删除
-/// 多个文件混合时按优先级取：修改 > 新增 > 删除。
-Future<CheckpointOperation> _inferOperation(api_types.CheckpointInfo cp) async {
-  if (cp.files.isEmpty) return CheckpointOperation.unknown;
-  final gitDir = await _resolveGitDir(cp.workDir);
-  if (gitDir == null) return CheckpointOperation.unknown;
-  final root = '$gitDir/checkpoint-snapshots/${cp.commitSha}';
-  var added = false;
-  var modified = false;
-  var deleted = false;
-  for (final f in cp.files) {
-    final before = File('$root/before/$f').existsSync();
-    final after = File('$root/after/$f').existsSync();
-    if (before && after) {
-      modified = true;
-    } else if (!before && after) {
-      added = true;
-    } else if (before && !after) {
-      deleted = true;
-    }
-  }
-  if (modified) return CheckpointOperation.modified;
-  if (added) return CheckpointOperation.added;
-  if (deleted) return CheckpointOperation.deleted;
-  return CheckpointOperation.unknown;
-}
-
-/// 解析 gitdir：`.git` 目录，或 worktree/submodule 的 `gitdir:` 指针文件。
-Future<String?> _resolveGitDir(String workDir) async {
-  final git = File('$workDir/.git');
-  if (!await git.exists()) return null;
-  final type = await git.stat().then((s) => s.type);
-  if (type == FileSystemEntityType.directory) return '$workDir/.git';
-  final content = await git.readAsString();
-  final match = RegExp(r'gitdir:\s*(.+)').firstMatch(content);
-  if (match == null) return null;
-  final p = match.group(1)!.trim();
-  // 绝对路径（盘符或 / 开头）直接用；否则相对 workDir 解析
-  final isAbsolute =
-      RegExp(r'^[A-Za-z]:').hasMatch(p) ||
-      p.startsWith('/') ||
-      p.startsWith('\\');
-  return isAbsolute ? p : '$workDir/$p';
-}
+/// API 字符串 → 操作类型（"unknown" 及其他未知值 → unknown）。
+CheckpointOperation _operationFromApi(String? op) => switch (op) {
+      'added' => CheckpointOperation.added,
+      'modified' => CheckpointOperation.modified,
+      'deleted' => CheckpointOperation.deleted,
+      _ => CheckpointOperation.unknown,
+    };
 
 /// 操作类型徽标（新增=绿 / 修改=强调色 / 删除=红）。
 Widget _operationBadge(CustomTheme custom, CheckpointOperation op) {
@@ -215,9 +174,16 @@ class _CheckpointItem extends HookWidget {
     final custom = CustomTheme.of(context);
     final isMessageLevel = cp.partId == null;
     final fileCount = cp.files.length;
-    // 操作类型徽标（推断自快照副本；无副本/消息级 → unknown 不显示）
+    // 操作类型徽标（Rust 侧比较检查点与其父提交推断；无信息 → unknown 不显示）
     final operation = useFuture(
-      useMemoized(() => _inferOperation(cp), [cp.id, cp.commitSha]),
+      useMemoized(
+        () => api.checkpointOperation(
+          commitSha: cp.commitSha,
+          workDir: cp.workDir,
+          files: cp.files,
+        ),
+        [cp.id, cp.commitSha],
+      ),
     );
     // 展开状态 + 恢复/重新应用细节（懒加载，展开时才拉取，按方向缓存一份）
     final expanded = useState(false);
@@ -333,8 +299,8 @@ class _CheckpointItem extends HookWidget {
                             SizedBox(width: custom.spacing.xs),
                           ],
                           if (operation.data case final op?
-                              when op != CheckpointOperation.unknown) ...[
-                            _operationBadge(custom, op),
+                              when op != 'unknown') ...[
+                            _operationBadge(custom, _operationFromApi(op)),
                             SizedBox(width: custom.spacing.xs),
                           ],
                           AppText(
