@@ -286,7 +286,8 @@ class _WorkDirMenu extends HookWidget {
                     for (final path in history)
                       AppListItem(
                         icon: 'folder',
-                        label: path,
+                        // 只显示文件夹名，不显示完整路径
+                        label: _dirName(path),
                         labelMaxLines: 1,
                         active: path == workDir,
                         // 与菜单 selected 一致：强调色低透明度叠加
