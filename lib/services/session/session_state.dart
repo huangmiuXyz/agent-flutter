@@ -55,6 +55,10 @@ class SessionState {
   /// msg_id → 模型名（仅 assistant 消息有值）
   final Map<String, String> messageModels = {};
 
+  /// 自动重试提示文本（Retry 事件写入，首个内容/流结束/出错后清除）。
+  /// 非空时消息列表底部显示系统提示行。
+  String? retryStatus;
+
   SessionState(this.sessionId);
 
   /// 从 DB 读取的消息角色加载
@@ -77,6 +81,8 @@ class SessionState {
     partsByMsg.clear();
     messageOrder.clear();
     partLens.clear();
+    // 重试提示仅在当次会话内有效（历史重载无此状态）
+    retryStatus = null;
     // 流式输出缓冲仅在当次会话内有效（历史重载无增量数据，
     // 渲染端会回退到 tool_result 一次性回放）
     toolOutputBuffers.clear();

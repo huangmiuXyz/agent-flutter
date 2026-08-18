@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderAbstractViewport;
-import 'package:flutter/widgets.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
@@ -142,6 +142,34 @@ class _StandaloneStreamingIndicator extends StatelessWidget {
   }
 }
 
+/// 自动重试系统提示行 — 显示在消息列表底部（重试等待期间）。
+class _RetryStatusLine extends StatelessWidget {
+  const _RetryStatusLine({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = CustomTheme.of(context).colors;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(Icons.sync_problem, size: 13, color: colors.textSecondary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              status,
+              style: TextStyle(fontSize: 12, color: colors.textSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 消息列表 — ListView 非 reverse，流式内容向下生长。
 /// 集成了：流式跟随、锚点索引与导航、离屏测量跳转、会话滚底。
 class MessageList extends StatelessWidget {
@@ -165,6 +193,7 @@ class MessageList extends StatelessWidget {
         final messageRoles = sessionState.messageRoles;
         final messageModels = sessionState.messageModels;
         final toolStreamedOutputs = sessionState.toolOutputBuffers;
+        final retryStatus = sessionState.retryStatus;
 
         if (messageOrder.isEmpty) return const SizedBox.shrink();
 
@@ -231,6 +260,7 @@ class MessageList extends StatelessWidget {
                 hasLatestTurn: false,
                 isStreaming: false,
                 latestUserIndex: -1,
+                hasRetryLine: false,
               );
               // 只用已测量的消息（真实 offset）判定：估算 offset 严重
               // 低估时「top >= offset」对目标之后所有消息都成立，激活
@@ -375,6 +405,13 @@ class MessageList extends StatelessWidget {
             // 若把整轮打包进单个 item，一轮内数百/上千个 parts（工具
             // 调用卡片等）每帧全量构建+布局，虚拟滚动完全失效。
             final hasLatestTurn = latestUserIndex >= 0;
+            // 自动重试提示行：非空时在列表末尾追加一条系统提示（不含独立指示器时
+            // 占用 flatItems.length 之后的索引；含独立指示器时在其之后）。
+            // flatten 依据该标记：重试时不生成独立流式 loading 占位，让
+            // 重试行紧贴最后一条消息（否则独立 loading 会把重试行推到下方，
+            // 看起来像隔着一条助手信息）。
+            final hasRetryLine =
+                retryStatus != null && retryStatus.isNotEmpty;
             final flatten = flattenMessageList(
               messageOrder: messageOrder,
               partsByMsg: partsByMsg,
@@ -383,10 +420,14 @@ class MessageList extends StatelessWidget {
               hasLatestTurn: hasLatestTurn,
               isStreaming: isStreaming,
               latestUserIndex: latestUserIndex,
+              hasRetryLine: hasRetryLine,
             );
             final flatItems = flatten.items;
             final userAnchors = flatten.anchors;
-            final itemCount = flatten.itemCount;
+            final standaloneIndicator =
+                flatten.itemCount > flatItems.length;
+            final itemCount =
+                flatten.itemCount + (hasRetryLine ? 1 : 0);
             final focusedIndex = focusedMsgId.value == null
                 ? -1
                 : messageOrder.indexOf(focusedMsgId.value!);
@@ -696,6 +737,14 @@ class MessageList extends StatelessWidget {
 
             /// 拍平 item 构建（主列表与离屏测量区共用）
             Widget buildListItem(int index) {
+              // 自动重试系统提示行：追加在列表末尾
+              if (hasRetryLine &&
+                  index == flatItems.length + (standaloneIndicator ? 1 : 0)) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: _listBottomSpacing),
+                  child: _RetryStatusLine(status: retryStatus),
+                );
+              }
               // 独立流式指示器（最新一轮只有用户消息，无 assistant 内容）
               if (index >= flatItems.length) {
                 return const Padding(

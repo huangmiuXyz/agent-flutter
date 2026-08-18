@@ -129,4 +129,23 @@ mixin ChatApi on GuardedApi {
           imageNames: imageNames,
         ),
       );
+
+  /// 生成会话最近一次回复的完成摘要（通知文案用）。
+  ///
+  /// 读取 `summary_model` 配置；未配置或生成失败时返回 null，调用方回退默认文案。
+  Future<String?> generateCompletionSummary({
+    required String configPath,
+    required String dbPath,
+    required String sessionId,
+  }) async {
+    try {
+      return await api.generateCompletionSummary(
+        configPath: configPath,
+        dbPath: dbPath,
+        sessionId: sessionId,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 }

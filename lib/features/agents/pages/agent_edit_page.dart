@@ -80,9 +80,12 @@ class AgentEditPage extends HookWidget {
     final workDirController = useTextEditingController();
     final selectedProvider = useState<String?>(null);
     final selectedModel = useState<String?>(null);
-    // 标题生成模型（可选；未配置时 Rust 端回退使用 default_model）
+    // 标题生成模型（可选；未配置时不调用 LLM，标题取首条消息前 20 字）
     final selectedTitleProvider = useState<String?>(null);
     final selectedTitleModel = useState<String?>(null);
+    // 摘要模型（可选；未配置时通知不生成摘要，使用默认文案）
+    final selectedSummaryProvider = useState<String?>(null);
+    final selectedSummaryModel = useState<String?>(null);
     final selectedMcp = useState<Set<String>>({});
     final selectedSkills = useState<Set<String>>({});
     final selectedTools = useState<Set<String>>({});
@@ -140,6 +143,10 @@ class AgentEditPage extends HookWidget {
         final tm = AgentConfigHelper.explicitTitleModel(cfg);
         selectedTitleProvider.value = tm?.provider;
         selectedTitleModel.value = tm?.model;
+        // 摘要模型：仅回显显式配置，未配置保持"未设置"
+        final sm = AgentConfigHelper.summaryModel(cfg);
+        selectedSummaryProvider.value = sm?.provider;
+        selectedSummaryModel.value = sm?.model;
         final mcp = cfg['mcpServers'];
         if (mcp is Map<String, dynamic>) {
           selectedMcp.value = mcp.keys.toSet();
@@ -173,7 +180,7 @@ class AgentEditPage extends HookWidget {
       }
 
       if (isGlobal) {
-        // 全局智能体：只更新 default_model、title_model、work_dir、builtinTools
+        // 全局智能体：只更新 default_model、title_model、summary_model、work_dir、builtinTools
         if (selectedProvider.value != null && selectedModel.value != null) {
           cfg['default_model'] = {
             'provider': selectedProvider.value,
@@ -183,6 +190,7 @@ class AgentEditPage extends HookWidget {
           cfg.remove('default_model');
         }
         _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
+        _writeSummaryModel(cfg, selectedSummaryProvider, selectedSummaryModel);
         final workDir = workDirController.text.trim();
         if (workDir.isNotEmpty) {
           cfg['work_dir'] = workDir;
@@ -212,6 +220,7 @@ class AgentEditPage extends HookWidget {
           cfg.remove('default_model');
         }
         _writeTitleModel(cfg, selectedTitleProvider, selectedTitleModel);
+        _writeSummaryModel(cfg, selectedSummaryProvider, selectedSummaryModel);
         final workDir = workDirController.text.trim();
         if (workDir.isNotEmpty) {
           cfg['work_dir'] = workDir;
@@ -395,10 +404,10 @@ class AgentEditPage extends HookWidget {
           },
         ),
         // ── 标题生成模型（可选）──
-        // 会话自动生成标题时使用；留空则 Rust 端回退使用上面的默认模型
+        // 会话自动生成标题时使用；留空则不调用 LLM，标题取首条消息前 20 字
         AppProviderModelSelect(
           label: '标题生成模型（可选）',
-          placeholder: '留空则使用默认模型',
+          placeholder: '留空则取首条消息前 20 字',
           value:
               selectedTitleProvider.value != null &&
                   selectedTitleModel.value != null
@@ -410,6 +419,25 @@ class AgentEditPage extends HookWidget {
           allowClear: true,
           onChanged: (v) {
             applyModelSelection(selectedTitleProvider, selectedTitleModel, v);
+            debouncedSave();
+          },
+        ),
+        // ── 摘要模型（可选）──
+        // 回复完成通知的文案用该模型撰写；留空则不生成摘要，使用默认文案
+        AppProviderModelSelect(
+          label: '摘要模型（可选）',
+          placeholder: '留空则通知使用默认文案',
+          value:
+              selectedSummaryProvider.value != null &&
+                  selectedSummaryModel.value != null
+              ? AppProviderModelSelect.encodeKey(
+                  selectedSummaryProvider.value!,
+                  selectedSummaryModel.value!,
+                )
+              : null,
+          allowClear: true,
+          onChanged: (v) {
+            applyModelSelection(selectedSummaryProvider, selectedSummaryModel, v);
             debouncedSave();
           },
         ),
@@ -518,7 +546,7 @@ class AgentEditPage extends HookWidget {
     }
   }
 
-  /// 写入 title_model 字段：选过则写入，未选则移除（Rust 端回退 default_model）。
+  /// 写入 title_model 字段：选过则写入，未选则移除（未配置时标题取首条消息前 20 字）。
   void _writeTitleModel(
     Map<String, dynamic> cfg,
     ValueNotifier<String?> selectedTitleProvider,
@@ -532,6 +560,23 @@ class AgentEditPage extends HookWidget {
       };
     } else {
       cfg.remove('title_model');
+    }
+  }
+
+  /// 写入 summary_model 字段：选过则写入，未选则移除（通知不生成摘要）。
+  void _writeSummaryModel(
+    Map<String, dynamic> cfg,
+    ValueNotifier<String?> selectedSummaryProvider,
+    ValueNotifier<String?> selectedSummaryModel,
+  ) {
+    if (selectedSummaryProvider.value != null &&
+        selectedSummaryModel.value != null) {
+      cfg['summary_model'] = {
+        'provider': selectedSummaryProvider.value,
+        'model': selectedSummaryModel.value,
+      };
+    } else {
+      cfg.remove('summary_model');
     }
   }
 

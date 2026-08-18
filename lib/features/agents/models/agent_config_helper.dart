@@ -11,6 +11,7 @@ import 'package:agent/rust_bridge/api/agents.dart' as bridge;
 /// 返回一个 map，只包含 UI 上允许用户选择的字段：
 /// - default_model
 /// - title_model
+/// - summary_model
 /// - mcpServers
 /// - skills
 Map<String, dynamic> extractImportableConfig(Map<String, dynamic> globalConfig) {
@@ -21,6 +22,9 @@ Map<String, dynamic> extractImportableConfig(Map<String, dynamic> globalConfig) 
   }
   if (globalConfig.containsKey('title_model')) {
     result['title_model'] = globalConfig['title_model'];
+  }
+  if (globalConfig.containsKey('summary_model')) {
+    result['summary_model'] = globalConfig['summary_model'];
   }
   if (globalConfig.containsKey('mcpServers')) {
     result['mcpServers'] = globalConfig['mcpServers'];
@@ -73,13 +77,12 @@ class AgentConfigHelper {
     return null;
   }
 
-  /// 取出配置中的 title_model；未配置时回退 default_model，均无则 null。
+  /// 取出配置中的 title_model（仅显式配置，不回退 default_model）。
+  /// 未配置时返回 null（会话标题改用首条消息前 20 字）。
   static ({String provider, String model})? titleModel(
     Map<String, dynamic> cfg,
   ) {
-    final explicit = explicitTitleModel(cfg);
-    if (explicit != null) return explicit;
-    return defaultModel(cfg);
+    return explicitTitleModel(cfg);
   }
 
   /// 仅取出配置中显式的 title_model（不做回退），供编辑页回显：
@@ -91,6 +94,20 @@ class AgentConfigHelper {
     if (tm is Map) {
       final p = tm['provider'] as String? ?? '';
       final m = tm['model'] as String? ?? '';
+      if (p.isNotEmpty && m.isNotEmpty) return (provider: p, model: m);
+    }
+    return null;
+  }
+
+  /// 取出配置中的 summary_model（仅显式配置，不回退 default_model）。
+  /// 未配置时返回 null（通知不生成摘要，使用默认文案）。
+  static ({String provider, String model})? summaryModel(
+    Map<String, dynamic> cfg,
+  ) {
+    final sm = cfg['summary_model'];
+    if (sm is Map) {
+      final p = sm['provider'] as String? ?? '';
+      final m = sm['model'] as String? ?? '';
       if (p.isNotEmpty && m.isNotEmpty) return (provider: p, model: m);
     }
     return null;

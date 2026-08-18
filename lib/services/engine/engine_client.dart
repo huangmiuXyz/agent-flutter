@@ -195,6 +195,7 @@ class EngineClient {
     if (event is EngineEvent_SessionRenamed) return event.sessionId;
     if (event is EngineEvent_ToolOutputDelta) return event.sessionId;
     if (event is EngineEvent_ToolPermissionRequest) return event.sessionId;
+    if (event is EngineEvent_Retry) return event.sessionId;
     return null;
   }
 

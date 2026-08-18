@@ -129,6 +129,7 @@ FlattenResult flattenMessageList({
   required bool hasLatestTurn,
   required bool isStreaming,
   required int latestUserIndex,
+  required bool hasRetryLine,
 }) {
   final items = <FlatItem>[];
   final anchors = <UserAnchorData>[];
@@ -162,9 +163,13 @@ FlattenResult flattenMessageList({
       estCursor += estPartHeight(part);
     }
   }
-  // 最新轮只有用户消息（无任何 assistant 内容）时，末尾显示独立 loading
-  final standaloneIndicator =
-      hasLatestTurn && isStreaming && latestUserIndex == messageOrder.length - 1;
+  // 最新轮只有用户消息（无任何 assistant 内容）时，末尾显示独立 loading；
+  // 有自动重试行时不再生成独立指示器占位（重试行已表达等待状态，且会
+  // 被独立指示器推到下方，看起来像隔着一条助手信息）。
+  final standaloneIndicator = !hasRetryLine &&
+      hasLatestTurn &&
+      isStreaming &&
+      latestUserIndex == messageOrder.length - 1;
   return FlattenResult(
     items: items,
     anchors: anchors,

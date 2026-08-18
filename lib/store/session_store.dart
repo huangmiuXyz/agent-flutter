@@ -383,6 +383,8 @@ class SessionStore {
     _sendContext[sessionId] = _SendContext(provider, model);
     // 新一轮流开始：清除取消标记，此后该会话的 Done / Error 视为新流事件
     _cancelledStreams.remove(sessionId);
+    // 新一轮发送前清除上轮残留的重试提示
+    s.retryStatus = null;
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 
@@ -423,7 +425,7 @@ class SessionStore {
         '[错误] $e',
       );
       if (_clearStreaming(sessionId)) {
-        _notifyCompletion(sessionId, error: '$e');
+        unawaited(_notifyCompletion(sessionId, error: '$e'));
       }
     }
     // 流式事件由 _ensureSessionSubscription 注册的 listener 异步应用
@@ -503,6 +505,8 @@ class SessionStore {
     _sendContext[sessionId] = _SendContext(provider, model);
     // 新一轮流开始：清除取消标记
     _cancelledStreams.remove(sessionId);
+    // 新一轮发送前清除上轮残留的重试提示
+    s.retryStatus = null;
     streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     _emit();
 
@@ -526,7 +530,7 @@ class SessionStore {
         '[错误] $e',
       );
       if (_clearStreaming(sessionId)) {
-        _notifyCompletion(sessionId, error: '$e');
+        unawaited(_notifyCompletion(sessionId, error: '$e'));
       }
     }
   }
@@ -579,11 +583,32 @@ class SessionStore {
       eMsgId = event.msgId;
     }
 
+    // 自动重试提示：显示系统提示行，等待 N 秒后重试
+    if (event is EngineEvent_Retry) {
+      final seconds = (event.delayMs.toDouble() / 1000).toStringAsFixed(1);
+      s.retryStatus =
+          '自动重试（${event.attempt}/${event.maxRetries}）：${event.reason}，'
+          '$seconds 秒后重试';
+      _emit();
+      return;
+    }
+
+    // 首个内容到达 = 重试已成功，清除重试提示
+    if (event is EngineEvent_Chunk ||
+        event is EngineEvent_ReasoningChunk ||
+        event is EngineEvent_ToolCallFragment ||
+        event is EngineEvent_ToolCall) {
+      if (s.retryStatus != null) {
+        s.retryStatus = null;
+      }
+    }
+
     if (event is EngineEvent_Done) {
       // 流结束 → 弹窗通知（仅对前端可见的流，取消过的流已在上面提前返回）
       if (_clearStreaming(sessionId)) {
-        _notifyCompletion(sessionId);
+        unawaited(_notifyCompletion(sessionId));
       }
+      s.retryStatus = null;
       _emit();
 
       // Done 后消费队列中的非 steer 消息（自动发出下一条）
@@ -637,13 +662,14 @@ class SessionStore {
     }
 
     if (event is EngineEvent_Error) {
+      s.retryStatus = null;
       StreamEventProcessor.appendPartContent(
         s,
         'err_${DateTime.now().millisecondsSinceEpoch}',
         '[错误] ${event.message}',
       );
       if (_clearStreaming(sessionId)) {
-        _notifyCompletion(sessionId, error: event.message);
+        unawaited(_notifyCompletion(sessionId, error: event.message));
       }
       _emit();
       return;
@@ -731,13 +757,38 @@ class SessionStore {
   }
 
   /// 流结束 → 弹出完成通知；[error] 非空时按错误样式展示。
-  void _notifyCompletion(String sessionId, {String? error}) {
+  ///
+  /// 正常完成时先用配置的摘要模型生成回复摘要作为通知文案，
+  /// 未配置/生成失败时回退到会话名。
+  Future<void> _notifyCompletion(String sessionId, {String? error}) async {
+    var message = error ?? _sessionName(sessionId);
+    if (error == null) {
+      final summary = await _generateCompletionSummary(sessionId);
+      if (summary != null && summary.isNotEmpty) {
+        message = summary;
+      }
+    }
     NotificationStore.instance.notify(
       sessionId: sessionId,
       title: error == null ? '回复完成' : '回复出错',
-      message: error ?? _sessionName(sessionId),
+      message: message,
       isError: error != null,
     );
+  }
+
+  /// 用配置的摘要模型生成回复完成摘要（通知文案）；失败/未配置返回 null。
+  Future<String?> _generateCompletionSummary(String sessionId) async {
+    try {
+      final configPath = AgentStore.instance.currentConfigPath.value;
+      final dbPath = ConfigStore.instance.dbPath;
+      return await LlmService().generateCompletionSummary(
+        configPath: configPath,
+        dbPath: dbPath,
+        sessionId: sessionId,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   /// 会话显示名：优先取列表中的名称，列表未加载时回退为 sessionId。
