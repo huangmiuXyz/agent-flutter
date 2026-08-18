@@ -8,6 +8,8 @@ import 'dart:async';
 
 import 'package:signals_flutter/signals_flutter.dart';
 
+import 'package:agent/services/notification/system_notification_service.dart';
+
 /// 一条流结束通知
 class StreamCompletionNotice {
   final int id;
@@ -40,6 +42,7 @@ class NotificationStore {
   final Map<int, Timer> _timers = {};
 
   /// 弹出通知；同会话连续结束时旧通知仍在屏，可同时叠加显示。
+  /// 同时发送系统级通知（应用内弹窗保留，两者并存）。
   void notify({
     required String sessionId,
     required String title,
@@ -55,6 +58,14 @@ class NotificationStore {
     );
     notices.value = [...notices.value, notice];
     _timers[notice.id] = Timer(displayDuration, () => dismiss(notice.id));
+
+    // 系统通知：payload 携带 sessionId，点击后由服务切换到对应会话
+    unawaited(SystemNotificationService.instance.show(
+      id: notice.id,
+      title: title,
+      body: message,
+      sessionId: sessionId,
+    ));
   }
 
   /// 关闭指定通知

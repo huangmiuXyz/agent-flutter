@@ -20,6 +20,7 @@ import 'store/xterm_store.dart';
 import 'services/sync/app_sync.dart';
 import 'services/sync/cross_window_sync.dart';
 import 'services/llm/llm_service.dart';
+import 'services/notification/system_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/ime_composing_tracker.dart';
 
@@ -122,6 +123,9 @@ void main() async {
       // （ENGINE_SINK 是进程级单例，重复 connect 会覆盖）
       await EngineClient.instance.connect();
       await registerFrontendTools();
+
+      // 系统级通知（macOS 首次启动会请求系统授权）
+      await SystemNotificationService.instance.init();
 
       await windowManager.ensureInitialized();
 
