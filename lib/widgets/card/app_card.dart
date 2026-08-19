@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 
-/// Scroll behavior that hides the scrollbar.
+/// Scroll behavior that hides the scrollbar and disables rubber-band
+/// bouncing (platform default on macOS/iOS would bounce at the edges).
 class _NoScrollbarBehavior extends ScrollBehavior {
   const _NoScrollbarBehavior();
 
@@ -12,6 +13,10 @@ class _NoScrollbarBehavior extends ScrollBehavior {
     Widget child,
     ScrollableDetails details,
   ) => child;
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const ClampingScrollPhysics();
 }
 
 /// A styled card container used for context menus, dropdowns, tooltips,
@@ -32,6 +37,10 @@ class AppCard extends StatelessWidget {
   final List<BoxShadow>? boxShadow;
   final bool scrollable;
 
+  /// 面板顶部固定区域（如搜索条），不随 [child] 滚动。
+  /// 仅 [scrollable] 为 true 且提供 [maxHeight] 时生效。
+  final Widget? header;
+
   const AppCard({
     super.key,
     required this.child,
@@ -45,6 +54,7 @@ class AppCard extends StatelessWidget {
     this.border,
     this.boxShadow,
     this.scrollable = true,
+    this.header,
   });
 
   @override
@@ -80,7 +90,18 @@ class AppCard extends StatelessWidget {
             child: scrollable
                 ? ScrollConfiguration(
                     behavior: const _NoScrollbarBehavior(),
-                    child: SingleChildScrollView(child: child),
+                    child: header != null
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              header!,
+                              Flexible(
+                                child: SingleChildScrollView(child: child),
+                              ),
+                            ],
+                          )
+                        : SingleChildScrollView(child: child),
                   )
                 : child,
           ),

@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/ime_composing_tracker.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
@@ -103,7 +104,10 @@ bool _handleNavKey({
 
   if ((key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.select) &&
       focusedIdx >= 0 &&
-      focusedIdx < navEntries.length) {
+      focusedIdx < navEntries.length &&
+      // 输入法组合中（如中文拼音候选）Enter 用于提交组合内容，
+      // 不应触发选中，否则会误选列表项（菜单内搜索框输入时）
+      !ImeComposingTracker.instance.isComposing) {
     navEntries[focusedIdx].onTap?.call();
     return true;
   }

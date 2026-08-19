@@ -87,6 +87,9 @@ class ContextMenu {
   static LayerLink? _lastLink;
   static bool _lastAlignRight = false;
   static VoidCallback? _lastOnDismiss;
+  static Widget? _lastHeader;
+  static String _lastEmptyPlaceholder = '无内容';
+  static int _lastInitialFocusedIndex = -1;
 
   /// 打开菜单的锚定按钮的全局矩形（背景 dismiss 时用于排除按钮区域）。
   static Rect? _lastAnchorRect;
@@ -98,6 +101,7 @@ class ContextMenu {
     _lastItems = null;
     _lastOnDismiss = null;
     _lastAnchorRect = null;
+    _lastHeader = null;
   }
 
   /// 菜单面板是否正在显示。
@@ -121,6 +125,15 @@ class ContextMenu {
     bool alignRight = false,
     VoidCallback? onDismiss,
     Rect? anchorRect,
+
+    /// 面板顶部固定区域（如搜索条）；null = 无。
+    Widget? header,
+
+    /// 列表为空时显示的占位文本。
+    String emptyPlaceholder = '无内容',
+
+    /// 键盘导航的初始选中索引（-1 = 初始不选中）。
+    int initialFocusedIndex = -1,
   }) {
     // Store latest params so the overlay builder picks them up.
     _lastPosition = position;
@@ -132,6 +145,9 @@ class ContextMenu {
     _lastLink = link;
     _lastAlignRight = alignRight;
     _lastOnDismiss = onDismiss;
+    _lastHeader = header;
+    _lastEmptyPlaceholder = emptyPlaceholder;
+    _lastInitialFocusedIndex = initialFocusedIndex;
     // 原地刷新时（anchorRect 为 null）保留原有矩形
     if (anchorRect != null) {
       _lastAnchorRect = anchorRect;
@@ -158,9 +174,14 @@ class ContextMenu {
         link: _lastLink,
         autoFocus: _lastAutoFocus,
         alignRight: _lastAlignRight,
+        header: _lastHeader,
+        emptyPlaceholder: _lastEmptyPlaceholder,
+        initialFocusedIndex: _lastInitialFocusedIndex,
         onDismiss: () {
+          // 先取回调再 dismiss：dismiss 会清空 _lastOnDismiss
+          final callback = _lastOnDismiss;
           dismiss();
-          _lastOnDismiss?.call();
+          callback?.call();
         },
       ),
     );
@@ -208,6 +229,15 @@ class _MenuOverlay extends HookWidget {
   final VoidCallback onDismiss;
   final void Function(bool)? onHoverChanged;
 
+  /// 面板顶部固定区域（如搜索条）；null = 无。
+  final Widget? header;
+
+  /// 列表为空时显示的占位文本。
+  final String emptyPlaceholder;
+
+  /// 键盘导航的初始选中索引（-1 = 初始不选中）。
+  final int initialFocusedIndex;
+
   const _MenuOverlay({
     required this.position,
     required this.items,
@@ -219,6 +249,9 @@ class _MenuOverlay extends HookWidget {
     this.link,
     this.alignRight = false,
     this.onHoverChanged,
+    this.header,
+    this.emptyPlaceholder = '无内容',
+    this.initialFocusedIndex = -1,
   });
 
   @override
@@ -276,6 +309,9 @@ class _MenuOverlay extends HookWidget {
             maxWidth: maxWidth,
             maxHeight: maxHeight,
             autoFocus: autoFocus,
+            header: header,
+            emptyPlaceholder: emptyPlaceholder,
+            initialFocusedIndex: initialFocusedIndex,
             onDismiss: onDismiss,
           ),
         ),
@@ -338,6 +374,15 @@ class _MenuPanel extends HookWidget {
   final bool autoFocus;
   final VoidCallback onDismiss;
 
+  /// 面板顶部固定区域（如搜索条）；null = 无。
+  final Widget? header;
+
+  /// 列表为空时显示的占位文本。
+  final String emptyPlaceholder;
+
+  /// 键盘导航的初始选中索引（-1 = 初始不选中）。
+  final int initialFocusedIndex;
+
   const _MenuPanel({
     super.key,
     required this.items,
@@ -346,6 +391,9 @@ class _MenuPanel extends HookWidget {
     this.maxWidth,
     this.maxHeight,
     this.autoFocus = true,
+    this.header,
+    this.emptyPlaceholder = '无内容',
+    this.initialFocusedIndex = -1,
   });
 
   @override
@@ -528,10 +576,13 @@ class _MenuPanel extends HookWidget {
       maxHeight: maxMenuHeight,
       backgroundColor: custom.colors.menuBackground,
       border: Border.all(color: custom.colors.menuBorder, width: 1),
+      header: header,
       child: AppList(
         size: AppListSize.small,
         keyboardNavigable: true,
         autoFocus: autoFocus,
+        emptyPlaceholder: emptyPlaceholder,
+        initialFocusedIndex: initialFocusedIndex,
         children: [
           for (final item in items)
             if (item.isSeparator)

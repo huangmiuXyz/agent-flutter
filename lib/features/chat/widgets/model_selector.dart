@@ -89,6 +89,9 @@ class ModelSelector extends HookWidget {
       menuMaxWidth: custom.controls.contextMenuMaxWidth,
       // 选中后按钮显示「提供商/模型名」，限制宽度避免超长撑开工具栏
       maxWidth: 220,
+      // 面板顶部搜索：同时匹配模型名与提供商名
+      searchable: true,
+      searchHint: '搜索提供商 / 模型',
       onChanged: onModelChanged,
     );
   }

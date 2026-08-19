@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/context_menu/context_menu.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -99,6 +101,15 @@ class PanelSelector<T> extends HookWidget {
   /// 按钮上选中文本左侧的前置图标（如推理强度选择器的灯泡）；null = 不显示。
   final String? buttonIcon;
 
+  /// 是否在下拉面板顶部显示搜索框，实时过滤选项。
+  ///
+  /// 搜索框聚焦时：输入即过滤（匹配选项名与分组名），↑/↓ 移动选中，
+  /// Enter 确认选中，Esc 关闭面板。默认 false。
+  final bool searchable;
+
+  /// 搜索框占位提示；仅 [searchable] 为 true 时使用。null = 「搜索…」。
+  final String? searchHint;
+
   const PanelSelector({
     super.key,
     this.value,
@@ -112,6 +123,8 @@ class PanelSelector<T> extends HookWidget {
     this.fullWidth = false,
     this.maxWidth,
     this.buttonIcon,
+    this.searchable = false,
+    this.searchHint,
   });
 
   /// All flat options extracted from [data] (ignoring group info).
@@ -150,6 +163,11 @@ class PanelSelector<T> extends HookWidget {
 
     final enabled = onChanged != null;
 
+    // 搜索状态（searchable 时启用）：查询文本 + 输入框控制器/焦点
+    final searchQuery = useState('');
+    final searchController = useTextEditingController();
+    final searchFocusNode = useFocusNode();
+
     // Memoize options so they don't recreate on every build.
     final allOptions = useMemoized(() => _allOptions, [data, options]);
 
@@ -164,6 +182,22 @@ class PanelSelector<T> extends HookWidget {
     // 上次打开菜单时的位置，用于原地刷新
     final lastPosition = useRef<Offset?>(null);
     final lastAlignRight = useRef<bool>(false);
+
+    /// 关闭菜单并复位本地状态（搜索框 Esc、再次点击收起共用）。
+    void dismissMenu() {
+      isOpen.value = false;
+      lastPosition.value = null;
+      ContextMenu.dismiss();
+    }
+
+    // 搜索过滤：匹配选项名 / 显示名 / 分组名（提供商），大小写不敏感
+    final query = searchQuery.value.trim().toLowerCase();
+    bool matchesSearch(String? label, String? displayLabel, String? group) {
+      if (query.isEmpty) return true;
+      return (label != null && label.toLowerCase().contains(query)) ||
+          (displayLabel != null && displayLabel.toLowerCase().contains(query)) ||
+          (group != null && group.toLowerCase().contains(query));
+    }
 
     /// Build the menu items list, grouping by the `group` key.
     List<MenuItem> buildMenuItems() {
@@ -180,6 +214,19 @@ class PanelSelector<T> extends HookWidget {
 
         bool firstGroup = true;
         for (final entry in groups.entries) {
+          // 搜索时跳过无匹配项的分组（连同其分组标题/分隔线）
+          final matched = entry.value.where((item) {
+            final label = item is Map
+                ? (item['label'] as String? ??
+                      item['name'] as String? ??
+                      item.toString())
+                : item.toString();
+            final displayLabel =
+                item is Map ? item['displayLabel'] as String? : null;
+            return matchesSearch(label, displayLabel, entry.key);
+          }).toList();
+          if (matched.isEmpty) continue;
+
           if (!firstGroup) {
             result.add(const MenuItem.separator());
           }
@@ -189,7 +236,7 @@ class PanelSelector<T> extends HookWidget {
             result.add(MenuItem.header(label: entry.key!));
           }
 
-          for (final item in entry.value) {
+          for (final item in matched) {
             final label = item is Map
                 ? (item['label'] as String? ??
                       item['name'] as String? ??
@@ -220,18 +267,84 @@ class PanelSelector<T> extends HookWidget {
 
       return [
         for (final option in options)
-          MenuItem(
-            label: option.label,
-            icon: option.icon,
-            enabled: option.enabled && enabled,
-            selected: option.value == value,
-            onTap: () {
-              onChanged?.call(option.value);
-            },
-            hoverIcon: option.hoverIcon,
-            onHoverTap: option.onHoverTap,
-          ),
+          if (matchesSearch(option.label, option.displayLabel, null))
+            MenuItem(
+              label: option.label,
+              icon: option.icon,
+              enabled: option.enabled && enabled,
+              selected: option.value == value,
+              onTap: () {
+                onChanged?.call(option.value);
+              },
+              hoverIcon: option.hoverIcon,
+              onHoverTap: option.onHoverTap,
+            ),
       ];
+    }
+
+    // 面板顶部搜索条：输入实时过滤（匹配模型名与提供商名），Esc 关闭面板
+    Widget buildSearchHeader() {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              custom.spacing.sm,
+              custom.spacing.xs,
+              custom.spacing.sm,
+              custom.spacing.xs,
+            ),
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  dismissMenu();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: SizedBox(
+                width: 200,
+                child: Row(
+                  children: [
+                    AppIcon(
+                      'search',
+                      size: custom.typography.captionSize,
+                      color: custom.colors.textSecondary,
+                    ),
+                    SizedBox(width: custom.spacing.xs),
+                    Expanded(
+                      child: TextField(
+                        controller: searchController,
+                        focusNode: searchFocusNode,
+                        onChanged: (v) => searchQuery.value = v,
+                        style: TextStyle(
+                          fontSize: custom.typography.captionSize,
+                          fontFamily: custom.typography.fontFamily,
+                          color: custom.colors.textPrimary,
+                        ),
+                        cursorColor: custom.colors.textPrimary,
+                        decoration: InputDecoration(
+                          hintText: searchHint ?? '搜索…',
+                          hintStyle: TextStyle(
+                            fontSize: custom.typography.captionSize,
+                            color: custom.colors.textSecondary,
+                          ),
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          AppDivider(size: AppDividerSize.small),
+        ],
+      );
     }
 
     // options/data 的内容签名：只有内容真正变化时才触发原地刷新。
@@ -239,36 +352,37 @@ class PanelSelector<T> extends HookWidget {
     // 直接依赖 [data, options] 会导致任意 rebuild（如其他信号触发）都
     // 把已打开的全局菜单内容替换成自己的（点击智能体却弹出模型列表）。
     final refreshKey = useMemoized<String>(() {
-      if (data != null) {
-        return data!
-            .map((item) {
-              if (item is! Map) return '${item.runtimeType}:$item';
-              return [
-                item['label'],
-                item['name'],
-                item['displayLabel'],
-                item['value'],
-                item['icon'],
-                item['group'],
-                item['hoverIcon'],
-                item['disabled'],
-              ].join('|');
-            })
-            .join('\n');
-      }
-      return options
-          .map(
-            (o) => [
-              o.value,
-              o.label,
-              o.displayLabel,
-              o.icon,
-              o.hoverIcon,
-              o.enabled,
-            ].join('|'),
-          )
-          .join('\n');
-    }, [data, options]);
+      final content = data != null
+          ? data!
+              .map((item) {
+                if (item is! Map) return '${item.runtimeType}:$item';
+                return [
+                  item['label'],
+                  item['name'],
+                  item['displayLabel'],
+                  item['value'],
+                  item['icon'],
+                  item['group'],
+                  item['hoverIcon'],
+                  item['disabled'],
+                ].join('|');
+              })
+              .join('\n')
+          : options
+              .map(
+                (o) => [
+                  o.value,
+                  o.label,
+                  o.displayLabel,
+                  o.icon,
+                  o.hoverIcon,
+                  o.enabled,
+                ].join('|'),
+              )
+              .join('\n');
+      // 搜索时每次输入变化都要原地刷新列表（过滤结果）
+      return searchable ? '$content\nquery:$query' : content;
+    }, [data, options, searchQuery.value]);
 
     // 当 data/options 内容变化时，如果下拉面板已打开，原地刷新内容
     useEffect(() {
@@ -284,6 +398,10 @@ class PanelSelector<T> extends HookWidget {
           alignRight: lastAlignRight.value,
           items: buildMenuItems(),
           onDismiss: () => isOpen.value = false,
+          header: searchable ? buildSearchHeader() : null,
+          emptyPlaceholder: searchable ? '无匹配项' : '无内容',
+          initialFocusedIndex: searchable ? 0 : -1,
+          autoFocus: !searchable,
         );
       });
       return null;
@@ -293,9 +411,7 @@ class PanelSelector<T> extends HookWidget {
       // 菜单已打开且属于本按钮 → 再次点击收起（不刷新、不重建）。
       // 背景 Listener 已排除锚定按钮区域，不会抢先关闭菜单
       if (ContextMenu.isOpen && ContextMenu.activeLink == layerLink) {
-        isOpen.value = false;
-        lastPosition.value = null;
-        ContextMenu.dismiss();
+        dismissMenu();
         return;
       }
 
@@ -317,6 +433,12 @@ class PanelSelector<T> extends HookWidget {
       final alignRight = buttonRight > screenWidth / 2;
       lastAlignRight.value = alignRight;
 
+      // 打开时重置搜索：每次打开从空搜索开始
+      if (searchable) {
+        searchController.clear();
+        searchQuery.value = '';
+      }
+
       ContextMenu.show(
         context,
         position: position,
@@ -329,8 +451,22 @@ class PanelSelector<T> extends HookWidget {
         // 锚定按钮矩形：菜单背景在点击此区域时不会抢先关闭菜单，
         // 由 onTap 决定收起或切换
         anchorRect: position & renderBox.size,
+        header: searchable ? buildSearchHeader() : null,
+        emptyPlaceholder: searchable ? '无匹配项' : '无内容',
+        initialFocusedIndex: searchable ? 0 : -1,
+        // 搜索框接管焦点：不让列表 autofocus 抢占
+        autoFocus: !searchable,
       );
       isOpen.value = true;
+
+      if (searchable) {
+        // 菜单挂载后把光标聚焦到搜索框（post-frame，
+        // 避免与列表 autofocus / 菜单动画竞争）
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!isOpen.value || !ContextMenu.isOpen) return;
+          searchFocusNode.requestFocus();
+        });
+      }
     }
 
     // 按钮内容：前置图标（可选）+ 文本 + chevron；fullWidth 时左对齐拉满，
