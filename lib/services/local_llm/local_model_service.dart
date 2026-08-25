@@ -280,7 +280,9 @@ class LocalModelService {
 
     // MiniCPM 等模型通过 enable_thinking 控制思考模式；
     // 透传给 llamadart 的模板渲染（enableThinking）与 Jinja kwargs 双通道。
-    final enableThinking = body['enable_thinking'] != false;
+    // OpenAI 兼容标准：reasoning_effort == "none" 也可关思考（Rust 端标题生成等轻量任务走此开关）
+    final reasoningEffort = body['reasoning_effort'];
+    final enableThinking = body['enable_thinking'] != false && reasoningEffort != "none";
 
     final engine = _engine;
     if (engine == null) {
