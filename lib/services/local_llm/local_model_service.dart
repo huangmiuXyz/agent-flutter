@@ -276,6 +276,25 @@ class LocalModelService {
       }
     }
 
+    // llama.cpp 只接受一条 system 消息（且必须在消息列表最前）；
+    // OpenAI 兼容请求可能携带多条 system（如 agent 的「运行环境」+「人设」），
+    // 合并成一条并置顶，避免原生模板校验报错（"System message must be at the beginning"）。
+    final combinedSystem = messages
+        .where((m) => m.role == LlamaChatRole.system)
+        .map((m) => m.content.trim())
+        .where((t) => t.isNotEmpty)
+        .join('\n\n');
+    messages.removeWhere((m) => m.role == LlamaChatRole.system);
+    if (combinedSystem.isNotEmpty) {
+      messages.insert(
+        0,
+        LlamaChatMessage.fromText(
+          role: LlamaChatRole.system,
+          text: combinedSystem,
+        ),
+      );
+    }
+
     final tools = _parseTools(body['tools']);
 
     // MiniCPM 等模型通过 enable_thinking 控制思考模式；

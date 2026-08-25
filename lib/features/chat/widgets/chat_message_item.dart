@@ -149,9 +149,9 @@ class _UserMessage extends HookWidget {
 
     /// 添加图片：复制到 File 目录后插入标签
     Future<void> pickImages() async {
-      final result = await FilePicker.pickFiles(type: FileType.image);
-      if (result == null || result.files.isEmpty) return;
-      for (final file in result.files) {
+      final files = await FilePicker.pickFiles(type: FileType.image);
+      if (files.isEmpty) return;
+      for (final file in files) {
         final src = file.path;
         if (src == null) continue;
         try {

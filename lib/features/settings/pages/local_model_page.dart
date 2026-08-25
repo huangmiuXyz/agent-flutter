@@ -64,12 +64,12 @@ class LocalModelPage extends HookWidget {
     }
 
     Future<void> onAddModel() async {
-      final result = await FilePicker.pickFiles(
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['gguf'],
         dialogTitle: '选择本地模型文件 (.gguf)',
       );
-      final path = result?.paths.firstOrNull;
+      final path = files.map((f) => f.path).whereType<String>().firstOrNull;
       if (path == null || path.isEmpty) return;
       final fileName = path.split('/').last.replaceAll('.gguf', '');
       final updated = [

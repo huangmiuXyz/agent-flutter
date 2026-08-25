@@ -108,8 +108,8 @@ class AppFilePathField extends StatelessWidget {
       if (pickerType == PickerType.directory) {
         result = await FilePicker.getDirectoryPath();
       } else {
-        final fileResult = await FilePicker.pickFiles();
-        result = fileResult?.files.first.path;
+        final files = await FilePicker.pickFiles();
+        result = files.isEmpty ? null : files.first.path;
       }
       if (result != null && context.mounted) {
         controller.text = result.replaceAll('\\', '/');

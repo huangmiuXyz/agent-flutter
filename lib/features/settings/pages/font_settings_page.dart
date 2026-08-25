@@ -203,12 +203,15 @@ class FontSettingsPage extends HookWidget {
     }
 
     Future<void> onImportFont() async {
-      final result = await FilePicker.pickFiles(
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['ttf', 'otf'],
         dialogTitle: '导入字体文件',
       );
-      final paths = result?.paths.whereType<String>().toList() ?? const [];
+      final paths = files
+          .map((f) => f.path)
+          .whereType<String>()
+          .toList();
       if (paths.isEmpty) return;
       final added = await ImportedFontService.instance.importFiles(paths);
       if (added.isNotEmpty) {

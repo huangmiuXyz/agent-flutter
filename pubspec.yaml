@@ -35,6 +35,7 @@ dependencies:
   path_provider: ^2.1.6
   flutter_local_notifications: ^22.3.0
   llamadart: ^0.8.20
+  freezed_annotation: ^3.0.0
 
 dependency_overrides:
   # 本地 patch llamadart：修复思考模式下正文 content 被抑制攒批、
@@ -46,7 +47,6 @@ dependency_overrides:
   code_forge:
     path: .patches/code_forge
   re_highlight: ^0.0.3
-  freezed_annotation: ^3.0.0
   marionette_flutter: ^0.6.0
   win32: 6.4.0
   ffi: ^2.2.0
