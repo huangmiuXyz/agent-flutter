@@ -35,6 +35,7 @@ const Map<String, IconData> _registry = {
   'hash': LucideIcons.hash,
   'palette': LucideIcons.palette,
   'type': LucideIcons.type,
+  'textCursorInput': LucideIcons.textCursorInput,
   'fileCode': LucideIcons.fileCode,
   'filePlus': LucideIcons.filePlus,
   'folderPlus': LucideIcons.folderPlus,

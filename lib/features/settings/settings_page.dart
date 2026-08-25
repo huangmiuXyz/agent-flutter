@@ -13,6 +13,7 @@ import 'package:agent/features/settings/pages/add_mcp_server_page.dart';
 import 'package:agent/features/settings/pages/add_provider_page.dart';
 import 'package:agent/features/settings/pages/display_settings_page.dart';
 import 'package:agent/features/settings/pages/font_settings_page.dart';
+import 'package:agent/features/settings/pages/local_model_page.dart';
 import 'package:agent/features/settings/pages/mcp_detail_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_config_page.dart';
 import 'package:agent/features/settings/pages/mcp_server_list_page.dart';
@@ -29,7 +30,7 @@ import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/list/app_list.dart';
 
 /// Settings category tabs.
-enum SettingsTab { display, models, mcp, skills, tools, agents }
+enum SettingsTab { display, models, mcp, localModels, skills, tools, agents }
 
 /// 设置面板的跳转目标（tab / 提供商 / 智能体）。
 ///
@@ -49,6 +50,7 @@ final ValueNotifier<SettingsTarget?> settingsPanelTarget = ValueNotifier(null);
 const _sidebarsItems = [
   _TabItem(SettingsTab.display, '显示', 'palette'),
   _TabItem(SettingsTab.models, '模型提供商', 'cpu'),
+  _TabItem(SettingsTab.localModels, '本地模型', 'hardDrive'),
   _TabItem(SettingsTab.mcp, 'MCP 服务器', 'server'),
   _TabItem(SettingsTab.skills, '技能', 'puzzle'),
   _TabItem(SettingsTab.tools, '工具权限', 'lock'),
@@ -190,6 +192,8 @@ class SettingsPage extends HookWidget {
             onAddServer: () => showAddMcp.value = true,
           );
         }
+      case SettingsTab.localModels:
+        content = const LocalModelPage();
       case SettingsTab.skills:
         if (selectedSkill.value != null) {
           content = SkillDetailPage(

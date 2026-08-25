@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- 关闭 macOS 端 Impeller：多窗口（desktop_multi_window 子窗口隐藏/显示）
+	     在 Impeller/Metal 渲染器下触发 Canvas::SetupRenderPass 空指针崩溃
+	     （texture 与 descriptor 尺寸不一致 / resolve texture 缺失）。
+	     使用稳定 Skia 后端；引擎修复后移除该键。 -->
+	<key>FLTEnableImpeller</key>
+	<false/>
 </dict>
 </plist>

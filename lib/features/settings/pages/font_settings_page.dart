@@ -284,6 +284,13 @@ class FontSettingsPage extends HookWidget {
       _ => currentFont.value,
     };
 
+    // 当前目标实际生效的字体（子目标未单独设置时 = 界面字体）
+    final actualFont = switch (target.value) {
+      1 => terminalFont.value ?? currentFont.value,
+      2 => markdownFont.value ?? currentFont.value,
+      _ => currentFont.value,
+    };
+
     final sections = useMemoized(
       () {
         final bundled = <Map<String, String>>[];
@@ -313,6 +320,29 @@ class FontSettingsPage extends HookWidget {
             : notCached.take(pageSize).toList();
 
         final result = <AppBigSection>[];
+        // 置顶「当前使用中」分组：展示当前目标实际生效的字体（信息行，不可点击）
+        result.add(
+          AppBigSection(
+            label: '当前使用中',
+            itemCount: 1,
+            itemBuilder: (ctx, i, {required isFirst, required isLast}) {
+              final desc = switch (target.value) {
+                1 => terminalFont.value == null
+                    ? '终端字体（跟随界面字体）'
+                    : '终端字体',
+                2 => markdownFont.value == null
+                    ? 'Markdown 字体（跟随界面字体）'
+                    : 'Markdown 字体',
+                _ => '界面字体',
+              };
+              return AppBigRow(
+                name: actualFont,
+                description: desc,
+                dot: true,
+              );
+            },
+          ),
+        );
         // 终端/Markdown 字体目标：最前面插入「跟随界面字体」行（未设置时选中）
         final isSubTarget = target.value == 1 || target.value == 2;
         if (isSubTarget) {
@@ -446,6 +476,7 @@ class FontSettingsPage extends HookWidget {
         currentFont.value,
         terminalFont.value,
         markdownFont.value,
+        actualFont,
         target.value,
         cachedFonts.value,
         searchTerm.value,
@@ -460,6 +491,7 @@ class FontSettingsPage extends HookWidget {
         _kBundledLabel.toLowerCase().contains(searchTerm.value.toLowerCase());
     final tab = activeTab.value;
     final totalCount =
+        1 + // 「当前使用中」常驻分组
         (tab == 2
             ? 0
             : (bundledShown ? 1 : 0) +

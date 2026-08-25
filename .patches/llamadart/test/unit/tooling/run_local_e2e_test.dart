@@ -1,0 +1,1026 @@
+@TestOn('vm')
+library;
+
+import 'dart:io';
+
+import 'package:test/test.dart';
+
+import '../../../tool/audio_chat_smoke_support.dart';
+import '../../../tool/testing/run_local_e2e.dart';
+
+void main() {
+  group('run_local_e2e', () {
+    test('documents shared runner options and defaults', () async {
+      final result = await runLocalE2e(const ['--help'], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('--ngram-cache-build-text <txt>'));
+      expect(result.stdout, contains('--ngram-token-max <n>'));
+      expect(result.stdout, contains('--allow-any-response'));
+      expect(result.stdout, contains('--mmproj-url <url>'));
+      expect(result.stdout, contains('GGUF_AUDIO_EXPECTED_TEXT'));
+      expect(result.stdout, contains('LLAMADART_LITERT_LM_LIBRARY_PATH'));
+      expect(
+        result.stdout,
+        contains('defaults to the resolved benchmark prompt'),
+      );
+    });
+
+    test('lists local-only Dart, Flutter, and Web smoke scenarios', () async {
+      final result = await runLocalE2e(const ['--list'], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('root-template-e2e'));
+      expect(result.stdout, contains('qwen35-multimodal-macos-repro'));
+      expect(result.stdout, contains('gguf-chat-features-smoke'));
+      expect(result.stdout, contains('gguf-audio-chat-smoke'));
+      expect(result.stdout, contains('speech-to-text-smoke'));
+      expect(result.stdout, contains('litert-lm-asr-smoke'));
+      expect(result.stdout, contains('llama-cpp-speculative-benchmark'));
+      expect(result.stdout, contains('llama-cpp-chat-template-smoke'));
+      expect(result.stdout, contains('litert-lm-chat-features-smoke'));
+      expect(result.stdout, contains('webgpu-multimodal-regression'));
+      expect(result.stdout, contains('chat-app-model-cache'));
+      expect(result.stdout, contains('chat-app-web-real-model-smoke'));
+      expect(result.stdout, contains('chat-app-web-speech-to-text-smoke'));
+      expect(result.stdout, contains('chat-app-web-text-to-speech-smoke'));
+      expect(result.stdout, contains('chat-app-web-mock-smoke'));
+      expect(result.stdout, contains('chat-app-web-litert-gemma4-smoke'));
+      expect(result.stdout, contains('bridge-smoke'));
+      expect(result.stdout, contains('Dart local-only'));
+      expect(result.stdout, contains('Flutter device'));
+      expect(result.stdout, contains('Web smoke'));
+    });
+
+    test(
+      'dry-runs a Flutter device scenario with the requested device',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'chat-app-model-cache',
+          '--device',
+          'macos',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('chat-app-model-cache'));
+        expect(
+          result.stdout,
+          contains(
+            'cd /repo/example/chat_app && flutter test --run-skipped '
+            '-t local-only integration_test/model_cache_mmproj_e2e_test.dart '
+            '-d macos',
+          ),
+        );
+      },
+    );
+
+    test('dry-runs Web Qwen3-ASR file and microphone transcription', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'chat-app-web-speech-to-text-smoke',
+        '--audio-path',
+        'test/fixtures/speech.wav',
+        '--model-url',
+        'https://example.com/qwen-asr.gguf',
+        '--mmproj-url',
+        'https://example.com/qwen-asr-mmproj.gguf',
+        '--expect',
+        'Known transcript.',
+        '--skip-build',
+        '--python',
+        '/custom/python',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('validate_chat_app_web_build.sh'));
+      expect(
+        result.stdout,
+        contains('--model-url https://example.com/qwen-asr.gguf'),
+      );
+      expect(
+        result.stdout,
+        contains('--mmproj-url https://example.com/qwen-asr-mmproj.gguf'),
+      );
+      expect(
+        result.stdout,
+        contains('--speech-audio-path test/fixtures/speech.wav'),
+      );
+      expect(result.stdout, contains('--speech-microphone'));
+      expect(result.stdout, contains('--microphone-allow-any-response'));
+      expect(result.stdout, contains("--expect 'Known transcript.'"));
+    });
+
+    test('requires a fixture and expected text for Web speech smoke', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'chat-app-web-speech-to-text-smoke',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('--audio-path'));
+      expect(result.stderr, contains('--expect'));
+    });
+
+    test('dry-runs Web Qwen3-TTS synthesis and WAV export', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'chat-app-web-text-to-speech-smoke',
+        '--model-url',
+        'https://example.com/qwen-tts.gguf',
+        '--mmproj-url',
+        'https://example.com/qwen-tts-mmproj.gguf',
+        '--audio-path',
+        'test/fixtures/speaker.wav',
+        '--skip-build',
+        '--python',
+        '/custom/python',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('validate_chat_app_web_build.sh'));
+      expect(
+        result.stdout,
+        contains('playwright_chat_app_text_to_speech_smoke.py'),
+      );
+      expect(
+        result.stdout,
+        contains('--model-url https://example.com/qwen-tts.gguf'),
+      );
+      expect(
+        result.stdout,
+        contains('--mmproj-url https://example.com/qwen-tts-mmproj.gguf'),
+      );
+      expect(
+        result.stdout,
+        contains('--speaker-audio-path test/fixtures/speaker.wav'),
+      );
+    });
+
+    test(
+      'dry-runs Web real-model smoke with build, serve, and Playwright steps',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'chat-app-web-real-model-smoke',
+          '--model-url',
+          'http://127.0.0.1:7358/models/tiny.gguf',
+          '--expect',
+          'ok',
+          '--allow-any-response',
+          '--python',
+          '/custom/python',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('scripts/build_chat_app_web.sh'));
+        expect(
+          result.stdout,
+          contains(
+            'CHAT_APP_BASE_HREF=/example/chat_app/build/web/ '
+            'bash scripts/build_chat_app_web.sh',
+          ),
+        );
+        expect(result.stdout, contains('serve_static_with_headers.py'));
+        expect(
+          result.stdout,
+          contains('playwright_chat_app_real_model_smoke.py'),
+        );
+        expect(
+          result.stdout,
+          contains(
+            '/custom/python tool/testing/playwright_chat_app_real_model_smoke.py',
+          ),
+        );
+        expect(
+          result.stdout,
+          contains('--model-url http://127.0.0.1:7358/models/tiny.gguf'),
+        );
+        expect(result.stdout, contains('--expect ok'));
+        expect(result.stdout, contains('--allow-any-response'));
+      },
+    );
+
+    test(
+      'dry-runs Web mock smoke with build, serve, and Playwright steps',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'chat-app-web-mock-smoke',
+          '--model-url',
+          'https://example.com/custom-mock.gguf',
+          '--python',
+          '/custom/python',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('scripts/build_chat_app_web.sh'));
+        expect(result.stdout, contains('serve_static_with_headers.py'));
+        expect(result.stdout, contains('playwright_chat_app_mock_smoke.py'));
+        expect(
+          result.stdout,
+          contains(
+            '/custom/python tool/testing/playwright_chat_app_mock_smoke.py',
+          ),
+        );
+        expect(
+          result.stdout,
+          contains(
+            'http://127.0.0.1:7358/example/chat_app/build/web/?llamadart_mock_bridge=echo',
+          ),
+        );
+        expect(
+          result.stdout,
+          contains('--model-url https://example.com/custom-mock.gguf'),
+        );
+      },
+    );
+
+    test('dry-runs packaged bridge smoke with build and serve steps', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'bridge-smoke',
+        '--python',
+        '/custom/python',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(
+        result.stdout,
+        contains(
+          'CHAT_APP_BASE_HREF=/example/chat_app/build/web/ '
+          'bash scripts/build_chat_app_web.sh',
+        ),
+      );
+      expect(result.stdout, contains('serve_static_with_headers.py'));
+      expect(
+        result.stdout,
+        contains(
+          '/custom/python tool/testing/playwright_bridge_smoke.py '
+          'http://127.0.0.1:7358/example/chat_app/build/web/',
+        ),
+      );
+    });
+
+    test('validates an existing packaged bridge build when skipped', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'bridge-smoke',
+        '--skip-build',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(
+        result.stdout,
+        contains('bash scripts/validate_chat_app_web_build.sh'),
+      );
+      expect(result.stdout, isNot(contains('scripts/build_chat_app_web.sh')));
+      expect(
+        result.stdout,
+        contains('http://127.0.0.1:7358/example/chat_app/build/web/'),
+      );
+    });
+
+    test('prefers repo-local Playwright Python by default', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'run_local_e2e_python_test_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+
+      final pythonPath = Platform.isWindows
+          ? '${tempDir.path}/.dart_tool/playwright-python/Scripts/python.exe'
+          : '${tempDir.path}/.dart_tool/playwright-python/bin/python';
+      await File(pythonPath).create(recursive: true);
+
+      final result = await runLocalE2e([
+        '--scenario',
+        'chat-app-web-litert-gemma4-smoke',
+        '--skip-build',
+        '--dry-run',
+      ], projectRoot: tempDir.path);
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains(pythonPath));
+      expect(
+        result.stdout,
+        contains('bash scripts/validate_chat_app_web_build.sh'),
+      );
+      expect(
+        result.stdout,
+        contains('tool/testing/playwright_chat_app_real_model_smoke.py'),
+      );
+    });
+
+    test(
+      'dry-runs GGUF chat feature smoke with model path and backend',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'gguf-chat-features-smoke',
+          '--model-path',
+          'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+          '--backend',
+          'cpu',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('gguf-chat-features-smoke'));
+        expect(
+          result.stdout,
+          contains(
+            "cd /repo && GGUF_AUDIO_PATH='' "
+            "GGUF_AUDIO_EXPECTED_TEXT='' dart run "
+            'tool/gguf_chat_features_smoke.dart '
+            'models/Qwen3.5-0.8B-Q4_K_M.gguf cpu',
+          ),
+        );
+      },
+    );
+
+    test('dry-runs GGUF chat feature smoke with multimodal inputs', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'gguf-chat-features-smoke',
+        '--model-path',
+        'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+        '--backend',
+        'cpu',
+        '--mmproj-path',
+        'models/Qwen3.5-0.8B-mmproj-F16.gguf',
+        '--image-path',
+        'test/fixtures/image.png',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(
+        result.stdout,
+        contains(
+          "cd /repo && GGUF_AUDIO_PATH='' "
+          "GGUF_AUDIO_EXPECTED_TEXT='' dart run "
+          'tool/gguf_chat_features_smoke.dart '
+          'models/Qwen3.5-0.8B-Q4_K_M.gguf cpu '
+          'models/Qwen3.5-0.8B-mmproj-F16.gguf test/fixtures/image.png',
+        ),
+      );
+    });
+
+    test('dry-runs GGUF audio chat with an exact expected answer', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'gguf-audio-chat-smoke',
+        '--model-path',
+        'models/gemma-4-E2B-it-Q4_K_S.gguf',
+        '--backend',
+        'metal',
+        '--mmproj-path',
+        'models/gemma-4-E2B-it-mmproj-F16.gguf',
+        '--audio-path',
+        'test/fixtures/question.wav',
+        '--expect',
+        '4',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(
+        result.stdout,
+        contains('GGUF_AUDIO_PATH=test/fixtures/question.wav'),
+      );
+      expect(result.stdout, contains('GGUF_AUDIO_EXPECTED_TEXT=4'));
+      expect(
+        result.stdout,
+        contains(
+          'dart run tool/gguf_chat_features_smoke.dart '
+          'models/gemma-4-E2B-it-Q4_K_S.gguf metal '
+          'models/gemma-4-E2B-it-mmproj-F16.gguf',
+        ),
+      );
+    });
+
+    test('requires an exact expected GGUF audio answer', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'gguf-audio-chat-smoke',
+        '--model-path',
+        'models/gemma-4-E2B-it-Q4_K_S.gguf',
+        '--mmproj-path',
+        'models/gemma-4-E2B-it-mmproj-F16.gguf',
+        '--audio-path',
+        'test/fixtures/question.wav',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('a nonempty --expect'));
+      expect(result.stderr, contains('gguf-audio-chat-smoke'));
+    });
+
+    test('rejects image input for the dedicated GGUF audio smoke', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'gguf-audio-chat-smoke',
+        '--model-path',
+        'models/gemma-4-E2B-it-Q4_K_S.gguf',
+        '--mmproj-path',
+        'models/gemma-4-E2B-it-mmproj-F16.gguf',
+        '--image-path',
+        'test/fixtures/image.png',
+        '--audio-path',
+        'test/fixtures/question.wav',
+        '--expect',
+        '4',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('--image-path is not supported'));
+    });
+
+    test('dry-runs typed speech-to-text with exact fixture inputs', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'speech-to-text-smoke',
+        '--model-path',
+        'models/Qwen3-ASR-0.6B-Q8_0.gguf',
+        '--mmproj-path',
+        'models/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf',
+        '--audio-path',
+        'test/fixtures/speech.wav',
+        '--expect',
+        'Known transcript.',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('speech-to-text-smoke'));
+      expect(
+        result.stdout,
+        contains('LLAMADART_STT_MODEL_PATH=models/Qwen3-ASR-0.6B-Q8_0.gguf'),
+      );
+      expect(
+        result.stdout,
+        contains(
+          'LLAMADART_STT_MMPROJ_PATH=models/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains('LLAMADART_STT_AUDIO_PATH=test/fixtures/speech.wav'),
+      );
+      expect(
+        result.stdout,
+        contains("LLAMADART_STT_EXPECTED_TEXT='Known transcript.'"),
+      );
+      expect(
+        result.stdout,
+        contains('test/e2e/backends/speech_to_text_e2e_test.dart'),
+      );
+    });
+
+    test('requires an exact expected speech transcript', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'speech-to-text-smoke',
+        '--model-path',
+        'models/Qwen3-ASR-0.6B-Q8_0.gguf',
+        '--mmproj-path',
+        'models/mmproj-Qwen3-ASR-0.6B-Q8_0.gguf',
+        '--audio-path',
+        'test/fixtures/speech.wav',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('a nonempty --expect'));
+    });
+
+    test('dry-runs dedicated LiteRT-LM ASR with exact inputs', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'litert-lm-asr-smoke',
+        '--model-path',
+        'models/moonshine.tflite',
+        '--tokenizer-path',
+        'models/tokenizer.json',
+        '--audio-path',
+        'test/fixtures/speech.wav',
+        '--model-preset',
+        'moonshine-tiny',
+        '--expect',
+        'Known transcript.',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('litert-lm-asr-smoke'));
+      expect(result.stdout, contains('tool/litert_lm_asr_smoke.dart'));
+      expect(result.stdout, contains('models/moonshine.tflite'));
+      expect(result.stdout, contains('models/tokenizer.json'));
+      expect(result.stdout, contains('test/fixtures/speech.wav'));
+      expect(result.stdout, contains('moonshine-tiny'));
+      expect(result.stdout, contains("'Known transcript.'"));
+    });
+
+    test('requires all dedicated LiteRT-LM ASR inputs', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'litert-lm-asr-smoke',
+        '--model-path',
+        'models/moonshine.tflite',
+        '--audio-path',
+        'test/fixtures/speech.wav',
+        '--expect',
+        'Known transcript.',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('--tokenizer-path'));
+    });
+
+    test('dry-runs typed text-to-speech with model and projector', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'text-to-speech-smoke',
+        '--model-path',
+        'models/Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf',
+        '--mmproj-path',
+        'models/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('text-to-speech-smoke'));
+      expect(
+        result.stdout,
+        contains(
+          'LLAMADART_TTS_MODEL_PATH=models/Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains(
+          'LLAMADART_TTS_MMPROJ_PATH=models/mmproj-Qwen3-TTS-12Hz-1.7B-Base-Q8_0.gguf',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains(
+          'LLAMADART_TTS_OUTPUT_PATH=/repo/build/text-to-speech-smoke.wav',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains('test/e2e/backends/text_to_speech_e2e_test.dart'),
+      );
+    });
+
+    test('requires a model and projector for text-to-speech', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'text-to-speech-smoke',
+        '--model-path',
+        'models/Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('--model-path and --mmproj-path'));
+    });
+
+    test('requires mmproj path before GGUF image path', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'gguf-chat-features-smoke',
+        '--model-path',
+        'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+        '--image-path',
+        'test/fixtures/image.png',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('--image-path requires --mmproj-path'));
+    });
+
+    test(
+      'dry-runs llama.cpp speculative benchmark with matrix options',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'llama-cpp-speculative-benchmark',
+          '--model-path',
+          'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+          '--backend',
+          'cpu',
+          '--speculative-cases',
+          'baseline,ngram-simple,ngram-map-k,ngram-map-k4v,ngram-mod,mixed-ngram',
+          '--benchmark-max-tokens',
+          '128',
+          '--benchmark-runs',
+          '3',
+          '--draft-token-max',
+          '1,2',
+          '--ngram-size-m',
+          '8,16',
+          '--ngram-token-max',
+          '64',
+          '--benchmark-warmups',
+          '1',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('llama-cpp-speculative-benchmark'));
+        expect(
+          result.stdout,
+          contains(
+            'cd /repo && dart run '
+            'tool/testing/llama_cpp_speculative_benchmark.dart '
+            '--model models/Qwen3.5-0.8B-Q4_K_M.gguf '
+            '--cases baseline,ngram-simple,ngram-map-k,ngram-map-k4v,'
+            'ngram-mod,mixed-ngram --backend cpu --gpu-layers 0 '
+            '--max-tokens 128 --runs 3 --draft-token-max 1,2 --warmups 1 '
+            '--ngram-size-m 8,16 --ngram-token-max 64',
+          ),
+        );
+      },
+    );
+
+    test('dry-runs llama.cpp speculative benchmark with draft model', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'llama-cpp-speculative-benchmark',
+        '--model-path',
+        'models/qwen2.5-1.5b-instruct-q4_k_m.gguf',
+        '--draft-model-path',
+        'models/qwen2.5-0.5b-instruct-q4_k_m.gguf',
+        '--speculative-cases',
+        'baseline,draft-simple,mixed-ngram-draft-simple',
+        '--benchmark-max-tokens',
+        '16',
+        '--benchmark-runs',
+        '1',
+        '--draft-token-max',
+        '1',
+        '--benchmark-warmups',
+        '0',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(
+        result.stdout,
+        contains(
+          'cd /repo && dart run '
+          'tool/testing/llama_cpp_speculative_benchmark.dart '
+          '--model models/qwen2.5-1.5b-instruct-q4_k_m.gguf '
+          '--cases baseline,draft-simple,mixed-ngram-draft-simple '
+          '--backend auto --gpu-layers 0 --max-tokens 16 --runs 1 '
+          '--draft-token-max 1 --warmups 0 '
+          '--draft-model models/qwen2.5-0.5b-instruct-q4_k_m.gguf',
+        ),
+      );
+    });
+
+    test(
+      'dry-runs llama.cpp speculative benchmark with generated ngram cache',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'llama-cpp-speculative-benchmark',
+          '--model-path',
+          'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+          '--speculative-cases',
+          'baseline,ngram-cache',
+          '--ngram-cache-build-static-path',
+          '/tmp/llamadart-ngram-cache.bin',
+          '--ngram-cache-build-text',
+          'alpha beta gamma alpha beta delta',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(
+          result.stdout,
+          contains(
+            '--cases baseline,ngram-cache --backend auto --gpu-layers 0 '
+            '--max-tokens 128 --runs 3 --draft-token-max 1,2 --warmups 1 '
+            '--ngram-cache-build-static-path '
+            '/tmp/llamadart-ngram-cache.bin --ngram-cache-build-text '
+            "'alpha beta gamma alpha beta delta'",
+          ),
+        );
+      },
+    );
+
+    test('requires model path for llama.cpp speculative benchmark', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'llama-cpp-speculative-benchmark',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(
+        result.stderr,
+        contains(
+          '--model-path is required for llama-cpp-speculative-benchmark',
+        ),
+      );
+    });
+
+    test('dry-runs llama.cpp chat-template smoke with model path', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'llama-cpp-chat-template-smoke',
+        '--model-path',
+        'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('llama-cpp-chat-template-smoke'));
+      expect(
+        result.stdout,
+        contains(
+          'LLAMADART_LLAMA_CPP_TEMPLATE_MODEL_PATH='
+          'models/Qwen3.5-0.8B-Q4_K_M.gguf',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains(
+          'dart test --run-skipped -t local-only '
+          'test/e2e/backends/llama_cpp_chat_template_backend_e2e_test.dart',
+        ),
+      );
+    });
+
+    test('requires model path for llama.cpp chat-template smoke', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'llama-cpp-chat-template-smoke',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(
+        result.stderr,
+        contains('--model-path is required for llama-cpp-chat-template-smoke'),
+      );
+    });
+
+    test('requires model path for LiteRT-LM chat feature smoke', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'litert-lm-chat-features-smoke',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(
+        result.stderr,
+        contains('--model-path is required for litert-lm-chat-features-smoke'),
+      );
+    });
+
+    test('dry-runs LiteRT-LM chat feature smoke with model path', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'litert-lm-chat-features-smoke',
+        '--model-path',
+        'models/gemma-4-E2B-it.litertlm',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('litert-lm-chat-features-smoke'));
+      expect(
+        result.stdout,
+        contains(
+          "cd /repo && LITERT_LM_AUDIO_PATH='' "
+          "LITERT_LM_AUDIO_EXPECTED_TEXT='' dart run "
+          'tool/litert_lm_chat_features_smoke.dart '
+          'models/gemma-4-E2B-it.litertlm auto',
+        ),
+      );
+    });
+
+    test('dry-runs LiteRT-LM audio chat with shared CLI flags', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'litert-lm-chat-features-smoke',
+        '--model-path',
+        'models/gemma-4-E2B-it.litertlm',
+        '--backend',
+        'gpu',
+        '--audio-path',
+        'test/fixtures/question.wav',
+        '--expect',
+        '4',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(
+        result.stdout,
+        contains('LITERT_LM_AUDIO_PATH=test/fixtures/question.wav'),
+      );
+      expect(result.stdout, contains('LITERT_LM_AUDIO_EXPECTED_TEXT=4'));
+      expect(
+        result.stdout,
+        contains(
+          'dart run tool/litert_lm_chat_features_smoke.dart '
+          'models/gemma-4-E2B-it.litertlm gpu',
+        ),
+      );
+    });
+
+    test('requires an exact expected LiteRT-LM audio answer', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'litert-lm-chat-features-smoke',
+        '--model-path',
+        'models/gemma-4-E2B-it.litertlm',
+        '--audio-path',
+        'test/fixtures/question.wav',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 64);
+      expect(result.stderr, contains('A nonempty --expect is required'));
+      expect(result.stderr, contains('litert-lm-chat-features-smoke'));
+    });
+
+    test(
+      'dry-runs Web LiteRT-LM Gemma 4 smoke with LiteRT response capture',
+      () async {
+        final result = await runLocalE2e(const [
+          '--scenario',
+          'chat-app-web-litert-gemma4-smoke',
+          '--skip-build',
+          '--dry-run',
+        ], projectRoot: '/repo');
+
+        expect(result.exitCode, 0);
+        expect(
+          result.stdout,
+          contains('playwright_chat_app_real_model_smoke.py'),
+        );
+        expect(
+          result.stdout,
+          contains('gemma-4-E2B-it-web.litertlm?download=true'),
+        );
+        expect(result.stdout, contains('--response-source litert'));
+        expect(result.stdout, contains('--backend-index 2'));
+        expect(result.stdout, contains('--gpu-layers 999'));
+        expect(result.stdout, contains('--penalty 1.1'));
+      },
+    );
+
+    test('dry-runs WebGPU regression with forwarded runner options', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'webgpu-multimodal-regression',
+        '--port',
+        '9123',
+        '--python',
+        '/custom/python',
+        '--skip-build',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('PLAYWRIGHT_GATE_PORT=9123'));
+      expect(result.stdout, contains('PLAYWRIGHT_PYTHON=/custom/python'));
+      expect(result.stdout, contains('LLAMADART_SKIP_WEB_BUILD=1'));
+      expect(
+        result.stdout,
+        contains('bash tool/testing/run_webgpu_multimodal_regression_gate.sh'),
+      );
+    });
+
+    test('reports unknown scenarios without executing anything', () async {
+      final result = await runLocalE2e(const [
+        '--scenario',
+        'does-not-exist',
+        '--dry-run',
+      ], projectRoot: '/repo');
+
+      expect(result.exitCode, isNot(0));
+      expect(
+        result.stderr,
+        contains('Unknown local E2E scenario: does-not-exist'),
+      );
+      expect(result.stderr, contains('Use --list'));
+    });
+
+    test('reports port conflicts before starting Web smoke servers', () async {
+      final tempDir = await _createBridgeSmokeFixture();
+      addTearDown(() => tempDir.delete(recursive: true));
+      const port = 9123;
+
+      final result = await runLocalE2e(
+        ['--scenario', 'bridge-smoke', '--skip-build', '--port', '$port'],
+        projectRoot: tempDir.path,
+        foregroundStepRun: _successfulForegroundStep,
+        portAvailabilityCheck: (actualPort) async {
+          throw StateError(
+            'Port $actualPort is already in use; stop the existing server or '
+            'choose a different --port.',
+          );
+        },
+      );
+
+      expect(result.exitCode, isNot(0));
+      expect(
+        result.stdout,
+        contains('Running local E2E scenario: bridge-smoke'),
+      );
+      expect(result.stderr, contains('Port $port is already in use'));
+    });
+
+    test('reports background server startup failures', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'run_local_e2e_test_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+      const port = 9124;
+
+      final result = await runLocalE2e(
+        [
+          '--scenario',
+          'bridge-smoke',
+          '--skip-build',
+          '--python',
+          Platform.resolvedExecutable,
+          '--port',
+          '$port',
+        ],
+        projectRoot: tempDir.path,
+        foregroundStepRun: _successfulForegroundStep,
+        portAvailabilityCheck: (_) async {},
+        portReadinessWait: (actualPort, _) async {
+          throw StateError(
+            'Background server exited before port $actualPort became ready '
+            '(exit code 1).',
+          );
+        },
+      );
+
+      expect(result.exitCode, isNot(0));
+      expect(result.stderr, contains('Background server exited'));
+    });
+  });
+
+  group('audio chat smoke support', () {
+    test('normalizes presentation-only answer differences', () {
+      expect(normalizeAudioChatAnswer('  **4.**\n'), '4');
+      expect(
+        () => verifyExactAudioChatAnswer(
+          scenarioName: 'fixture',
+          actualText: 'five',
+          expectedText: '4',
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('reports a stable path-free fixture identity', () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'audio_chat_smoke_support_test_',
+      );
+      addTearDown(() => tempDir.delete(recursive: true));
+      final audioPath = '${tempDir.path}/private-recording.wav';
+      await File(audioPath).writeAsBytes(const <int>[1, 2, 3]);
+
+      final first = await readAudioChatSmokeFixture(audioPath);
+      final second = await readAudioChatSmokeFixture(audioPath);
+      final metadata = first.toJson();
+
+      expect(first.fixtureId, second.fixtureId);
+      expect(first.fixtureId, startsWith('sha256:'));
+      expect(first.fixtureId.length, 71);
+      expect(metadata, hasLength(2));
+      expect(metadata['encodedByteLength'], 3);
+      expect(metadata['fixtureId'], first.fixtureId);
+      expect(metadata.toString(), isNot(contains(audioPath)));
+    });
+  });
+}
+
+Future<Directory> _createBridgeSmokeFixture() async {
+  return Directory.systemTemp.createTemp('run_local_e2e_bridge_test_');
+}
+
+Future<ProcessResult> _successfulForegroundStep(LocalE2eCommandStep _) async =>
+    ProcessResult(0, 0, '', '');
