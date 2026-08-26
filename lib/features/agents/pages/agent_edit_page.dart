@@ -229,7 +229,12 @@ class AgentEditPage extends HookWidget {
         }
 
         // MCP 服务器：从全局配置中拷贝勾选项的完整定义
-        final globalMcp = global['mcpServers'] as Map<String, dynamic>? ?? {};
+        // （兼容默认配置 `mcpServers: []` 的空数组写法）
+        final rawMcp = global['mcpServers'];
+        final globalMcp = switch (rawMcp) {
+          Map() => Map<String, dynamic>.from(rawMcp),
+          _ => <String, dynamic>{},
+        };
         cfg['mcpServers'] = {
           for (final name in selectedMcp.value)
             if (globalMcp.containsKey(name)) name: globalMcp[name],
@@ -437,7 +442,11 @@ class AgentEditPage extends HookWidget {
               : null,
           allowClear: true,
           onChanged: (v) {
-            applyModelSelection(selectedSummaryProvider, selectedSummaryModel, v);
+            applyModelSelection(
+              selectedSummaryProvider,
+              selectedSummaryModel,
+              v,
+            );
             debouncedSave();
           },
         ),

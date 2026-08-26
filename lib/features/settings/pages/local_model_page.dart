@@ -60,7 +60,8 @@ class LocalModelPage extends HookWidget {
     // 默认选中第一个启用的模型（若有）
     if (selectedModel.value == null && models.value.isNotEmpty) {
       selectedModel.value =
-          models.value.where((m) => m.enabled).firstOrNull ?? models.value.first;
+          models.value.where((m) => m.enabled).firstOrNull ??
+          models.value.first;
     }
 
     Future<void> onAddModel() async {
@@ -114,9 +115,9 @@ class LocalModelPage extends HookWidget {
       ];
       if (newModels.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: AppText('所选模型已在列表中')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: AppText('所选模型已在列表中')));
         }
         return;
       }
@@ -140,6 +141,7 @@ class LocalModelPage extends HookWidget {
               contextSize: m.contextSize,
               maxTokens: m.maxTokens,
               enabled: enabled,
+              gpuLayers: m.gpuLayers,
             )
           else
             m,
@@ -181,9 +183,9 @@ class LocalModelPage extends HookWidget {
         final v = int.tryParse(editContextCtrl.text.trim());
         if (v == null || v <= 0) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: AppText('请输入有效的上下文长度')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: AppText('请输入有效的上下文长度')));
           }
           return;
         }
@@ -191,9 +193,9 @@ class LocalModelPage extends HookWidget {
         final maxTokens = rawMax.isEmpty ? null : int.tryParse(rawMax);
         if (rawMax.isNotEmpty && (maxTokens == null || maxTokens <= 0)) {
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: AppText('请输入有效的最长生成长度')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: AppText('请输入有效的最长生成长度')));
           }
           return;
         }
@@ -206,6 +208,7 @@ class LocalModelPage extends HookWidget {
                 contextSize: v,
                 maxTokens: maxTokens,
                 enabled: m.enabled,
+                gpuLayers: m.gpuLayers,
               )
             else
               m,
@@ -407,10 +410,7 @@ class _ServiceControlCard extends HookWidget {
           ],
           if (status == LocalModelStatus.error && errorMsg != null) ...[
             const SizedBox(height: 8),
-            AppText(
-              errorMsg,
-              variant: AppTextVariant.caption,
-            ),
+            AppText(errorMsg, variant: AppTextVariant.caption),
           ],
           SizedBox(height: custom.spacing.md),
           // 模型选择 + 启停按钮
@@ -504,8 +504,10 @@ class _ScanDirectoryBodyState extends State<_ScanDirectoryBody> {
     try {
       final root = Directory(widget.path);
       final found = <LocalModelInfo>[];
-      await for (final entity
-          in root.list(recursive: true, followLinks: false)) {
+      await for (final entity in root.list(
+        recursive: true,
+        followLinks: false,
+      )) {
         if (entity is File && entity.path.toLowerCase().endsWith('.gguf')) {
           found.add(
             LocalModelInfo(
@@ -642,10 +644,8 @@ class _ScanDirectoryBodyState extends State<_ScanDirectoryBody> {
         Expanded(
           child: ListView.separated(
             itemCount: _found.length,
-            separatorBuilder: (_, _) => Divider(
-              height: 1,
-              color: custom.colors.separator,
-            ),
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: custom.colors.separator),
             itemBuilder: (ctx, i) {
               final model = _found[i];
               final checked = _selected.contains(model.path);
@@ -659,8 +659,7 @@ class _ScanDirectoryBodyState extends State<_ScanDirectoryBody> {
                         value: checked,
                         onChanged: (_) => _toggleOne(model.path),
                         visualDensity: VisualDensity.compact,
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       Expanded(
                         child: Column(

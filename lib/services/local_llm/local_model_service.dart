@@ -125,14 +125,13 @@ class LocalModelService {
 
     try {
       final engine = LlamaEngine(LlamaBackend());
+      // 打开 llama.cpp 原生日志：加载失败时（显存分配 / 架构不支持 /
+      // 文件损坏等）llama.cpp 会在日志里打出具体原因。
+      await engine.setNativeLogLevel(LlamaLogLevel.debug);
       final sw = Stopwatch()..start();
-      await engine.loadModel(
-        model.path,
-        modelParams: ModelParams(
-          contextSize: model.contextSize,
-          maxParallelSequences: 1,
-        ),
-      );
+      // 自动拟合 GPU 卸载层数：有独立显卡时优先全量卸载；显存不足时
+      // 自动减少卸载层数，多余层落到内存（CPU）计算，最终兜底纯 CPU。
+      await _loadWithGpuFit(engine, model);
       _engine = engine;
       loadingMsg.value = '模型已加载（${sw.elapsed.inSeconds}s），启动服务 ...';
 
@@ -160,6 +159,124 @@ class LocalModelService {
       rethrow;
     }
   }
+
+  // ── GPU 卸载自动拟合 ────────────────────────────────
+
+  /// 依次尝试加载 [model]：先按 [LocalModelInfo.gpuLayers]（null = 自动）
+  /// 决定 GPU 卸载层数；失败时评估显存容量并自动降层，直到纯 CPU。
+  /// 全部尝试失败后抛出最后一次异常。
+  Future<void> _loadWithGpuFit(LlamaEngine engine, LocalModelInfo model) async {
+    final fixed = model.gpuLayers; // null = 自动
+
+    var bestFree = 0;
+
+    if (fixed == null) {
+      // 自动模式：探测空闲显存最大的独立显卡用于估算可卸载层数。
+      // 注意：mainGpu 不自定义——llamadart 生成的 llama.cpp 设备列表与
+      // listGpuDevices 的索引体系不一致，透传 mainGpu>0 会报
+      // “invalid value for main_gpu”（实测设备列表仅含一块可用独显），
+      // 因此用默认 mainGpu=0（即列表中的唯一 GPU）。
+      var best = <GpuDeviceInfo>[];
+      final devices = await engine.listGpuDevices(
+        probeBackends: const [GpuBackend.vulkan],
+      );
+      for (final d in devices) {
+        if (d.isDiscreteGpu && d.memoryFreeBytes > 0) best.add(d);
+      }
+      best.sort((a, b) => b.memoryFreeBytes.compareTo(a.memoryFreeBytes));
+      if (best.isNotEmpty) {
+        bestFree = best.first.memoryFreeBytes;
+      }
+    }
+
+    var gpuLayers = fixed ?? (bestFree > 0 ? ModelParams.maxGpuLayers : 0);
+    var probed = fixed != null;
+    Object? lastError;
+
+    while (true) {
+      try {
+        await engine.unloadModel(); // 幂等；重试前清掉上一次残留
+        loadingMsg.value =
+            '加载模型 ${model.label}（${_gpuLayersLabel(gpuLayers)}）...';
+        await engine.loadModel(
+          model.path,
+          modelParams: ModelParams(
+            contextSize: model.contextSize,
+            maxParallelSequences: 1,
+            gpuLayers: gpuLayers,
+          ),
+        );
+        debugPrint('[LocalModel] 加载成功：gpuLayers=$gpuLayers');
+        return;
+      } catch (e) {
+        lastError = e;
+        debugPrint('[LocalModel] gpuLayers=$gpuLayers 加载失败：$e');
+        if (gpuLayers <= 0) break; // 纯 CPU 也失败，没有可降的余地
+
+        if (!probed) {
+          probed = true;
+          loadingMsg.value = '加载模型 ${model.label}：GPU 显存不足，正在评估可卸载层数 ...';
+          final computed = await _probeGpuLayers(engine, model, bestFree);
+          // 评估失败或显存过小 → 直接纯 CPU；评估值不小于当前失败值 →
+          // 说明估算失准，先折半再试。
+          gpuLayers = (computed == null || computed <= 0)
+              ? 0
+              : (computed >= gpuLayers ? gpuLayers ~/ 2 : computed);
+          continue;
+        }
+        gpuLayers ~/= 2; // 层数估算偏乐观时折半再试，最终落到纯 CPU
+      }
+    }
+    throw lastError;
+  }
+
+  /// 以纯 CPU 方式加载模型读取 GGUF 元数据，估算每层权重大小，
+  /// 结合 [bestFreeBytes]（主显卡空闲显存）算出可卸载层数。
+  /// 返回 null 表示评估失败（走纯 CPU 兜底）。
+  Future<int?> _probeGpuLayers(
+    LlamaEngine engine,
+    LocalModelInfo model,
+    int bestFreeBytes,
+  ) async {
+    try {
+      await engine.unloadModel();
+      await engine.loadModel(
+        model.path,
+        modelParams: ModelParams(
+          contextSize: model.contextSize,
+          maxParallelSequences: 1,
+          gpuLayers: 0, // 纯 CPU 加载（mmap 模式，主要解析元数据，很快）
+        ),
+      );
+      final meta = await engine.getMetadata();
+      await engine.unloadModel();
+
+      final arch = meta['general.architecture'];
+      final blockCount = arch == null
+          ? null
+          : int.tryParse(meta['$arch.block_count'] ?? '');
+      if (blockCount == null || blockCount <= 0 || bestFreeBytes <= 0) {
+        return 0;
+      }
+
+      // Q4_K 权重 ≈ 文件大小；约 15% 为 embedding / norm / output 等
+      // 非层张量，剩余按层均分。
+      final perLayer = File(model.path).lengthSync() * 0.85 / blockCount;
+      final headroom = bestFreeBytes * 0.2; // 给 KV cache / 计算缓冲留余量
+      return ((bestFreeBytes - headroom) / perLayer)
+          .floor()
+          .clamp(1, blockCount)
+          .toInt();
+    } catch (e) {
+      debugPrint('[LocalModel] GPU 显存评估失败：$e');
+      return null;
+    }
+  }
+
+  /// 层数的人类可读描述（用于加载进度提示）。
+  String _gpuLayersLabel(int layers) => layers >= ModelParams.maxGpuLayers
+      ? '全量 GPU 卸载'
+      : (layers > 0 ? 'GPU 卸载 $layers 层' : '纯 CPU 计算');
 
   Future<HttpServer?> _bind(int port) async {
     try {
@@ -213,7 +330,9 @@ class LocalModelService {
         _drain();
         return;
       }
-      _json(req.response, 404, {'error': {'message': 'not found: $path'}});
+      _json(req.response, 404, {
+        'error': {'message': 'not found: $path'},
+      });
     } catch (e, st) {
       debugPrint('[LocalModel] dispatch 异常: $e\n$st');
       _tryError(req.response, 500, '$e');
@@ -272,7 +391,8 @@ class LocalModelService {
       final m = Map<String, dynamic>.from(raw);
       messages.add(_parseMessage(m, pendingToolNames));
       if (m['role'] == 'assistant') {
-        for (final tc in messages.last.parts.whereType<LlamaToolCallContent>()) {
+        for (final tc
+            in messages.last.parts.whereType<LlamaToolCallContent>()) {
           if (tc.id != null) pendingToolNames[tc.id!] = tc.name;
         }
       } else if (m['role'] == 'tool') {
@@ -306,7 +426,8 @@ class LocalModelService {
     // 透传给 llamadart 的模板渲染（enableThinking）与 Jinja kwargs 双通道。
     // OpenAI 兼容标准：reasoning_effort == "none" 也可关思考（Rust 端标题生成等轻量任务走此开关）
     final reasoningEffort = body['reasoning_effort'];
-    final enableThinking = body['enable_thinking'] != false && reasoningEffort != "none";
+    final enableThinking =
+        body['enable_thinking'] != false && reasoningEffort != "none";
 
     final engine = _engine;
     if (engine == null) {
@@ -351,10 +472,7 @@ class LocalModelService {
       final message = <String, dynamic>{
         'role': 'assistant',
         if (thinkingSb.isNotEmpty) 'reasoning_content': thinkingSb.toString(),
-        if (toolCalls.isEmpty)
-          'content': sb.toString()
-        else
-          'content': null,
+        if (toolCalls.isEmpty) 'content': sb.toString() else 'content': null,
         if (toolCalls.isNotEmpty)
           'tool_calls': [
             for (final tc in toolCalls)
@@ -374,9 +492,17 @@ class LocalModelService {
         'created': DateTime.now().millisecondsSinceEpoch ~/ 1000,
         'model': activeModel.value?.modelId,
         'choices': [
-          {'index': 0, 'message': message, 'finish_reason': finishReason ?? 'stop'},
+          {
+            'index': 0,
+            'message': message,
+            'finish_reason': finishReason ?? 'stop',
+          },
         ],
-        'usage': {'prompt_tokens': 0, 'completion_tokens': 0, 'total_tokens': 0},
+        'usage': {
+          'prompt_tokens': 0,
+          'completion_tokens': 0,
+          'total_tokens': 0,
+        },
       });
       return;
     }
@@ -433,18 +559,18 @@ class LocalModelService {
       try {
         req.response.write(
           'data: ${jsonEncode({
-                'id': 'chatcmpl-error',
-                'object': 'chat.completion.chunk',
-                'created': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-                'model': activeModel.value?.modelId,
-                'choices': [
-                  {
-                    'index': 0,
-                    'delta': {'role': 'assistant', 'content': '[错误] $e'},
-                    'finish_reason': 'stop',
-                  },
-                ],
-              })}\n\n',
+            'id': 'chatcmpl-error',
+            'object': 'chat.completion.chunk',
+            'created': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            'model': activeModel.value?.modelId,
+            'choices': [
+              {
+                'index': 0,
+                'delta': {'role': 'assistant', 'content': '[错误] $e'},
+                'finish_reason': 'stop',
+              },
+            ],
+          })}\n\n',
         );
       } catch (_) {
         // 响应可能已断开，忽略
@@ -482,7 +608,8 @@ class LocalModelService {
                 .map((p) => p['text']?.toString() ?? '')
                 .join('\n')
           : '';
-      final name = (m['name'] as String?) ??
+      final name =
+          (m['name'] as String?) ??
           (m['tool_call_id'] != null
               ? pendingToolNames[m['tool_call_id'] as String] ?? ''
               : '');
@@ -640,7 +767,11 @@ class LocalModelService {
       case 'array':
         final items = schema['items'];
         final itemType = items is Map
-            ? _mapToolParam(name, Map<String, dynamic>.from(items), required: false)
+            ? _mapToolParam(
+                name,
+                Map<String, dynamic>.from(items),
+                required: false,
+              )
             : ToolParam.string(name);
         return ToolParam.array(
           name,
