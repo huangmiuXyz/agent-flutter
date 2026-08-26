@@ -5,6 +5,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/features/chat/widgets/message_anchors_panel.dart';
+import 'package:agent/features/chat/widgets/system_prompt_banner.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -428,6 +429,10 @@ class MessageList extends StatelessWidget {
                 flatten.itemCount > flatItems.length;
             final itemCount =
                 flatten.itemCount + (hasRetryLine ? 1 : 0);
+            // 列表首项为系统提示词折叠项（随内容滚动），消息 item 整体
+            // 后移一位：主列表 / 离屏测量区共用同一 itemBuilder，两侧
+            // itemCount 与目标索引同步 +1。
+            final listItemCount = itemCount + 1;
             final focusedIndex = focusedMsgId.value == null
                 ? -1
                 : messageOrder.indexOf(focusedMsgId.value!);
@@ -440,7 +445,7 @@ class MessageList extends StatelessWidget {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 measure.start(
                   MeasureRequest(
-                    targetItemIndex: itemCount - 1,
+                    targetItemIndex: listItemCount - 1,
                     estOffset: flatten.estTotalHeight,
                     alignment: 1.0,
                     onDone: (exact) {
@@ -737,23 +742,27 @@ class MessageList extends StatelessWidget {
 
             /// 拍平 item 构建（主列表与离屏测量区共用）
             Widget buildListItem(int index) {
+              // 列表首项：系统提示词折叠项（随内容滚动，不固定在视口顶部）
+              if (index == 0) return const SystemPromptBanner();
+              final itemIndex = index - 1;
               // 自动重试系统提示行：追加在列表末尾
               if (hasRetryLine &&
-                  index == flatItems.length + (standaloneIndicator ? 1 : 0)) {
+                  itemIndex ==
+                      flatItems.length + (standaloneIndicator ? 1 : 0)) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: _listBottomSpacing),
                   child: _RetryStatusLine(status: retryStatus),
                 );
               }
               // 独立流式指示器（最新一轮只有用户消息，无 assistant 内容）
-              if (index >= flatItems.length) {
+              if (itemIndex >= flatItems.length) {
                 return const Padding(
                   padding: EdgeInsets.only(bottom: _listBottomSpacing),
                   child: _StandaloneStreamingIndicator(),
                 );
               }
-              final item = flatItems[index];
-              final isLastItem = index == itemCount - 1;
+              final item = flatItems[itemIndex];
+              final isLastItem = itemIndex == itemCount - 1;
               // 偏移上报：所有 item（用户消息整条 + assistant 每个 part）
               // 布局后上报精确内容偏移 → 浏览过的区域锚点全部精确。
               // 同一消息多个 part 上报多次，取最小偏移（= 消息顶部）。
@@ -833,7 +842,7 @@ class MessageList extends StatelessWidget {
                           top: 0,
                           bottom: hasLatestTurn ? 0 : _listBottomSpacing,
                         ),
-                        itemCount: itemCount,
+                        itemCount: listItemCount,
                         itemBuilder: (context, index) => buildListItem(index),
                       ),
                     ),
@@ -873,7 +882,7 @@ class MessageList extends StatelessWidget {
                         controller: measure.controller,
                         targetKey: measure.targetKey,
                         request: measure.request!,
-                        itemCount: itemCount,
+                        itemCount: listItemCount,
                         itemBuilder: buildListItem,
                         width: readingWidth,
                         height: 600,
