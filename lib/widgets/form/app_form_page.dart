@@ -6,6 +6,8 @@
 /// actions）注入内容，不再手写布局样板。
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
@@ -15,6 +17,10 @@ import 'package:agent/widgets/text/app_text.dart';
 
 /// 表单内容宽度 —— 所有设置表单页统一收窄到该宽度。
 const double kFormPageWidth = 560;
+
+/// 表单内容宽度（按上下文自适应）：紧凑屏（手机）不超过屏宽 − 32。
+double kFormPageWidthFor(BuildContext context) =>
+    math.min(kFormPageWidth, MediaQuery.sizeOf(context).width - 32);
 
 /// 设置页表单脚手架。
 class AppFormPage extends StatelessWidget {
@@ -63,7 +69,7 @@ class AppFormPage extends StatelessWidget {
     return ContentFrame(
       scrollable: scrollable,
       child: SizedBox(
-        width: kFormPageWidth,
+        width: kFormPageWidthFor(context),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

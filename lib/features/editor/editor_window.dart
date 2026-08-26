@@ -18,6 +18,7 @@ import 'language_map.dart';
 import 'rust_init.dart';
 import '../../services/sync/file_watcher.dart';
 import '../../store/code_forge_store.dart';
+import '../../utils/platform.dart';
 import '../../widgets/text/app_text.dart';
 
 /// 在子窗口中打开一个文件进行编辑。
@@ -79,7 +80,8 @@ class _EditorWindowState extends State<EditorWindow> {
     final config = configFor(_currentPath);
 
     LspConfig? lsp;
-    if (config?.lspFactory != null) {
+    // LSP 是外部桌面二进制，移动端跳过（纯文本编辑 + 语法高亮可用）
+    if (config?.lspFactory != null && isDesktopPlatform) {
       lsp = await tryStartLsp(_currentPath);
     }
 
@@ -116,7 +118,9 @@ class _EditorWindowState extends State<EditorWindow> {
       ignoreOwnWrites: () => _saving,
     );
     _controller?.text = _readFile(newPath);
-    unawaited(windowManager.setTitle('编辑 — ${newPath.split('/').last}'));
+    if (isDesktopPlatform) {
+      unawaited(windowManager.setTitle('编辑 — ${newPath.split('/').last}'));
+    }
     if (mounted) setState(() {});
   }
 

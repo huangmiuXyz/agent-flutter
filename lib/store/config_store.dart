@@ -104,6 +104,21 @@ class ConfigStore extends JsonFileSignalStore {
     });
   }
 
+  /// 移动端：work_dir 未设置时落到应用私有 workspace 目录。
+  ///
+  /// Android 上 Rust 文件工具只能访问应用私有目录，默认工作目录保证
+  /// read_file/apply_patch/grep 开箱可用；不写入历史（非用户主动选择）。
+  void ensureMobileDefaultWorkDir() {
+    if (workDir.value.isNotEmpty) return;
+    final dir = defaultMobileWorkDir();
+    try {
+      Directory(dir).createSync(recursive: true);
+    } catch (_) {
+      return;
+    }
+    mutate((data) => data['work_dir'] = dir);
+  }
+
   /// 仅把 [path] 记入历史（不改全局 work_dir；
   /// 用于工作目录写入智能体自身配置的场景）。
   void recordWorkDirHistory(String path) {

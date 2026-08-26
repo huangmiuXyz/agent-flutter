@@ -9,6 +9,7 @@ import 'package:agent/features/commands/commands.dart';
 import 'package:agent/store/theme_store.dart';
 import 'package:agent/router/router.dart';
 import 'package:agent/theme/app_theme.dart';
+import 'package:agent/utils/platform.dart';
 
 class _NoOverscrollBehavior extends MaterialScrollBehavior {
   const _NoOverscrollBehavior();
@@ -59,7 +60,10 @@ class AgentApp extends HookWidget {
       routerConfig: appRouter,
       // 快捷键层挂在 Navigator 外层，任意焦点下都能响应命令快捷键
       builder: (context, child) => CommandShortcuts(
-        child: VirtualWindowFrameInit()(context, child),
+        // 虚拟窗口框仅桌面需要；移动端直接透传
+        child: isDesktopPlatform
+            ? VirtualWindowFrameInit()(context, child)
+            : child!,
       ),
     );
   }

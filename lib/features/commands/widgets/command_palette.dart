@@ -145,7 +145,10 @@ class _CommandPalette extends HookWidget {
       borderRadius: custom.radii.sm,
       boxShadow: custom.shadows.large,
       child: SizedBox(
-        width: 560,
+        // 紧凑屏（手机）不超过屏宽 − 32
+        width: MediaQuery.sizeOf(context).width < 600
+            ? MediaQuery.sizeOf(context).width - 32
+            : 560,
         child: Focus(
           // Esc 关闭面板。必须包住整个面板（搜索条 + 列表）而非只包搜索条：
           // AppList 键盘导航（autofocus）会把焦点放在列表项上，

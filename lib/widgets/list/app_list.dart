@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/ime_composing_tracker.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/text/app_text.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
@@ -811,10 +812,13 @@ class AppListItem extends HookWidget {
 
                   // Hide trailing content on hover when hoverActions are present
                   // (use Opacity so layout space is preserved for the floating button)
+                  // 移动端无 hover：操作按钮常显（替代悬停浮出）
+                  final showActions =
+                      isHovered.value || (isMobilePlatform && enabled);
                   final hideTrailing =
                       trailingChildren.isNotEmpty &&
                       hoverActions != null &&
-                      isHovered.value;
+                      showActions;
                   Widget content = Opacity(
                     opacity: hideTrailing ? 0.0 : 1.0,
                     child: Row(
@@ -843,7 +847,7 @@ class AppListItem extends HookWidget {
                             clipBehavior: Clip.none,
                             children: [
                               content,
-                              if (isHovered.value)
+                              if (showActions)
                                 Positioned(
                                   right: 0,
                                   child: Row(

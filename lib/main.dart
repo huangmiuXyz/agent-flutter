@@ -15,6 +15,7 @@ import 'services/engine/engine_client.dart';
 import 'services/engine/frontend_tools.dart';
 import 'services/font_cache/imported_font_service.dart';
 import 'store/code_forge_store.dart';
+import 'store/config_store.dart';
 import 'store/session_store.dart';
 import 'store/xterm_store.dart';
 import 'services/sync/app_sync.dart';
@@ -23,6 +24,8 @@ import 'services/llm/llm_service.dart';
 import 'services/notification/system_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'utils/ime_composing_tracker.dart';
+import 'utils/platform.dart';
+import 'utils/platform_dirs.dart';
 
 import 'package:code_forge/code_forge.dart' as code_forge;
 import 'package:marionette_flutter/marionette_flutter.dart';
@@ -59,63 +62,76 @@ void main() async {
       // 尽早注册本地导入字体（FontLoader 全局注册，幂等）
       unawaited(ImportedFontService.instance.loadAll());
 
+      // 移动端用 path_provider 解析应用数据目录（桌面端为 no-op）。
+      // 必须先于任何 store（ConfigStore/SettingStore/CodeForgeStore）访问。
+      await initAppDataDir();
+
+      // 移动端：work_dir 未设置时落到应用私有 workspace 目录，
+      // 保证 Rust 文件工具（read_file/apply_patch/grep）开箱可用。
+      if (isMobilePlatform) {
+        ConfigStore.instance.ensureMobileDefaultWorkDir();
+      }
+
       await frb.RustLib.init();
       await code_forge.RustLib.init();
       await LlmService().init();
 
       // Check if this is a child window (editor child windows).
-      try {
-        final controller = await WindowController.fromCurrentEngine();
+      // 仅桌面支持多窗口；移动端直接走主界面。
+      if (isDesktopPlatform) {
+        try {
+          final controller = await WindowController.fromCurrentEngine();
 
-        // ── 编辑器子窗口 ──
-        if (controller.arguments.startsWith('editor:')) {
-          // CodeForgeStore 已通过文件持久化拿到最新路径
-          final store = CodeForgeStore.instance;
+          // ── 编辑器子窗口 ──
+          if (controller.arguments.startsWith('editor:')) {
+            // CodeForgeStore 已通过文件持久化拿到最新路径
+            final store = CodeForgeStore.instance;
 
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            await windowManager.ensureInitialized();
-            await windowManager.setTitle(
-              '编辑 — ${store.filePath.value.split('/').last}',
-            );
-            await windowManager.center();
-            await windowManager.focus();
-            await windowManager.setPreventClose(true);
-            windowManager.addListener(
-              WindowCloseIntercept(() => windowManager.hide()),
-            );
-          });
-
-          await initAppSync();
-          // 监听其他窗口发来的文件切换通知
-          CrossWindowSync.on('fileOpened', (_) {
-            store.reload();
-            unawaited(
-              windowManager.setTitle(
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              await windowManager.ensureInitialized();
+              await windowManager.setTitle(
                 '编辑 — ${store.filePath.value.split('/').last}',
+              );
+              await windowManager.center();
+              await windowManager.focus();
+              await windowManager.setPreventClose(true);
+              windowManager.addListener(
+                WindowCloseIntercept(() => windowManager.hide()),
+              );
+            });
+
+            await initAppSync();
+            // 监听其他窗口发来的文件切换通知
+            CrossWindowSync.on('fileOpened', (_) {
+              store.reload();
+              unawaited(
+                windowManager.setTitle(
+                  '编辑 — ${store.filePath.value.split('/').last}',
+                ),
+              );
+            });
+            // 检查点恢复：当前打开的文件受影响时重新加载
+            CrossWindowSync.on('checkpointRestored', (args) {
+              final affected = (args as List?)?.whereType<String>() ?? const [];
+              if (affected.contains(store.filePath.value)) {
+                store.reload();
+              }
+            });
+
+            runApp(
+              MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: '编辑 — ${store.filePath.value.split('/').last}',
+                theme: appLightTheme,
+                darkTheme: appDarkTheme,
+                home: EditorWindow(filePath: store.filePath.value),
               ),
             );
-          });
-          // 检查点恢复：当前打开的文件受影响时重新加载
-          CrossWindowSync.on('checkpointRestored', (args) {
-            final affected = (args as List?)?.whereType<String>() ?? const [];
-            if (affected.contains(store.filePath.value)) {
-              store.reload();
-            }
-          });
-
-          runApp(
-            MaterialApp(
-              debugShowCheckedModeBanner: false,
-              title: '编辑 — ${store.filePath.value.split('/').last}',
-              theme: appLightTheme,
-              darkTheme: appDarkTheme,
-              home: EditorWindow(filePath: store.filePath.value),
-            ),
-          );
-          return;
+            return;
+          }
+        } catch (_) {
+          // Not a child window — proceed to main window setup.
         }
-      } catch (_) {
-        // Not a child window — proceed to main window setup.
       }
 
       // ── 主窗口：连接统一引擎事件流 + 注册前端工具 ──
@@ -127,33 +143,35 @@ void main() async {
       // 系统级通知（macOS 首次启动会请求系统授权）
       await SystemNotificationService.instance.init();
 
-      await windowManager.ensureInitialized();
+      if (isDesktopPlatform) {
+        await windowManager.ensureInitialized();
 
-      // ── 主窗口关闭拦截：清理资源再退出 ──
-      await windowManager.setPreventClose(true);
-      windowManager.addListener(
-        WindowCloseIntercept(() => unawaited(_cleanupAndCloseMainWindow())),
-      );
+        // ── 主窗口关闭拦截：清理资源再退出 ──
+        await windowManager.setPreventClose(true);
+        windowManager.addListener(
+          WindowCloseIntercept(() => unawaited(_cleanupAndCloseMainWindow())),
+        );
 
-      const windowOptions = WindowOptions(
-        size: Size(1200, 900),
-        minimumSize: Size(400, 300),
-        center: true,
-        skipTaskbar: false,
-        titleBarStyle: TitleBarStyle.hidden,
-      );
+        const windowOptions = WindowOptions(
+          size: Size(1200, 900),
+          minimumSize: Size(400, 300),
+          center: true,
+          skipTaskbar: false,
+          titleBarStyle: TitleBarStyle.hidden,
+        );
 
-      windowManager.waitUntilReadyToShow(windowOptions, () async {
-        // 启动即最大化：先最大化再显示，避免窗口先以小尺寸出现
-        await windowManager.maximize();
-        await windowManager.show();
-        await windowManager.focus();
+        windowManager.waitUntilReadyToShow(windowOptions, () async {
+          // 启动即最大化：先最大化再显示，避免窗口先以小尺寸出现
+          await windowManager.maximize();
+          await windowManager.show();
+          await windowManager.focus();
 
-        // 启动后自动聚焦 AI 聊天输入框：ChatInput 监听该计数器，
-        // 首帧后请求焦点（窗口刚显示时组件可能尚未挂载，计数器值
-        // 在挂载后的首次 effect 运行中同样生效）
-        XtermStore.instance.chatFocusRequestCount.value++;
-      });
+          // 启动后自动聚焦 AI 聊天输入框：ChatInput 监听该计数器，
+          // 首帧后请求焦点（窗口刚显示时组件可能尚未挂载，计数器值
+          // 在挂载后的首次 effect 运行中同样生效）
+          XtermStore.instance.chatFocusRequestCount.value++;
+        });
+      }
 
       await initAppSync();
       runApp(const AgentApp());

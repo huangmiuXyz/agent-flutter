@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -9,6 +10,7 @@ import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
@@ -26,6 +28,9 @@ bool _settingsPanelOpen = false;
 ///
 /// 面板是单例：已打开时不会叠加新面板，而是把已打开的面板导航到
 /// 新请求的目标页（[tab]/[provider]/[agent]）。
+///
+/// 移动端无模态弹窗：切到设置 tab 并透传 [settingsPanelTarget]，
+/// 由设置 tab 内嵌的 SettingsPage 就地导航到目标页。
 Future<void> showSettingsDialog(
   BuildContext context, {
   SettingsTab? tab,
@@ -33,6 +38,11 @@ Future<void> showSettingsDialog(
   AgentInfo? agent,
 }) async {
   final target = SettingsTarget(tab: tab, provider: provider, agent: agent);
+  if (isMobilePlatform) {
+    settingsPanelTarget.value = target;
+    context.go('/settings');
+    return;
+  }
   if (_settingsPanelOpen) {
     // 已有面板：就地导航，不叠加新弹窗
     settingsPanelTarget.value = target;
@@ -185,7 +195,7 @@ class MainLayout extends StatelessWidget {
         body: Stack(
           children: [
             child,
-            const _StartupSkillsScan(),
+            const StartupSkillsScan(),
             const StreamCompletionNotifications(),
           ],
         ),
@@ -241,7 +251,7 @@ class MainLayout extends StatelessWidget {
       body: Stack(
         children: [
           child,
-          const _StartupSkillsScan(),
+          const StartupSkillsScan(),
           const StreamCompletionNotifications(),
         ],
       ),
@@ -253,14 +263,16 @@ class MainLayout extends StatelessWidget {
 /// 启动时扫描全局技能
 ///
 /// MCP 初始化已迁移到 Rust 端懒初始化（chat 入口自动连接），不再需要前端调用。
-class _StartupSkillsScan extends StatefulWidget {
-  const _StartupSkillsScan();
+///
+/// 公开供移动端外壳（MainShell）复用。
+class StartupSkillsScan extends StatefulWidget {
+  const StartupSkillsScan({super.key});
 
   @override
-  State<_StartupSkillsScan> createState() => _StartupSkillsScanState();
+  State<StartupSkillsScan> createState() => _StartupSkillsScanState();
 }
 
-class _StartupSkillsScanState extends State<_StartupSkillsScan> {
+class _StartupSkillsScanState extends State<StartupSkillsScan> {
   @override
   void initState() {
     super.initState();

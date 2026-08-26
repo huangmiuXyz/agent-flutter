@@ -2,12 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:agent/features/chat/chat_page.dart';
+import 'package:agent/features/chat/chat_route_page.dart';
+import 'package:agent/features/chat/panels/sessions_page.dart';
+import 'package:agent/features/editor/editor_page.dart';
 import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/layout/main_layout.dart';
+import 'package:agent/layout/main_shell.dart';
+import 'package:agent/utils/platform.dart';
 
 /// The route paths used throughout the app.
 abstract class AppRoutes {
+  /// 桌面：聊天主页面；移动端：会话列表 tab。
   static const chat = '/';
+
+  /// 移动端：全屏聊天页（/chat/:sessionId）。
+  static const chatSessionPrefix = '/chat';
+
+  /// 移动端：app 内编辑器全屏页。
+  static const editor = '/editor';
+
   static const settings = '/settings';
 }
 
@@ -25,25 +38,79 @@ BuildContext? get rootNavigatorContext =>
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: AppRoutes.chat,
-  routes: [
-    ShellRoute(
-      builder: (BuildContext context, GoRouterState state, Widget child) {
-        return MainLayout(child: child);
-      },
-      routes: [
-        GoRoute(
-          path: AppRoutes.chat,
-          builder: (BuildContext context, GoRouterState state) {
-            return const ChatPage();
-          },
-        ),
-        GoRoute(
-          path: AppRoutes.settings,
-          builder: (BuildContext context, GoRouterState state) {
-            return const SettingsPage();
-          },
-        ),
-      ],
-    ),
-  ],
+  routes: isMobilePlatform ? _mobileRoutes() : _desktopRoutes(),
 );
+
+/// 桌面路由：ShellRoute（MainLayout 窗口壳）内的聊天 + 设置页。
+List<RouteBase> _desktopRoutes() => [
+  ShellRoute(
+    builder: (BuildContext context, GoRouterState state, Widget child) {
+      return MainLayout(child: child);
+    },
+    routes: [
+      GoRoute(
+        path: AppRoutes.chat,
+        builder: (BuildContext context, GoRouterState state) {
+          return const ChatPage();
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.settings,
+        builder: (BuildContext context, GoRouterState state) {
+          return const SettingsPage();
+        },
+      ),
+    ],
+  ),
+];
+
+/// 移动端路由：底部双 tab 壳（会话列表 / 设置）+ 壳外全屏页（聊天 / 编辑器）。
+List<RouteBase> _mobileRoutes() => [
+  StatefulShellRoute.indexedStack(
+    builder: (
+      BuildContext context,
+      GoRouterState state,
+      StatefulNavigationShell navigationShell,
+    ) {
+      return MainShell(navigationShell: navigationShell);
+    },
+    branches: [
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.chat,
+            builder: (BuildContext context, GoRouterState state) {
+              return const SessionsPage();
+            },
+          ),
+        ],
+      ),
+      StatefulShellBranch(
+        routes: [
+          GoRoute(
+            path: AppRoutes.settings,
+            builder: (BuildContext context, GoRouterState state) {
+              return const SettingsPage();
+            },
+          ),
+        ],
+      ),
+    ],
+  ),
+  GoRoute(
+    path: '${AppRoutes.chatSessionPrefix}/:sessionId',
+    parentNavigatorKey: _rootNavigatorKey,
+    builder: (BuildContext context, GoRouterState state) {
+      return ChatRoutePage(
+        sessionId: state.pathParameters['sessionId']!,
+      );
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.editor,
+    parentNavigatorKey: _rootNavigatorKey,
+    builder: (BuildContext context, GoRouterState state) {
+      return const EditorPage();
+    },
+  ),
+];

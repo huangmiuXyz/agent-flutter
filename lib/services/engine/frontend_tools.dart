@@ -15,13 +15,18 @@ import 'package:nanoid/nanoid.dart';
 import 'package:agent/services/engine/engine_client.dart';
 import 'package:agent/services/llm/llm_service.dart';
 import 'package:agent/store/xterm_store.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/utils/shell_utils.dart';
 import 'package:agent/rust_bridge/events.dart';
 
 /// 注册所有前端工具到 Rust 后端 + EngineClient。
 ///
 /// 在 `main.dart` 主窗口启动时调用一次。
+///
+/// 移动端（Android/iOS）无本地 shell/PTY，跳过终端相关工具注册，
+/// 避免 Rust 侧把工具暴露给 LLM。
 Future<void> registerFrontendTools() async {
+  if (isMobilePlatform) return;
   registerSimulatedTerminal();
   registerTerminalSendInput();
 }

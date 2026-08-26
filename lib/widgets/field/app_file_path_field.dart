@@ -14,7 +14,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
+import 'package:agent/services/mobile_work_dir.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -104,6 +106,23 @@ class AppFilePathField extends StatelessWidget {
 
   Future<void> _pick(BuildContext context) async {
     try {
+      // 移动端目录选择：SAF 选中目录无法直接读（std::fs 限制），
+      // 导入副本到应用工作目录，成功后回填导入路径
+      if (isMobilePlatform && pickerType == PickerType.directory) {
+        final imported = await MobileWorkDirService.instance.pickAndImport();
+        if (imported == null) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: AppText('无法读取所选目录（Android 存储限制）')),
+            );
+          }
+          return;
+        }
+        controller.text = imported;
+        onChanged?.call(controller.text);
+        return;
+      }
+
       final String? result;
       if (pickerType == PickerType.directory) {
         result = await FilePicker.getDirectoryPath();

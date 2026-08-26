@@ -77,6 +77,9 @@ const Map<String, IconData> _registry = {
   'puzzle': LucideIcons.puzzle,
   'robot': LucideIcons.bot,
   'image': LucideIcons.image,
+  'command': LucideIcons.command,
+  'moreHorizontal': LucideIcons.moreHorizontal,
+  'messageSquare': LucideIcons.messageSquare,
 };
 
 class AppIcon extends StatelessWidget {

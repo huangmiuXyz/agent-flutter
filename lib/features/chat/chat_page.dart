@@ -12,6 +12,7 @@ import 'package:agent/features/checkpoints/checkpoint_list.dart';
 import 'package:agent/store/checkpoint_store.dart';
 import 'package:agent/store/sidebar_store.dart';
 import 'package:agent/store/xterm_store.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/resizebox/resizebox.dart';
 
 /// 是否是从源码直接运行（`flutter run`），而非打包后的 app。
@@ -164,11 +165,23 @@ class _ControlledSidebar extends HookWidget {
 ///
 /// Left panel | Chat + Terminal | Right panel (性能检测面板)。
 /// 右面板在 `flutter run`（debug/release 均显示），打包后隐藏。
+///
+/// 移动端：单栏，仅渲染 ChatContent（无左栏 / 终端 / 右栏；
+/// 终端面板不可用，`XtermStore` 的展开请求自然无人消费）。
 class ChatPage extends StatelessWidget {
   const ChatPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    if (isMobilePlatform) {
+      // 检查点视图切换与桌面保持一致
+      return SignalBuilder(
+        builder: (_) =>
+            CheckpointStore.instance.showCheckpointView.value
+                ? const CheckpointList()
+                : const ChatContent(),
+      );
+    }
     if (!_isRunningFromSource()) {
       // 打包后的 app，不显示性能面板
       return _buildTwoPanelLayout();

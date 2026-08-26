@@ -9,7 +9,7 @@ import 'package:agent/features/chat/widgets/system_prompt_banner.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/layout_utils.dart' show readingWidth;
+import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
 import 'package:agent/widgets/loading/app_loading.dart';
 
 import 'message_list_utils.dart';
@@ -871,7 +871,7 @@ class MessageList extends StatelessWidget {
                     Align(
                       alignment: Alignment.topCenter,
                       child: SizedBox(
-                        width: readingWidth,
+                        width: readingWidthFor(context),
                         child: listView ?? const SizedBox.shrink(),
                       ),
                     ),
@@ -884,7 +884,7 @@ class MessageList extends StatelessWidget {
                         request: measure.request!,
                         itemCount: listItemCount,
                         itemBuilder: buildListItem,
-                        width: readingWidth,
+                        width: readingWidthFor(context),
                         height: 600,
                       ),
                     // 右侧悬浮锚点面板：贴在聊天区右缘（窗口右侧），
