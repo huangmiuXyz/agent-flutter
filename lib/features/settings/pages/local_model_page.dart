@@ -30,6 +30,14 @@ import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
+/// GPU 卸载模式的简短描述（列表行展示用）。
+String _gpuModeLabel(LocalModelInfo m) {
+  final n = m.gpuLayers;
+  if (n == null) return '自动';
+  if (n <= 0) return 'CPU';
+  return '$n 层';
+}
+
 /// 本地模型设置页。
 class LocalModelPage extends HookWidget {
   const LocalModelPage({super.key});
@@ -41,6 +49,9 @@ class LocalModelPage extends HookWidget {
     final selectedModel = useState<LocalModelInfo?>(null);
     final editContextCtrl = useTextEditingController();
     final editMaxTokensCtrl = useTextEditingController();
+    // GPU 卸载设置：false = 自动评估；true = 手动输入层数
+    final editGpuManual = useState(false);
+    final editGpuLayersCtrl = useTextEditingController();
 
     // 订阅 config + 服务状态变化（跨窗口同步 / 服务启停后刷新 UI）
     useExistingSignal(ConfigStore.instance.data);
@@ -158,6 +169,8 @@ class LocalModelPage extends HookWidget {
     Future<void> onEditContext(LocalModelInfo model) async {
       editContextCtrl.text = '${model.contextSize}';
       editMaxTokensCtrl.text = model.maxTokens?.toString() ?? '';
+      editGpuManual.value = model.gpuLayers != null;
+      editGpuLayersCtrl.text = model.gpuLayers?.toString() ?? '';
       final confirmed = await AppDialog.show(
         context: context,
         title: '编辑模型参数',
@@ -175,6 +188,27 @@ class LocalModelPage extends HookWidget {
               placeholder: '例如 4096',
               controller: editMaxTokensCtrl,
             ),
+            SizedBox(height: custom.spacing.md),
+            AppSwitch(
+              value: editGpuManual.value,
+              onChanged: (v) => editGpuManual.value = v,
+              label: '手动设置 GPU 卸载层数',
+            ),
+            const SizedBox(height: 4),
+            AppText(
+              editGpuManual.value
+                  ? '0 = 纯 CPU；正整数 = 固定卸载层数（显存不足仍会自动降层兜底）'
+                  : '自动评估：优先全量卸载，显存不足自动降层，多余层用内存',
+              variant: AppTextVariant.caption,
+            ),
+            if (editGpuManual.value) ...[
+              SizedBox(height: custom.spacing.sm),
+              AppField(
+                label: 'GPU 卸载层数',
+                placeholder: '0 = 纯 CPU，例如 27',
+                controller: editGpuLayersCtrl,
+              ),
+            ],
           ],
         ),
         okText: '保存',
@@ -199,6 +233,21 @@ class LocalModelPage extends HookWidget {
           }
           return;
         }
+        // GPU 卸载：自动评估 / 手动（0 = 纯 CPU，正整数 = 固定层数）
+        int? gpuLayers;
+        if (editGpuManual.value) {
+          final rawGpu = editGpuLayersCtrl.text.trim();
+          final n = rawGpu.isEmpty ? 0 : int.tryParse(rawGpu);
+          if (rawGpu.isNotEmpty && (n == null || n < 0)) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: AppText('请输入 0 或正整数（GPU 卸载层数）')),
+              );
+            }
+            return;
+          }
+          gpuLayers = n ?? 0;
+        }
         final updated = [
           for (final m in models.value)
             if (m.name == model.name && m.path == model.path)
@@ -208,7 +257,7 @@ class LocalModelPage extends HookWidget {
                 contextSize: v,
                 maxTokens: maxTokens,
                 enabled: m.enabled,
-                gpuLayers: m.gpuLayers,
+                gpuLayers: gpuLayers,
               )
             else
               m,
@@ -269,7 +318,7 @@ class LocalModelPage extends HookWidget {
                   clickable: false,
                   actions: [
                     AppSecondaryButton(
-                      text: '${model.contextSize}',
+                      text: '${model.contextSize} · ${_gpuModeLabel(model)}',
                       icon: 'textCursorInput',
                       size: ButtonSize.sm,
                       onPressed: () => onEditContext(model),
