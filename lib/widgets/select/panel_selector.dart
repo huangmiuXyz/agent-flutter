@@ -523,7 +523,11 @@ class PanelSelector<T> extends HookWidget {
               color: isHovered.value ? custom.colors.hover : Colors.transparent,
               borderRadius: custom.radii.xs,
             ),
-            child: fullWidth ? content : Center(child: content),
+            // 非 fullWidth 时按钮宽度跟随内容（widthFactor 让 Align 收缩到子内容），
+            // 超出 maxWidth 由外层 ConstrainedBox 截断；Center 会填满有限 maxWidth 导致宽度固定。
+            child: fullWidth
+                ? content
+                : Align(alignment: Alignment.center, widthFactor: 1.0, child: content),
           ),
         ),
       ),

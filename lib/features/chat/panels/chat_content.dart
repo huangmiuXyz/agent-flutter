@@ -13,6 +13,7 @@ import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/features/chat/widgets/message_queue_panel.dart';
+import 'package:agent/features/chat/widgets/system_prompt_banner.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidth;
 import 'package:agent/widgets/divider/app_divider.dart';
@@ -98,6 +99,15 @@ class ChatContent extends HookWidget {
             return Column(
               key: const ValueKey('chat_with_messages'),
               children: [
+                // 系统提示词折叠项：外置于消息列表（不进 ListView 内部，
+                // 不影响 itemCount / 滚底收敛逻辑）
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: readingWidth,
+                    child: const SystemPromptBanner(),
+                  ),
+                ),
                 Expanded(child: MessageList(sessionId: displayId)),
                 Align(
                   alignment: Alignment.topCenter,

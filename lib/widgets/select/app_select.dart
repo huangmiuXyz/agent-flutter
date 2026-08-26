@@ -269,10 +269,11 @@ class AppSelect<T> extends HookWidget {
             errorText: errorText,
             size: size,
             suffixIcon: 'chevronDown',
+            // 注意不能传 null：TextField 从外部控制器切到内部控制器时会
+            // 保留原文本，导致「（不设置）」后输入框仍显示旧值。
+            // 这里始终用外部控制器，未选中时给空文本即可显示占位文案。
             controller: useMemoized(
-              () => selectedLabel != null
-                  ? TextEditingController(text: selectedLabel)
-                  : null,
+              () => TextEditingController(text: selectedLabel ?? ''),
               [selectedLabel],
             ),
           ),

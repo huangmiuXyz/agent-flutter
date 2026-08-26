@@ -79,6 +79,8 @@ class ToolPermissionPage extends HookWidget {
               cfg['tool_permissions']?['tools'] as Map<String, dynamic>?;
           if (configured != null) {
             for (final name in configured.keys) {
+              // 跳过空名条目（历史脏数据：畸形 tool_call 点「总是运行」写入）
+              if (name.trim().isEmpty) continue;
               if (!name.contains('/') && !names.contains(name)) {
                 names.add(name);
               }
@@ -110,6 +112,8 @@ class ToolPermissionPage extends HookWidget {
             <String, dynamic>{};
         final tools = <String, dynamic>{};
         for (final name in defaults.value.keys) {
+          // 空名不回写，顺带清掉配置里已存在的空名条目
+          if (name.trim().isEmpty) continue;
           tools[name] = {'default': defaults.value[name] ?? 'ask'};
         }
         // 清理顶层残留的 MCP 工具条目（工具名含 `/`；权限已迁移到服务器配置）

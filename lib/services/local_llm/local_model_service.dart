@@ -14,6 +14,8 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import 'package:llamadart/llamadart.dart';
 import 'package:signals/signals.dart';
 
@@ -149,7 +151,8 @@ class LocalModelService {
       _writeProviderConfig();
       status.value = LocalModelStatus.ready;
       loadingMsg.value = null;
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[LocalModel] 启动失败: $e\n$st');
       activeModel.value = null;
       status.value = LocalModelStatus.error;
       errorMsg.value = '$e';
@@ -211,7 +214,8 @@ class LocalModelService {
         return;
       }
       _json(req.response, 404, {'error': {'message': 'not found: $path'}});
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[LocalModel] dispatch 异常: $e\n$st');
       _tryError(req.response, 500, '$e');
     }
   }
@@ -240,7 +244,8 @@ class LocalModelService {
         final req = _queue.removeFirst();
         try {
           await _chat(req);
-        } catch (e) {
+        } catch (e, st) {
+          debugPrint('[LocalModel] 处理聊天请求失败: $e\n$st');
           _tryError(req.response, 500, '$e');
         }
       }
@@ -419,8 +424,31 @@ class LocalModelService {
         await req.response.flush();
         idx++;
       }
-    } catch (_) {
-      // 生成中断：干净地终止 SSE，避免客户端挂起
+    } catch (e, st) {
+      // 生成中断/报错：不静默收尾。liter-llm 会把每个 `data:` 行反序列化成
+      // ChatCompletionChunk（`{"error": ...}` 会导致 missing field choices），
+      // 因此把真实错误塞进普通文本 chunk 的 content 里，让它直接渲染到聊天，
+      // 而不是变成“闪一下就没了”的空回复。
+      debugPrint('[LocalModel] 流式生成中断: $e\n$st');
+      try {
+        req.response.write(
+          'data: ${jsonEncode({
+                'id': 'chatcmpl-error',
+                'object': 'chat.completion.chunk',
+                'created': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                'model': activeModel.value?.modelId,
+                'choices': [
+                  {
+                    'index': 0,
+                    'delta': {'role': 'assistant', 'content': '[错误] $e'},
+                    'finish_reason': 'stop',
+                  },
+                ],
+              })}\n\n',
+        );
+      } catch (_) {
+        // 响应可能已断开，忽略
+      }
       req.response.write('data: [DONE]\n\n');
       await req.response.close();
       return;

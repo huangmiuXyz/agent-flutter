@@ -704,11 +704,37 @@ class SessionStore {
     String decision,
   ) async {
     final s = sessions.value[sessionId];
-    final pending = s?.pendingPermissions.remove(partId);
-    // 乐观隐藏按钮（Rust 侧 ToolCall 事件到达后也会再次清除）
+    final pending = s?.pendingPermissions[partId];
+    if (s == null) {
+      debugPrint(
+        '[ToolPermission] 会话状态不存在，无法回传 sid=$sessionId partId=$partId',
+      );
+      return;
+    }
+    if (pending == null) {
+      debugPrint('[ToolPermission] 无待确认项（可能已失效）partId=$partId');
+      return;
+    }
+    try {
+      final ok = await api.submitToolPermission(
+        callId: pending.callId,
+        decision: decision,
+      );
+      debugPrint(
+        '[ToolPermission] 回传 decision=$decision callId=${pending.callId} '
+        'tool=${pending.toolName} ok=$ok',
+      );
+      if (ok) {
+        // 提交成功才移除按钮（Rust 侧 ToolCall 事件到达后也会再次清除）
+        s.pendingPermissions.remove(partId);
+      } else {
+        debugPrint('[ToolPermission] Rust 侧 call_id 不存在（已被取消/拒绝）');
+        s.pendingPermissions.remove(partId);
+      }
+    } catch (e, st) {
+      debugPrint('[ToolPermission] 回传异常: $e\n$st');
+    }
     _emit();
-    if (pending == null) return;
-    await api.submitToolPermission(callId: pending.callId, decision: decision);
   }
 
   /// 子智能体结果注入后的自动继续：用该会话最近一次发送的模型，
