@@ -365,7 +365,7 @@ class _MobileSettingsTab extends StatelessWidget {
             color: active
                 ? custom.colors.accent.withValues(alpha: 0.12)
                 : custom.colors.hover,
-            borderRadius: BorderRadius.circular(custom.radii.xs),
+            borderRadius: custom.radii.xs,
           ),
           child: AppText(
             label,

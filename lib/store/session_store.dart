@@ -200,6 +200,8 @@ class SessionStore {
       removeSession(id);
       unsubscribeSession(id);
       _sendContext.remove(id);
+      // 清理队列缓存，避免残留数据在会话重建后错误展示
+      MessageQueueStore.instance.forgetSession(id);
     }
     sessions.value = map;
   }
@@ -239,6 +241,8 @@ class SessionStore {
     addSession(session);
     selectedId.value = session.id;
     displayedSessionId.value = session.id;
+    // 新会话队列为空：清掉上一个会话残留的队列展示
+    MessageQueueStore.instance.showQueueFor(session.id);
     return session.id;
   }
 
@@ -314,19 +318,30 @@ class SessionStore {
     final dbPath = ConfigStore.instance.dbPath;
 
     // ── 2. 读 DB（parts + messages） ──
-    await Future.wait([
-      service
-          .listMessagesBySession(dbPath: dbPath, sessionId: sessionId)
-          .then((m) => sessions.value[sessionId]!.loadFromMessages(m))
-          .catchError((_) {}),
-      service
-          .listPartsBySession(dbPath: dbPath, sessionId: sessionId)
-          .then((p) => sessions.value[sessionId]!.loadFromParts(p))
-          .catchError((_) {}),
-    ]);
+    // 流式输出中的会话跳过 DB 重载：内存态正在被事件流实时更新，
+    // DB 快照可能滞后于事件流（Rust 异步落库），重载会用旧快照覆盖
+    // 在途 chunk（丢字/重复），双会话并发流式 + 来回切换时尤其明显。
+    // 非流式会话仍重载：内存态可能缺 DB 中已落库的内容（重试/工具结果等）。
+    final hasLiveContent =
+        sessions.value[sessionId]?.partsByMsg.isNotEmpty ?? false;
+    final isStreaming = streamingSessionIds.value.contains(sessionId);
+    if (!(isStreaming && hasLiveContent)) {
+      await Future.wait([
+        service
+            .listMessagesBySession(dbPath: dbPath, sessionId: sessionId)
+            .then((m) => sessions.value[sessionId]!.loadFromMessages(m))
+            .catchError((_) {}),
+        service
+            .listPartsBySession(dbPath: dbPath, sessionId: sessionId)
+            .then((p) => sessions.value[sessionId]!.loadFromParts(p))
+            .catchError((_) {}),
+      ]);
+    }
 
     _emit();
     displayedSessionId.value = sessionId;
+    // 队列面板切换为当前会话的队列（Rust 不会重发 QueueState）
+    MessageQueueStore.instance.showQueueFor(sessionId);
   }
 
   /// 发送消息 — 触发后端 chat_stream，事件通过订阅异步到达。
@@ -617,8 +632,12 @@ class SessionStore {
     }
 
     if (event is EngineEvent_QueueState) {
-      // 用 Rust 队列状态刷新 UI 展示
-      MessageQueueStore.instance.syncFromRust(event.items, event.flags);
+      // 用 Rust 队列状态刷新对应会话的缓存（面板只展示选中会话的队列）
+      MessageQueueStore.instance.syncFromRust(
+        sessionId,
+        event.items,
+        event.flags,
+      );
       return;
     }
 
@@ -706,9 +725,7 @@ class SessionStore {
     final s = sessions.value[sessionId];
     final pending = s?.pendingPermissions[partId];
     if (s == null) {
-      debugPrint(
-        '[ToolPermission] 会话状态不存在，无法回传 sid=$sessionId partId=$partId',
-      );
+      debugPrint('[ToolPermission] 会话状态不存在，无法回传 sid=$sessionId partId=$partId');
       return;
     }
     if (pending == null) {
