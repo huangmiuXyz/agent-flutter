@@ -180,13 +180,13 @@ class AgentStore {
   }
 
   /// 解析当前生效的推理强度等级（provider-default / none / minimal / low /
-  /// medium / high / xhigh）。
+  /// medium / high / max）。
   ///
   /// 读取规则与 [resolveModel] 一致：非全局智能体优先读自己的 config.json，
   /// 否则读全局配置；按「真正生效」的 (provider, model) 定位 `available_models`
   /// 中该模型的条目，其 `reasoning_effort` 优先，回退到 provider 级字段。
-  /// 字段缺失或为空 = provider-default（省略参数）；旧配置遗留的 "max"
-  /// 等价于标准化等级 "xhigh"。
+  /// 字段缺失或为空 = provider-default（省略参数）；旧配置遗留的 "xhigh"
+  /// 归一为标准化等级 "max"。
   String resolveReasoningEffort() {
     final resolved = resolveModel();
     final agent = currentAgent.value;
@@ -203,14 +203,14 @@ class AgentStore {
       if (item is Map) {
         final v = item['reasoning_effort'] as String?;
         if (v != null && v.isNotEmpty) {
-          return v == 'max' ? kReasoningEffortXhigh : v;
+          return v == 'xhigh' ? kReasoningEffortXhigh : v;
         }
       }
     }
     // 回退到 provider 级字段
     final raw = cfg['reasoning_effort'] as String?;
     if (raw == null || raw.isEmpty) return kReasoningEffortProviderDefault;
-    if (raw == 'max') return kReasoningEffortXhigh;
+    if (raw == 'xhigh') return kReasoningEffortXhigh;
     return raw;
   }
 
