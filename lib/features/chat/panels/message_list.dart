@@ -203,7 +203,8 @@ class MessageList extends StatelessWidget {
         return HookBuilder(
           key: ValueKey('msglist_$sessionId'),
           builder: (context) {
-            // 本会话的检查点（聊天内嵌展示；编辑级挂 part，消息级挂用户消息）
+            // 本会话的检查点（聊天内嵌展示；编辑级显示在对应 part 之前，
+            // 消息级挂在用户消息下方）
             final sessionCps =
                 useExistingSignal(
                   CheckpointStore.instance.sessionCheckpoints,
@@ -568,8 +569,7 @@ class MessageList extends StatelessWidget {
                   // 若懒加载估算偏差把最新内容/loading 推出视口，
                   // 帧后收敛恢复贴底；安排后用户滚走则不打扰。
                   convergeToBottomIfPinned(pinnedAtSchedule: true);
-                } else {
-                }
+                } else {}
               }
 
               mgr.addBeforeEmitListener(onBeforeEmit);
@@ -665,7 +665,7 @@ class MessageList extends StatelessWidget {
               final parts = partsByMsg[msgId] ?? [];
               if (partIndex >= parts.length) return const SizedBox.shrink();
               final part = parts[partIndex];
-              // 编辑级检查点（partId = tool_call part id）挂在该 part 下
+              // 编辑级检查点（partId = tool_call part id）显示在该 part 之前
               final partCps = sessionCps
                   .where((cp) => cp.partId == part.id)
                   .toList();

@@ -268,7 +268,8 @@ class ChatMessageItem extends HookWidget {
   final Map<String, PendingToolPermission> pendingPermissions;
 
   /// 本消息关联的检查点（编辑级 = 对应 tool_call part；消息级 = 用户消息）。
-  /// 渲染为检查点卡片（与工具调用等共用 ChatExpandablePart 组件）。
+  /// 编辑级渲染在对应 part 之前，消息级渲染在用户消息下方；
+  /// 均复用 ChatExpandablePart 组件。
   final List<api.CheckpointInfo> checkpoints;
 
   const ChatMessageItem({
@@ -404,13 +405,26 @@ class ChatMessageItem extends HookWidget {
 
     // 完全按 parts 原始顺序渲染：不做任何合并/拆分/移动，
     // 每个 part 按自身类型显示（思考、搜索、答案各归其位）。
-    // 编辑级检查点（partId 非空）紧跟其 tool_call part 渲染。
+    // 编辑级检查点（partId 非空）显示在对应 tool_call part 之前：
+    // 检查点代表"编辑前状态"（恢复入口），先于修改本身出现。
     final partsWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         ?modelBadge,
         for (int i = 0; i < visibleParts.length; i++) ...[
+          for (final cp in checkpoints.where(
+            (cp) => cp.partId == visibleParts[i].id,
+          ))
+            Padding(
+              // 上间距：与上方 item 底部 padding 合计 8px（对齐 part 间距）；
+              // 下间距 sm：与紧随的 apply_patch part 拉开 8px
+              padding: EdgeInsets.only(
+                top: custom.spacing.xs,
+                bottom: custom.spacing.sm,
+              ),
+              child: ChatCheckpointPart(cp: cp),
+            ),
           _buildPartWithSpacing(
             i,
             visibleParts,
@@ -418,14 +432,6 @@ class ChatMessageItem extends HookWidget {
             minPartHeight,
             partCache.value,
           ),
-          for (final cp in checkpoints.where(
-            (cp) => cp.partId == visibleParts[i].id,
-          ))
-            Padding(
-              // 上间距对齐 part 间距（两侧 messagePadding xs 合计 8px）
-              padding: EdgeInsets.only(top: custom.spacing.xs),
-              child: ChatCheckpointPart(cp: cp),
-            ),
         ],
       ],
     );
