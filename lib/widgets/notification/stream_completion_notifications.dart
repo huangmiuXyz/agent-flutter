@@ -93,6 +93,8 @@ class _NoticeCard extends StatelessWidget {
     final custom = CustomTheme.of(context);
     final statusColor = notice.isError
         ? custom.colors.danger
+        : notice.warning
+        ? custom.colors.warning
         : custom.colors.success;
 
     return TweenAnimationBuilder<double>(
@@ -124,7 +126,8 @@ class _NoticeCard extends StatelessWidget {
                 Padding(
                   padding: EdgeInsets.only(top: 2),
                   child: AppIcon(
-                    notice.isError ? 'alertCircle' : 'check',
+                    notice.icon ??
+                        (notice.isError ? 'alertCircle' : 'check'),
                     size: custom.typography.bodySize,
                     color: statusColor,
                   ),

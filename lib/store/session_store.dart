@@ -610,6 +610,14 @@ class SessionStore {
       return;
     }
 
+    // 工具被阻止、等待用户批准 → 自动通知（流式场景：卡片内联确认按钮；
+    // 仅新出现的待确认项弹通知，同一 part 的重复事件不重复打扰）
+    if (event is EngineEvent_ToolPermissionRequest &&
+        event.partId.isNotEmpty &&
+        !s.pendingPermissions.containsKey(event.partId)) {
+      _notifyToolPermission(sessionId, event);
+    }
+
     // 首个内容到达 = 重试已成功，清除重试提示
     if (event is EngineEvent_Chunk ||
         event is EngineEvent_ReasoningChunk ||
@@ -842,6 +850,24 @@ class SessionStore {
       if (s.id == sessionId) return s.name;
     }
     return sessionId;
+  }
+
+  /// 工具被阻止、需要用户批准 → 应用内 + 系统通知（点击通知切换到会话，
+  /// 在会话的工具卡片上做「本次通过 / 总是运行 / 拒绝」确认）。
+  void _notifyToolPermission(
+    String sessionId,
+    EngineEvent_ToolPermissionRequest event,
+  ) {
+    final name = event.toolName.length > 40
+        ? '${event.toolName.substring(0, 40)}…'
+        : event.toolName;
+    NotificationStore.instance.notify(
+      sessionId: sessionId,
+      title: '工具需要批准',
+      message: '工具「$name」请求执行权限，请在会话中确认',
+      icon: 'alertCircle',
+      warning: true,
+    );
   }
 
   SessionState _ensureState(String sessionId) {

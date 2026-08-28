@@ -23,12 +23,20 @@ class StreamCompletionNotice {
   final String message;
   final bool isError;
 
+  /// 自定义图标名；null = 按 [isError] 取 alertCircle / check。
+  final String? icon;
+
+  /// 需要用户注意但非错误（如工具权限待批准）：图标与标题用 warning 色。
+  final bool warning;
+
   const StreamCompletionNotice({
     required this.id,
     this.sessionId,
     required this.title,
     required this.message,
     this.isError = false,
+    this.icon,
+    this.warning = false,
   });
 }
 
@@ -57,6 +65,8 @@ class NotificationStore {
     required String message,
     bool isError = false,
     Duration? duration,
+    String? icon,
+    bool warning = false,
   }) {
     final notice = StreamCompletionNotice(
       id: _nextId++,
@@ -64,6 +74,8 @@ class NotificationStore {
       title: title,
       message: message,
       isError: isError,
+      icon: icon,
+      warning: warning,
     );
     notices.value = [...notices.value, notice];
     _timers[notice.id] = Timer(
