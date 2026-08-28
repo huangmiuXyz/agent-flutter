@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/card/app_card.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
@@ -72,6 +74,15 @@ class AppSelect<T> extends HookWidget {
   /// 内容超过该宽度时由菜单项以省略号截断显示。
   final double? menuMaxWidth;
 
+  /// 是否在下拉面板顶部显示搜索框，实时过滤选项。
+  ///
+  /// 搜索框聚焦时：输入即过滤（匹配选项名 / 显示名 / 分组名），
+  /// ↑/↓ 移动选中，Enter 确认选中，Esc 关闭面板。默认 true。
+  final bool searchable;
+
+  /// 搜索框占位提示；仅 [searchable] 为 true 时使用。null = 「搜索…」。
+  final String? searchHint;
+
   const AppSelect({
     super.key,
     this.value,
@@ -84,6 +95,8 @@ class AppSelect<T> extends HookWidget {
     this.onChanged,
     this.menuMaxHeight = 300,
     this.menuMaxWidth,
+    this.searchable = true,
+    this.searchHint,
   });
 
   /// Build the dropdown menu items, grouping by [AppSelectOption.group].
@@ -93,10 +106,12 @@ class AppSelect<T> extends HookWidget {
   List<Widget> _buildMenuItems(
     CustomTheme custom,
     bool enabled,
+    T? currentValue,
+    List<AppSelectOption<T>> filtered,
     ValueChanged<AppSelectOption<T>> onSelect,
   ) {
     final Map<String?, List<AppSelectOption<T>>> groups = {};
-    for (final option in options) {
+    for (final option in filtered) {
       groups.putIfAbsent(option.group, () => []).add(option);
     }
 
@@ -108,7 +123,7 @@ class AppSelect<T> extends HookWidget {
             label: option.label,
             icon: option.icon,
             labelMaxLines: 1,
-            active: option.value == value,
+            active: option.value == currentValue,
             disabled: !option.enabled || !enabled,
             labelVariant: AppTextVariant.body,
             intrinsicHeight: true,
@@ -142,6 +157,29 @@ class AppSelect<T> extends HookWidget {
 
     final enabled = !disabled && onChanged != null;
 
+    // 搜索状态：查询文本 + 输入框控制器/焦点
+    final searchQuery = useState('');
+    final searchController = useTextEditingController();
+    final searchFocusNode = useFocusNode();
+    // 菜单内容版本：选中值/选项变化时原地刷新菜单（不重建 OverlayEntry，
+    // 否则会丢失搜索框焦点）
+    final contentVersion = useMemoized(() => ValueNotifier(0));
+    useEffect(() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        contentVersion.value++;
+      });
+      return null;
+    }, [value, options]);
+
+    // 最新 value/options/enabled 引用：菜单打开期间内容变化时，
+    // 由 OverlayEntry 内的 ListenableBuilder 读取（闭包捕获的旧值不会更新）。
+    final valueRef = useRef(value);
+    valueRef.value = value;
+    final optionsRef = useRef(options);
+    optionsRef.value = options;
+    final enabledRef = useRef(enabled);
+    enabledRef.value = enabled;
+
     // Find the label for the current value (prefer displayLabel for the field).
     final selectedLabel = useMemoized(() {
       if (value == null) return null;
@@ -152,6 +190,69 @@ class AppSelect<T> extends HookWidget {
 
     final custom = CustomTheme.of(context);
     final screenHeight = MediaQuery.of(context).size.height;
+
+    // 面板顶部搜索条：输入实时过滤（匹配选项名 / 显示名 / 分组名），
+    // Esc 关闭面板
+    Widget buildSearchHeader() {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              custom.spacing.sm,
+              custom.spacing.xs,
+              custom.spacing.sm,
+              custom.spacing.xs,
+            ),
+            child: Focus(
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  isOpen.value = false;
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: Row(
+                children: [
+                  AppIcon(
+                    'search',
+                    size: custom.typography.captionSize,
+                    color: custom.colors.textSecondary,
+                  ),
+                  SizedBox(width: custom.spacing.xs),
+                  Expanded(
+                    child: TextField(
+                      controller: searchController,
+                      focusNode: searchFocusNode,
+                      onChanged: (v) => searchQuery.value = v,
+                      style: TextStyle(
+                        fontSize: custom.typography.captionSize,
+                        fontFamily: custom.typography.fontFamily,
+                        color: custom.colors.textPrimary,
+                      ),
+                      cursorColor: custom.colors.textPrimary,
+                      decoration: InputDecoration(
+                        hintText: searchHint ?? '搜索…',
+                        hintStyle: TextStyle(
+                          fontSize: custom.typography.captionSize,
+                          color: custom.colors.textSecondary,
+                        ),
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AppDivider(size: AppDividerSize.small),
+        ],
+      );
+    }
 
     // Open/close dropdown via OverlayEntry with a transparent barrier.
     useEffect(() {
@@ -165,13 +266,13 @@ class AppSelect<T> extends HookWidget {
       final fieldPos = fieldBox?.localToGlobal(Offset.zero);
       final fieldBottom = (fieldPos?.dy ?? 0) + (fieldBox?.size.height ?? 0);
       final spaceBelow = screenHeight - fieldBottom;
-      final groupedCount = options
+      final groupedCount = optionsRef.value
           .where((o) => o.group != null)
           .map((o) => o.group)
           .toSet()
           .length;
       final estimatedMenuHeight =
-          (options.length * custom.controls.mediumHeight +
+          (optionsRef.value.length * custom.controls.mediumHeight +
                   groupedCount * custom.controls.smallHeight)
               .clamp(0.0, menuMaxHeight);
       final showAbove = spaceBelow < estimatedMenuHeight;
@@ -213,21 +314,63 @@ class AppSelect<T> extends HookWidget {
                       padding: EdgeInsets.zero,
                       child: ConstrainedBox(
                         constraints: BoxConstraints(maxHeight: menuMaxHeight),
-                        child: SingleChildScrollView(
-                          child: AppList(
-                            size: AppListSize.small,
-                            containerPadding: EdgeInsets.all(
-                              custom.spacing.xs,
-                            ),
-                            children: _buildMenuItems(
-                              custom,
-                              enabled,
-                              (option) {
-                                isOpen.value = false;
-                                onChanged?.call(option.value);
-                              },
-                            ),
+                        // 监听搜索词与内容版本：输入过滤、选中/选项变化时
+                        // 原地重建菜单内容（不重建 OverlayEntry，保住搜索框焦点）
+                        child: ListenableBuilder(
+                          listenable: Listenable.merge(
+                            [searchQuery, contentVersion],
                           ),
+                          builder: (context, _) {
+                            final currentValue = valueRef.value;
+                            final query =
+                                searchQuery.value.trim().toLowerCase();
+                            bool matches(AppSelectOption<T> o) {
+                              if (query.isEmpty) return true;
+                              return o.label.toLowerCase().contains(query) ||
+                                  (o.displayLabel?.toLowerCase().contains(
+                                        query,
+                                      ) ??
+                                      false) ||
+                                  (o.group?.toLowerCase().contains(query) ??
+                                      false);
+                            }
+
+                            final visible = searchable
+                                ? optionsRef.value.where(matches).toList()
+                                : optionsRef.value;
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (searchable) buildSearchHeader(),
+                                Flexible(
+                                  child: SingleChildScrollView(
+                                    child: AppList(
+                                      size: AppListSize.small,
+                                      containerPadding: EdgeInsets.all(
+                                        custom.spacing.xs,
+                                      ),
+                                      keyboardNavigable: searchable,
+                                      initialFocusedIndex: searchable ? 0 : -1,
+                                      emptyPlaceholder: searchable
+                                          ? '无匹配项'
+                                          : null,
+                                      children: _buildMenuItems(
+                                        custom,
+                                        enabledRef.value,
+                                        currentValue,
+                                        visible,
+                                        (option) {
+                                          isOpen.value = false;
+                                          onChanged?.call(option.value);
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -245,6 +388,13 @@ class AppSelect<T> extends HookWidget {
           return;
         }
         Overlay.of(context).insert(entry);
+        if (searchable) {
+          // 菜单挂载完成后再聚焦搜索框（post-frame 嵌套，等下一帧渲染）
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!isOpen.value) return;
+            searchFocusNode.requestFocus();
+          });
+        }
       });
       return () => entry.remove();
     }, [isOpen.value]);
@@ -256,6 +406,11 @@ class AppSelect<T> extends HookWidget {
             ? () {
                 // Capture the field width after layout (safe in gesture phase).
                 fieldWidth.value = fieldKey.currentContext?.size?.width;
+                // 打开时重置搜索：每次打开从空搜索开始
+                if (!isOpen.value) {
+                  searchController.clear();
+                  searchQuery.value = '';
+                }
                 isOpen.value = !isOpen.value;
               }
             : null,

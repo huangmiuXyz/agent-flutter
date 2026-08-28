@@ -54,6 +54,7 @@ class ReasoningSelector extends HookWidget {
       // 按钮以灯泡图标代替「推理:」文字前缀
       buttonIcon: 'lightbulb',
       data: items,
+      searchable: true,
       // 标签为简短英文，菜单宽度收窄；按钮不设限宽，避免文本被截断成省略号
       menuMinWidth: 100,
       onChanged: (v) {

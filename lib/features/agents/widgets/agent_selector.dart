@@ -55,6 +55,8 @@ class AgentSelector extends HookWidget {
     return PanelSelector<String>(
       value: effectiveId,
       placeholder: '选择智能体',
+      searchable: true,
+      searchHint: '搜索智能体',
       onBeforeOpen: refresh,
       options: [
         for (final agent in agents)
