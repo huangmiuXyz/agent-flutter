@@ -200,6 +200,7 @@ class SessionStore {
       removeSession(id);
       unsubscribeSession(id);
       _sendContext.remove(id);
+      CheckpointStore.instance.removeSession(id);
     }
     sessions.value = map;
   }
@@ -313,7 +314,7 @@ class SessionStore {
     final service = LlmService();
     final dbPath = ConfigStore.instance.dbPath;
 
-    // ── 2. 读 DB（parts + messages） ──
+    // ── 2. 读 DB（parts + messages + checkpoints） ──
     await Future.wait([
       service
           .listMessagesBySession(dbPath: dbPath, sessionId: sessionId)
@@ -323,6 +324,7 @@ class SessionStore {
           .listPartsBySession(dbPath: dbPath, sessionId: sessionId)
           .then((p) => sessions.value[sessionId]!.loadFromParts(p))
           .catchError((_) {}),
+      CheckpointStore.instance.loadSessionCheckpoints(sessionId),
     ]);
 
     _emit();
@@ -706,9 +708,7 @@ class SessionStore {
     final s = sessions.value[sessionId];
     final pending = s?.pendingPermissions[partId];
     if (s == null) {
-      debugPrint(
-        '[ToolPermission] 会话状态不存在，无法回传 sid=$sessionId partId=$partId',
-      );
+      debugPrint('[ToolPermission] 会话状态不存在，无法回传 sid=$sessionId partId=$partId');
       return;
     }
     if (pending == null) {

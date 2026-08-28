@@ -7,6 +7,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/chat/chat_fleather.dart';
+import 'package:agent/features/checkpoints/chat_checkpoint_part.dart';
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/services/image_store.dart';
 import 'package:agent/services/session/part_types.dart';
@@ -266,6 +267,10 @@ class ChatMessageItem extends HookWidget {
   /// part_id → 等待用户确认的工具调用（有值 = 卡片显示三选一按钮）
   final Map<String, PendingToolPermission> pendingPermissions;
 
+  /// 本消息关联的检查点（编辑级 = 对应 tool_call part；消息级 = 用户消息）。
+  /// 渲染为检查点卡片（与工具调用等共用 ChatExpandablePart 组件）。
+  final List<api.CheckpointInfo> checkpoints;
+
   const ChatMessageItem({
     super.key,
     required this.sessionId,
@@ -279,6 +284,7 @@ class ChatMessageItem extends HookWidget {
     this.streaming = false,
     this.toolStreamedOutputs = const {},
     this.pendingPermissions = const {},
+    this.checkpoints = const [],
   });
 
   @override
@@ -350,7 +356,7 @@ class ChatMessageItem extends HookWidget {
       (p) => p.partType == PartTypes.subAgentText,
     );
     if (role == 'user' && !hasSubAgentPart) {
-      return _UserMessage(
+      final msg = _UserMessage(
         sessionId: sessionId,
         msgId: msgId,
         visibleParts: visibleParts,
@@ -358,6 +364,27 @@ class ChatMessageItem extends HookWidget {
         minPartHeight: minPartHeight,
         onRetry: onRetry,
         onFocusChanged: onFocusChanged,
+      );
+      // 消息级检查点（partId 为 null）挂在用户消息下方
+      final msgLevelCps = checkpoints.where((cp) => cp.partId == null).toList();
+      if (msgLevelCps.isEmpty) return msg;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          msg,
+          for (final cp in msgLevelCps)
+            Padding(
+              // 与用户消息内容同宽对齐（消息自身已含 md 水平内边距）；
+              // 上下各 xs 与两侧消息 padding 合计 8px（对齐普通 part 间距）
+              padding: EdgeInsets.fromLTRB(
+                custom.spacing.md,
+                custom.spacing.xs,
+                custom.spacing.md,
+                custom.spacing.xs,
+              ),
+              child: ChatCheckpointPart(cp: cp),
+            ),
+        ],
       );
     }
 
@@ -377,12 +404,13 @@ class ChatMessageItem extends HookWidget {
 
     // 完全按 parts 原始顺序渲染：不做任何合并/拆分/移动，
     // 每个 part 按自身类型显示（思考、搜索、答案各归其位）。
+    // 编辑级检查点（partId 非空）紧跟其 tool_call part 渲染。
     final partsWidget = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         ?modelBadge,
-        for (int i = 0; i < visibleParts.length; i++)
+        for (int i = 0; i < visibleParts.length; i++) ...[
           _buildPartWithSpacing(
             i,
             visibleParts,
@@ -390,6 +418,15 @@ class ChatMessageItem extends HookWidget {
             minPartHeight,
             partCache.value,
           ),
+          for (final cp in checkpoints.where(
+            (cp) => cp.partId == visibleParts[i].id,
+          ))
+            Padding(
+              // 上间距对齐 part 间距（两侧 messagePadding xs 合计 8px）
+              padding: EdgeInsets.only(top: custom.spacing.xs),
+              child: ChatCheckpointPart(cp: cp),
+            ),
+        ],
       ],
     );
 

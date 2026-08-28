@@ -14,15 +14,14 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/chat/custom_tools_render/diff_code_block.dart';
+import 'package:agent/features/checkpoints/checkpoint_actions.dart';
 import 'package:agent/rust_bridge/api/checkpoints.dart' as api;
 import 'package:agent/rust_bridge/api/types.dart' as api_types;
-import 'package:agent/services/sync/cross_window_sync.dart';
 import 'package:agent/store/checkpoint_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
-import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/tab/app_tab_bar.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
@@ -30,15 +29,15 @@ import 'package:agent/widgets/text/app_text.dart';
 enum CheckpointOperation { added, modified, deleted, unknown }
 
 /// API 字符串 → 操作类型（"unknown" 及其他未知值 → unknown）。
-CheckpointOperation _operationFromApi(String? op) => switch (op) {
-      'added' => CheckpointOperation.added,
-      'modified' => CheckpointOperation.modified,
-      'deleted' => CheckpointOperation.deleted,
-      _ => CheckpointOperation.unknown,
-    };
+CheckpointOperation operationFromApi(String? op) => switch (op) {
+  'added' => CheckpointOperation.added,
+  'modified' => CheckpointOperation.modified,
+  'deleted' => CheckpointOperation.deleted,
+  _ => CheckpointOperation.unknown,
+};
 
 /// 操作类型徽标（新增=绿 / 修改=强调色 / 删除=红）。
-Widget _operationBadge(CustomTheme custom, CheckpointOperation op) {
+Widget operationBadge(CustomTheme custom, CheckpointOperation op) {
   final (label, color) = switch (op) {
     CheckpointOperation.added => ('新增', custom.colors.success),
     CheckpointOperation.modified => ('修改', custom.colors.accent),
@@ -61,7 +60,7 @@ Widget _operationBadge(CustomTheme custom, CheckpointOperation op) {
 }
 
 /// 详细时间：`yyyy-MM-dd HH:mm:ss`（精确到秒）。
-String _formatTime(int timestampSec) {
+String formatCheckpointTime(int timestampSec) {
   final date = DateTime.fromMillisecondsSinceEpoch(timestampSec * 1000);
   String two(int n) => n.toString().padLeft(2, '0');
   return '${date.year}-${two(date.month)}-${two(date.day)} '
@@ -300,11 +299,11 @@ class _CheckpointItem extends HookWidget {
                           ],
                           if (operation.data case final op?
                               when op != 'unknown') ...[
-                            _operationBadge(custom, _operationFromApi(op)),
+                            operationBadge(custom, operationFromApi(op)),
                             SizedBox(width: custom.spacing.xs),
                           ],
                           AppText(
-                            _formatTime(cp.createdAt),
+                            formatCheckpointTime(cp.createdAt),
                             variant: AppTextVariant.caption,
                             color: custom.colors.textSecondary,
                           ),
@@ -443,101 +442,14 @@ class _CheckpointItem extends HookWidget {
     return DiffCodeBlock(diff: text, maxHeight: math.max(maxDiffHeight, 120.0));
   }
 
-  Future<void> _confirmRestore(
+  void _confirmRestore(
     BuildContext context, {
     required VoidCallback onApplied,
-  }) async {
-    final confirmed = await AppDialog.show(
-      context: context,
-      title: '恢复文件',
-      okText: '恢复',
-      child: AppText(
-        '将把本次${cp.partId == null ? '对话' : '编辑'}涉及的 ${cp.files.length} 个文件恢复到编辑前状态，并停止当前对话。\n'
-        '此操作会覆盖这些文件的当前内容，且不影响检查点与聊天记录（可反复恢复）。',
-      ),
-      onOk: () {},
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    final summary = await CheckpointStore.instance.restore(cp);
-    if (!context.mounted) return;
-    if (summary == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: AppText('恢复失败，请检查工作目录是否为 git 仓库')),
-      );
-      return;
-    }
-    // 工作区已变化：刷新展开区的 diff 预览
-    onApplied();
-
-    final affected = [...summary.restored, ...summary.deleted];
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: AppText(
-          '已恢复 ${summary.restored.length} 个文件'
-          '${summary.deleted.isEmpty ? '' : '，删除 ${summary.deleted.length} 个新增文件'}',
-        ),
-      ),
-    );
-
-    // 停止当前对话（对齐 Zed #42537）
-    final sid = SessionStore.instance.selectedId.value;
-    if (sid != null) {
-      SessionStore.instance.cancelStreaming(sid);
-    }
-
-    // 通知编辑器子窗口重新加载受影响文件
-    if (affected.isNotEmpty) {
-      unawaited(CrossWindowSync.notify('checkpointRestored', affected));
-    }
+  }) {
+    unawaited(confirmRestoreCheckpoint(context, cp, onApplied: onApplied));
   }
 
-  Future<void> _confirmApply(
-    BuildContext context, {
-    required VoidCallback onApplied,
-  }) async {
-    final confirmed = await AppDialog.show(
-      context: context,
-      title: '重新应用',
-      okText: '重新应用',
-      child: AppText(
-        '将把本次${cp.partId == null ? '对话' : '编辑'}涉及的 ${cp.files.length} 个文件恢复到检查点（编辑后）状态，并停止当前对话。\n'
-        '此操作会覆盖这些文件的当前内容，且不影响检查点与聊天记录（可反复应用）。',
-      ),
-      onOk: () {},
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    final summary = await CheckpointStore.instance.apply(cp);
-    if (!context.mounted) return;
-    if (summary == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: AppText('重新应用失败，请检查工作目录是否为 git 仓库')),
-      );
-      return;
-    }
-    // 工作区已变化：刷新展开区的 diff 预览
-    onApplied();
-
-    final affected = [...summary.restored, ...summary.deleted];
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: AppText(
-          '已重新应用 ${summary.restored.length} 个文件'
-          '${summary.deleted.isEmpty ? '' : '，删除 ${summary.deleted.length} 个文件'}',
-        ),
-      ),
-    );
-
-    // 停止当前对话（与恢复一致，对齐 Zed #42537）
-    final sid = SessionStore.instance.selectedId.value;
-    if (sid != null) {
-      SessionStore.instance.cancelStreaming(sid);
-    }
-
-    // 通知编辑器子窗口重新加载受影响文件
-    if (affected.isNotEmpty) {
-      unawaited(CrossWindowSync.notify('checkpointRestored', affected));
-    }
+  void _confirmApply(BuildContext context, {required VoidCallback onApplied}) {
+    unawaited(confirmApplyCheckpoint(context, cp, onApplied: onApplied));
   }
 }

@@ -40,6 +40,10 @@ class CheckpointStore {
   /// 当前选中路径下的检查点列表（时间倒序）
   final checkpoints = signal<List<api_types.CheckpointInfo>>([]);
 
+  /// 按会话的检查点列表（聊天内嵌展示用；switchTo 时加载，事件实时插入）
+  final sessionCheckpoints =
+      signal<Map<String, List<api_types.CheckpointInfo>>>({});
+
   final loading = signal(false);
 
   bool get isLeftCheckpointMode => leftMode.value;
@@ -119,6 +123,32 @@ class CheckpointStore {
     }
   }
 
+  /// 加载指定会话的检查点（聊天内嵌展示用；时间倒序）。
+  Future<void> loadSessionCheckpoints(String sessionId) async {
+    try {
+      final cps = await api.listCheckpoints(
+        dbPath: ConfigStore.instance.dbPath,
+        sessionId: sessionId,
+      );
+      sessionCheckpoints.value = {...sessionCheckpoints.value, sessionId: cps};
+    } catch (_) {
+      // 数据库不可用等场景静默降级为空列表
+      sessionCheckpoints.value = {
+        ...sessionCheckpoints.value,
+        sessionId: const [],
+      };
+    }
+  }
+
+  /// 会话删除后清理其检查点缓存（聊天不再展示）。
+  void removeSession(String sessionId) {
+    if (!sessionCheckpoints.value.containsKey(sessionId)) return;
+    sessionCheckpoints.value = {
+      for (final e in sessionCheckpoints.value.entries)
+        if (e.key != sessionId) e.key: e.value,
+    };
+  }
+
   /// 恢复检查点（仅回退该次编辑涉及的文件，不删除记录/聊天）。
   ///
   /// 返回恢复摘要供 UI 展示；失败返回 null。
@@ -192,6 +222,18 @@ class CheckpointStore {
     }
     if (currentWorkDir.value == cp.workDir) {
       checkpoints.value = [cp, ...checkpoints.value];
+    }
+    // 聊天内嵌展示：会话检查点列表顶部插入（会话未加载过则跳过，
+    // 下次 switchTo 时按 DB 全量加载）
+    final sessionCps = sessionCheckpoints.value[cp.sessionId];
+    if (sessionCps != null) {
+      sessionCheckpoints.value = {
+        ...sessionCheckpoints.value,
+        cp.sessionId: [cp, ...sessionCps],
+      };
+      // 事件快照不带 files（恢复范围/摘要需 git ref 元数据）：
+      // git ref 已在事件发布前落盘，异步重载补齐全量数据
+      unawaited(loadSessionCheckpoints(cp.sessionId));
     }
   }
 }

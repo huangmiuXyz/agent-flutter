@@ -6,6 +6,8 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/features/chat/widgets/message_anchors_panel.dart';
 import 'package:agent/features/chat/widgets/system_prompt_banner.dart';
+import 'package:agent/rust_bridge/api/types.dart' as api;
+import 'package:agent/store/checkpoint_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -208,6 +210,12 @@ class MessageList extends StatelessWidget {
         return HookBuilder(
           key: ValueKey('msglist_$sessionId'),
           builder: (context) {
+            // 本会话的检查点（聊天内嵌展示；编辑级挂 part，消息级挂用户消息）
+            final sessionCps =
+                useExistingSignal(
+                  CheckpointStore.instance.sessionCheckpoints,
+                ).value[sessionId] ??
+                const <api.CheckpointInfo>[];
             // 滚底测量完成前为 null（列表不渲染）；完成后以目标偏移
             // 创建 controller，列表首次 attach 即定位到底部，零过程
             final scrollController = useState<ScrollController?>(null);
@@ -411,8 +419,7 @@ class MessageList extends StatelessWidget {
             // flatten 依据该标记：重试时不生成独立流式 loading 占位，让
             // 重试行紧贴最后一条消息（否则独立 loading 会把重试行推到下方，
             // 看起来像隔着一条助手信息）。
-            final hasRetryLine =
-                retryStatus != null && retryStatus.isNotEmpty;
+            final hasRetryLine = retryStatus != null && retryStatus.isNotEmpty;
             final flatten = flattenMessageList(
               messageOrder: messageOrder,
               partsByMsg: partsByMsg,
@@ -425,10 +432,8 @@ class MessageList extends StatelessWidget {
             );
             final flatItems = flatten.items;
             final userAnchors = flatten.anchors;
-            final standaloneIndicator =
-                flatten.itemCount > flatItems.length;
-            final itemCount =
-                flatten.itemCount + (hasRetryLine ? 1 : 0);
+            final standaloneIndicator = flatten.itemCount > flatItems.length;
+            final itemCount = flatten.itemCount + (hasRetryLine ? 1 : 0);
             // 列表首项为系统提示词折叠项（随内容滚动），消息 item 整体
             // 后移一位：主列表 / 离屏测量区共用同一 itemBuilder，两侧
             // itemCount 与目标索引同步 +1。
@@ -652,12 +657,17 @@ class MessageList extends StatelessWidget {
             Widget buildMessageItem(int msgIndex, {required bool isLastItem}) {
               final msgId = messageOrder[msgIndex];
               final parts = partsByMsg[msgId] ?? [];
+              // 消息级检查点（partId 为 null）挂在用户消息下
+              final msgCps = sessionCps
+                  .where((cp) => cp.msgId == msgId && cp.partId == null)
+                  .toList();
               final messageItem = ChatMessageItem(
                 key: ValueKey(msgId),
                 sessionId: sessionId,
                 msgId: msgId,
                 role: messageRoles[msgId] ?? '',
                 parts: parts,
+                checkpoints: msgCps,
                 toolStreamedOutputs: toolStreamedOutputs,
                 pendingPermissions: sessionState.pendingPermissions,
                 // 历史消息（含用户消息）一律静态渲染：streaming
@@ -706,12 +716,17 @@ class MessageList extends StatelessWidget {
               final parts = partsByMsg[msgId] ?? [];
               if (partIndex >= parts.length) return const SizedBox.shrink();
               final part = parts[partIndex];
+              // 编辑级检查点（partId = tool_call part id）挂在该 part 下
+              final partCps = sessionCps
+                  .where((cp) => cp.partId == part.id)
+                  .toList();
               Widget item = ChatMessageItem(
                 key: ValueKey('${msgId}_${part.id}'),
                 sessionId: sessionId,
                 msgId: msgId,
                 role: messageRoles[msgId] ?? '',
                 parts: [part],
+                checkpoints: partCps,
                 toolStreamedOutputs: toolStreamedOutputs,
                 pendingPermissions: sessionState.pendingPermissions,
                 // 仅最新轮的 assistant 消息流式渲染
