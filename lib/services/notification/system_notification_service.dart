@@ -3,10 +3,12 @@
 /// 与应用内右下角弹窗（[NotificationStore]）并存：
 /// - macOS：UNUserNotificationCenter（插件注册自身为 delegate，无需改动 AppDelegate）
 /// - Windows：Toast Notifications（FFI 实现，随 Flutter 构建自动打包）
+/// - Android：通知渠道 + POST_NOTIFICATIONS 运行时权限（见 [SystemNotificationService.init]）
 /// 点击系统通知 → payload 携带 sessionId → 切换到对应会话。
 library;
 
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -22,6 +24,11 @@ class SystemNotificationService {
 
   bool _initialized = false;
 
+  /// Android 8+ 的通知渠道：无渠道则通知一律不显示。
+  static const _androidChannelId = 'agent_session';
+  static const _androidChannelName = '会话';
+  static const _androidChannelDesc = 'AI 回复完成与工具授权请求';
+
   /// 初始化系统通知通道；macOS 首次调用会请求系统通知授权。
   Future<void> init() async {
     if (_initialized) return;
@@ -30,6 +37,7 @@ class SystemNotificationService {
     try {
       await _plugin.initialize(
         settings: InitializationSettings(
+          android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
           macOS: const DarwinInitializationSettings(
             requestAlertPermission: true,
             requestBadgePermission: true,
@@ -43,9 +51,29 @@ class SystemNotificationService {
         ),
         onDidReceiveNotificationResponse: _onTap,
       );
+      if (Platform.isAndroid) await _initAndroid();
     } catch (_) {
       // 系统通知不可用（如无权限）不阻断应用主流程
     }
+  }
+
+  /// Android 专属初始化：POST_NOTIFICATIONS 是 Android 13+ 的运行时权限
+  /// （低版本调用为 no-op），渠道必须显式创建，重复创建幂等。
+  Future<void> _initAndroid() async {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) return;
+    await android.requestNotificationsPermission();
+    await android.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _androidChannelId,
+        _androidChannelName,
+        description: _androidChannelDesc,
+        importance: Importance.high,
+      ),
+    );
   }
 
   /// 弹出系统通知；payload 携带 [sessionId]，点击后跳转到对应会话。
@@ -61,7 +89,15 @@ class SystemNotificationService {
         id: id,
         title: title,
         body: body,
-        notificationDetails: const NotificationDetails(),
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _androidChannelId,
+            _androidChannelName,
+            channelDescription: _androidChannelDesc,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
         payload: sessionId,
       );
     } catch (_) {

@@ -1,4 +1,4 @@
-.PHONY: run codegen
+.PHONY: run codegen apk patch-cargokit
 
 CLI_MANIFEST = ../agent-flutter-cli/Cargo.toml
 CLI_DIR = ../agent-flutter-cli
@@ -9,6 +9,34 @@ IS_WINDOWS := $(findstring NT,$(UNAME_S))
 
 # Flutter run 模式：make run → debug；make run r=1 → --release（预备发布）
 FLUTTER_MODE = $(if $(r),--release,--debug)
+
+# ── Android 构建环境（均可用外部环境变量覆盖：make apk ANDROID_HOME=/path/to/sdk）──
+# flutter 工具只认环境变量，不读 android/local.properties 里的 sdk.dir
+ANDROID_HOME ?= /opt/homebrew/share/android-commandlinetools
+# AGP 9.0.1 + Gradle 9.1 要求 JDK 17+；brew 的 openjdk 是 keg-only，
+# /usr/libexec/java_home 枚举不到，只能直接指向 opt 目录
+ifeq ($(strip $(JAVA_HOME)),)
+JAVA_HOME := $(firstword $(wildcard \
+	/opt/homebrew/opt/openjdk@21 /opt/homebrew/opt/openjdk@17))
+endif
+# aws-lc-sys 的 C 构建走 SDK 自带 cmake，默认不在 PATH 上
+ANDROID_CMAKE := $(ANDROID_HOME)/cmake/3.22.1/bin
+
+APK_ENV = ANDROID_HOME=$(ANDROID_HOME) ANDROID_SDK_ROOT=$(ANDROID_HOME) \
+	JAVA_HOME=$(JAVA_HOME) PATH="$(ANDROID_CMAKE):$$PATH"
+
+# 本机 rustup 只装了 aarch64-linux-android，故固定 android-arm64；
+# 要出多 ABI 先补 target：
+#   rustup target add armv7-linux-androideabi i686-linux-android x86_64-linux-android
+# 并去掉 --target-platform（release 签名仍是 debug key，见 android/app/build.gradle.kts）
+apk: patch-cargokit
+	$(APK_ENV) flutter build apk $(FLUTTER_MODE) --target-platform android-arm64
+	@echo "APK: build/app/outputs/flutter-apk/app-$(if $(r),release,debug).apk"
+
+# cargokit 生成的 rust_builder 被 .gitignore 忽略，重新 integrate 后会带回
+# Gradle 9 不兼容的 project.exec 与过旧的 SDK 版本，构建前重新打补丁
+patch-cargokit:
+	@bash tools/patch_cargokit.sh
 
 # 全部重新生成（FRB codegen + 编译 Rust）+ 启动 app
 run:

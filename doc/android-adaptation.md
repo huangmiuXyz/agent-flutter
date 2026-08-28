@@ -1,8 +1,9 @@
 # Android 移动端适配文档
 
 > 适用范围：`agent-flutter`（Flutter + flutter_rust_bridge 2.12 + Rust 后端）
-> 状态：进行中 —— M0「构建 + 启动 + 聊天」已打通（步骤 1/2/3/4/6/8），第 7 步手机 UI 化待实施
-> 最后更新：2026-08-23
+> 状态：进行中 —— M0「构建 + 启动 + 聊天」已打通（步骤 1/2/3/4/6/8）；第 7 步手机 UI 化的路由壳已落地（`MainShell` + `StatefulShellRoute` + 全屏 `/chat`、`/editor`），Phase C~G 待真机核验
+> 开发机已从 Windows 迁到 macOS：2026-08-28 在 macOS 上重建 Android 构建链，工具链路径改由 `.cargo/config.toml`（macOS NDK）+ `tools/patch_cargokit.sh` + `make apk` 固化
+> 最后更新：2026-08-28
 
 ---
 
@@ -61,26 +62,29 @@
 ### 3.1 步骤 1 —— Rust 交叉编译链
 
 - 安装 rustup 目标：`aarch64-linux-android`、`armv7-linux-androideabi`、`i686-linux-android`、`x86_64-linux-android`
-- `agent-flutter-cli/.cargo/config.toml`：
-  - 4 个 Android target 的 NDK `clang` 链接器（NDK 28.2.13676358，minSdk 24 → 用 `*-android24-clang.cmd`）
+- `agent-flutter-cli/.cargo/config.toml`（**机器相关，非跨平台**）：
+  - 4 个 Android target 的 NDK `clang` 链接器。当前为本机 macOS 路径：
+    `/opt/homebrew/share/android-commandlinetools/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang`
+    —— NDK 只发布 `darwin-x86_64` 预编译目录（Apple Silicon 走 Rosetta），且 clang 包装脚本无 `.cmd`、`llvm-ar` 无 `.exe`；换回 Windows 需把前缀整体替换并补后缀
   - `-C link-arg=-Wl,-z,max-page-size=16384`（Android 15+ 16KB 页对齐，targetSdk 36 必需）
-  - `[env]` 固化 `ANDROID_NDK_HOME/ROOT` 与 `CC_*/AR_*`，cargokit/gradle 构建无需手动设环境变量
+  - `[env]` 固化 `ANDROID_NDK_HOME/ROOT` 与 `CC_*/AR_*`，cargokit/gradle 构建无需手动设环境变量。
+    `CC_aarch64_linux_android` 尤其关键：`aws-lc-sys`/`ring`/`libsqlite3-sys` 的 build script 会直接拿它当 C 编译器用，路径不存在就编译失败
+  - `[env]` 未设 `force`，shell 里导出的同名变量优先 → 可用环境变量临时覆盖到其他 NDK 版本
 - ⚠️ cargo config 的 `${var}` 变量引用会在 `[target.*]` 表内被相对解析导致报错，**必须硬编码完整路径**（不要用 `_n`/`_bt` 这类顶层变量）
-- 验证：`cargo build --release --target aarch64-linux-android -p rust_lib_agent` 产出 `librust_lib_agent.so`
+- 验证（macOS，2026-08-28）：`cargo build --release --target aarch64-linux-android -p rust_lib_agent` 产出 17MB `librust_lib_agent.so`，`llvm-readelf -l` 显示 LOAD 段对齐 `0x4000`（16KB）
 
 ### 3.2 步骤 2 —— FRB Android 集成
 
 - 执行 `flutter_rust_bridge_codegen integrate --rust-crate-dir ../agent-flutter-cli --rust-crate-name rust_lib_agent --no-write-lib --no-integration-test`
   - 生成 `rust_builder/` 插件包（cargokit），加入 `pubspec.yaml`（`rust_lib_agent: path: rust_builder`）
   - `rust_builder/android/build.gradle` 的 `manifestDir = ../../../agent-flutter-cli`、`libname = rust_lib_agent` 正确指向 Rust crate
-- **Gradle 9 兼容修复**（两处 cargokit 副本：`rust_builder/` 与 `.patches/code_forge/` 的 `cargokit/gradle/plugin.gradle`）：
-  - `Project.exec{}` 在 Gradle 9 已移除 → 注入 `ExecOperations`，用 `execOperations.exec{}`
-  - `providers.exec{}.get()` 返回的是 `ExecOutput`，需 `.result.get()` —— 最终方案统一用 `execOperations`
-- `rust_builder/android/build.gradle`：`compileSdkVersion` 33→36、`minSdkVersion` 19→24
+- **Gradle 9 兼容修复（已脚本化）**：`rust_builder/` 被 `.gitignore` 忽略，每次 `integrate` 重新生成都会带回不兼容内容，所以补丁改由 `tools/patch_cargokit.sh` 幂等重放（`make apk` 自动前置执行）：
+  - `plugin.gradle`：`Project.exec{}` 在 Gradle 9 已移除 → 注入 `@Inject abstract ExecOperations getExecOperations()`，改用 `execOperations.exec{}`（与 `.patches/code_forge/cargokit/gradle/plugin.gradle` 的已提交修法逐字一致）
+  - `android/build.gradle`：`compileSdkVersion` 33→36、`minSdkVersion` 19→24（AGP 要求插件不低于 app）
 - 环境修复：
-  - Android SDK 缺 CMake → 手动从 `dl.google.com/android/repository/cmake-3.22.1-windows.zip` 安装到 `$SDK/cmake/3.22.1`（zip 顶层是 `bin/share/doc`，需完整展开，缺 `share/` 会报 `Could not find CMAKE_ROOT`）
+  - `aws-lc-sys` 的 C 构建需要 cmake：本机 Android SDK 自带 `$SDK/cmake/3.22.1`，但不在 PATH 上，由 `make apk` 前置注入（Windows 上当时是手工解压 `cmake-3.22.1-windows.zip`，缺 `share/` 会报 `Could not find CMAKE_ROOT`）
   - `flutter_local_notifications` 需 core library desugaring → `android/app/build.gradle.kts` 加 `isCoreLibraryDesugaringEnabled` + `coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")`
-  - Kotlin 增量编译跨盘崩溃（pub 缓存在 C:、项目在 E:）→ `android/gradle.properties` 加 `kotlin.incremental=false`
+  - Kotlin 增量编译跨盘崩溃（Windows pub 缓存 C: / 项目 E:）→ `android/gradle.properties` 加 `kotlin.incremental=false`（macOS 无此问题，留着无害）
 
 ### 3.3 步骤 3 —— manifest 权限与包名
 
@@ -198,46 +202,62 @@
 - G2 入口：聊天页 AppBar + 会话列表页顶部
 
 **Phase H — 收尾验证**
-- H1 `flutter analyze` + `flutter build apk --debug --target-platform android-arm64`
+- H1 `flutter analyze` + `make apk`（含 `patch-cargokit`，见 §5）
 - H2 真机走查清单（§8）
-- H3 桌面回归 `flutter run -d windows`
+- H3 桌面回归 `make run`（macOS）
 
 ---
 
-## 5. 构建指南
+## 5. 构建指南（macOS）
 
 ### 5.1 环境要求
 
-| 项 | 要求 |
-|---|---|
-| Rust | 已装 rustup 目标：`aarch64-linux-android` 等 4 个 |
-| Android SDK | NDK `28.2.13676358`；CMake `3.22.1`（`$SDK/cmake/3.22.1/bin/cmake.exe`，含 `share/`） |
-| Flutter | `flutter.minSdkVersion` = 24，compileSdk/targetSdk 36 |
-| 网络 | cargo 走 rsproxy.cn；gradle/androidx 走 google maven |
+| 项 | 本机实际 | 说明 |
+|---|---|---|
+| Flutter | 3.47.1 stable（`~/obj/sdk/flutter`） | 默认 `flutter.minSdkVersion` = 24、`ndkVersion` = 28.2.13676358 |
+| Android SDK | `/opt/homebrew/share/android-commandlinetools` | **必须导出 `ANDROID_HOME`**：flutter 工具不读 `android/local.properties` 的 `sdk.dir` |
+| JDK | brew `openjdk@21`（keg-only） | AGP 9.0.1 + Gradle 9.1 要求 17+；系统默认 `java` 是 1.8，且 `java_home` 枚举不到 brew keg |
+| NDK / CMake | `ndk/28.2.13676358`、`cmake/3.22.1` | cmake 需前置到 PATH 供 `aws-lc-sys` 使用 |
+| rustup target | 仅 `aarch64-linux-android` | 故构建固定 `--target-platform android-arm64`；多 ABI 需先 `rustup target add armv7-linux-androideabi i686-linux-android x86_64-linux-android` |
+| 网络 | cargo 走 rsproxy.cn；gradle/pub 需可访问 google maven + pub.dev | llamadart 的原生库由 Dart native assets 在构建期拉取 |
 
 ### 5.2 构建命令
 
-```powershell
-# 1. Rust 交叉编译（可直接用，[env] 已固化）
-cargo build --release --target aarch64-linux-android -p rust_lib_agent   # 在 agent-flutter-cli 下
+```bash
+# 环境 + cargokit 补丁 + 出包（debug）
+make apk
 
-# 2. 打 APK（仅 arm64）
+# release（注意 android/app/build.gradle.kts 的 release 仍用 debug 签名）
+make apk r=1
+
+# 只重放 cargokit 补丁
+make patch-cargokit
+```
+
+`make apk` 展开后等价于：
+
+```bash
+ANDROID_HOME=/opt/homebrew/share/android-commandlinetools \
+ANDROID_SDK_ROOT=$ANDROID_HOME \
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 \
+PATH="$ANDROID_HOME/cmake/3.22.1/bin:$PATH" \
 flutter build apk --debug --target-platform android-arm64
-
-# 3. 打 APK（默认多 ABI：arm64/armv7/x86/x86_64）
-flutter build apk --debug
-
-# 4. 装到真机
-flutter install --debug
 ```
 
 产物：`build/app/outputs/flutter-apk/app-debug.apk`，含 `lib/arm64-v8a/librust_lib_agent.so`。
+上述变量都可用 `make apk ANDROID_HOME=... JAVA_HOME=...` 覆盖。
+
+单独验证 Rust 侧（9 分钟量级）：
+
+```bash
+cd ../agent-flutter-cli && cargo build --release --target aarch64-linux-android -p rust_lib_agent
+```
 
 ### 5.3 桌面开发（回归验证）
 
-```powershell
-# Windows（需要 MSVC 环境，走项目脚本）
-cmd.exe /c "tools\run_in_msvc_env.bat flutter run -d windows"
+```bash
+make run          # macOS：flutter build macos + flutter run -d macos
+make run r=1      # --release
 ```
 
 ---
@@ -283,7 +303,7 @@ cmd.exe /c "tools\run_in_msvc_env.bat flutter run -d windows"
 | 3 | Fleather 手机键盘语义 | Enter=发送 / 换行需真机验证 `textInputAction` 行为 |
 | 4 | `readingWidth` 改函数式 | 必须保证桌面阅读宽度不变（`isCompactWidth` 守卫） |
 | 5 | 路由重构影响面 | 平台分支隔离，桌面分支零改动 |
-| 6 | 通知 | `SystemNotificationService` 只配了 macOS/windows channel，Android 通知后续补 channel + `POST_NOTIFICATIONS` 运行时请求 |
+| 6 | 通知 | 已解决：`SystemNotificationService` 补了 `AndroidInitializationSettings` + 渠道 `agent_session` + Android 13+ `POST_NOTIFICATIONS` 运行时申请（`lib/services/notification/system_notification_service.dart`）；仍需真机确认后台/杀死态的点击跳转 |
 | 7 | 字体服务 | `SystemFontService`（win32 注册表 / fc-list）在 Android 为空，导入字体走 FilePicker 即可 |
 | 8 | Windows 开发流 | `windows/flutter/generated_plugins.cmake` 重生成后 rust_builder 会随 `flutter build windows` 自动编译；原 Makefile 手工 build+copy dll 流程可能冗余，需确认 |
 
@@ -318,9 +338,11 @@ cmd.exe /c "tools\run_in_msvc_env.bat flutter run -d windows"
 | 平台判断 | `lib/utils/platform.dart` |
 | 应用数据目录 | `lib/utils/platform_dirs.dart` |
 | 平台适配启动 | `lib/main.dart` |
-| 移动端外壳 | `lib/layout/main_layout.dart`（移动分支）、`lib/layout/main_shell.dart`（待建） |
+| 移动端外壳 | `lib/layout/main_layout.dart`（移动分支）、`lib/layout/main_shell.dart` + `lib/router/router.dart`（`_mobileRoutes()`） |
 | 工具降级 | `lib/services/engine/frontend_tools.dart` |
 | 路由 | `lib/router/router.dart` |
 | Rust 工具注册 | `agent-flutter-cli/crates/core/src/builtin_tools.rs`、`crates/cli/src/commands/mod.rs`、`crates/core/src/sub_agent.rs` |
 | 构建配置 | `agent-flutter-cli/.cargo/config.toml`、`android/app/build.gradle.kts`、`android/app/src/main/AndroidManifest.xml` |
-| FRB 集成 | `rust_builder/`（生成代码，.gitignore）、两处 `cargokit/gradle/plugin.gradle` |
+| Android 构建入口 | `Makefile` 的 `apk` 目标（导出 ANDROID_HOME/JAVA_HOME、前置 SDK cmake、前置 `patch-cargokit`） |
+| cargokit 补丁 | `tools/patch_cargokit.sh`（幂等重放，`make patch-cargokit` 单独执行） |
+| FRB 集成 | `rust_builder/`（生成代码，**未纳入版本控制** → 补丁靠脚本重放）；`.patches/code_forge` 的同一份已提交 |
