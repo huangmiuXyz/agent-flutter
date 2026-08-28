@@ -9,7 +9,7 @@
 /// - provider-default：在模型条目上写入 `provider-default`（覆盖 provider 级配置，
 ///   省略参数，使用该模型提供商的默认推理行为）
 /// - none：禁用推理
-/// - minimal / low / medium / high / xhigh：由弱到强的推理强度
+/// - minimal / low / medium / high / max：由弱到强的推理强度
 library;
 
 import 'package:flutter/material.dart';

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:signals_hooks/signals_hooks.dart';
+
+import 'package:agent/utils/platform.dart';
 
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/store/session_store.dart';
@@ -252,6 +255,10 @@ class SessionList extends HookWidget {
               // 立即更新选中态，让 UI 先切换，不等待数据加载
               SessionStore.instance.selectedId.value = session.id;
               SessionStore.instance.switchTo(session.id);
+              // 移动端：进入全屏聊天页
+              if (isMobilePlatform) {
+                context.go('/chat/${session.id}');
+              }
             },
       // 选择模式下隐藏悬停操作按钮，避免干扰
       hoverActions: selectMode ? null : hoverActions,

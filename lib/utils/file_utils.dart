@@ -5,8 +5,11 @@ import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:agent/router/router.dart';
 import 'package:agent/store/code_forge_store.dart';
+import 'package:agent/utils/platform.dart';
 
 /// 在编辑器子窗口中打开文件。
 ///
@@ -22,8 +25,16 @@ void openFile(String path) {
   // 更新 store → 写文件 → 广播到其他窗口
   CodeForgeStore.instance.open(path);
 
-  // 确保编辑器窗口已存在或可见
-  _ensureEditorWindow(path);
+  // 确保编辑器窗口已存在或可见（仅桌面支持多窗口）
+  if (isDesktopPlatform) {
+    _ensureEditorWindow(path);
+  } else {
+    // 移动端：跳转 app 内编辑器全屏路由（EditorPage 监听 store 切换文件）
+    final ctx = rootNavigatorContext;
+    if (ctx != null) {
+      ctx.go(AppRoutes.editor);
+    }
+  }
 }
 
 Future<void> _ensureEditorWindow(String path) async {

@@ -77,14 +77,14 @@ const kReasoningEffortValues = [
   'low',
   'medium',
   'high',
-  'xhigh',
+  'max',
 ];
 
 /// 使用该模型提供商的默认推理行为（省略 reasoning_effort 参数时的默认值）。
 const kReasoningEffortProviderDefault = 'provider-default';
 
-/// 最大程度的推理。
-const kReasoningEffortXhigh = 'xhigh';
+/// 最大程度的推理（标准字面值 "max"；旧配置遗留的 "xhigh" 读取时归一为此值）。
+const kReasoningEffortXhigh = 'max';
 
 /// 各等级在下拉菜单与按钮上的标签。
 const kReasoningEffortLabels = {
@@ -94,7 +94,7 @@ const kReasoningEffortLabels = {
   'low': 'Low',
   'medium': 'Medium',
   'high': 'High',
-  'xhigh': 'XHigh',
+  'max': 'Max',
 };
 
 /// 检测 provider 在 config 的 `language_models` 中所处的协议段。

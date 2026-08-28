@@ -19,18 +19,24 @@ class QueuedMessage {
 
 /// 消息队列管理器 — 薄 UI 层
 ///
-/// 队列状态全量存储在 Rust `STEER_QUEUE` 中。
+/// 队列状态全量存储在 Rust `STEER_QUEUE` 中（按 session 分桶）。
 /// Dart 只做两件事：
 ///   1. 用户操作（增/删/切 Steer）→ 直接调 FRB 到 Rust
-///   2. 收到 Rust 的 `QueueState` 事件 → 更新 `queue` signal 供 UI 展示
+///   2. 收到 Rust 的 `QueueState` 事件 → 更新对应会话的队列缓存，
+///      并把「当前选中会话」的队列反映到 `queue` signal 供 UI 展示
 ///
-/// 不再独立维护 Dart 侧队列副本。
+/// 各会话的 `QueueState` 事件到达顺序不定：双会话同时流式时若直接
+/// 覆盖全局 signal，面板会显示与操作对象（`selectedId`）不一致的队列，
+/// 导致误删/误发。因此按 session 缓存，面板只展示选中会话的队列。
 class MessageQueueStore {
   static final instance = MessageQueueStore._();
   MessageQueueStore._();
 
-  /// 队列内容（响应式）— 仅由 `syncFromRust` 写入
+  /// 队列内容（响应式）— 始终等于「当前选中会话」的队列
   final queue = signal(<QueuedMessage>[]);
+
+  /// 每个 session 的队列缓存（`QueueState` 事件写入，选中时展示）
+  final Map<String, List<QueuedMessage>> _queuesBySession = {};
 
   /// 面板展开/折叠状态
   final expanded = signal(true);
@@ -130,14 +136,34 @@ class MessageQueueStore {
 
   // ── 从 Rust 同步 ──
 
-  /// 用 Rust 队列状态刷新 UI（由 QueueState 事件触发）
-  void syncFromRust(List<String> items, List<bool> flags) {
-    queue.value = [
+  /// 用 Rust 队列状态刷新对应会话的缓存（由 QueueState 事件触发）。
+  ///
+  /// 只把当前选中会话的队列反映到面板，其余会话仅缓存，
+  /// 避免双会话并发时队列面板在两个队列之间跳动。
+  void syncFromRust(String sessionId, List<String> items, List<bool> flags) {
+    final list = [
       for (int i = 0; i < items.length; i++)
         QueuedMessage(
           text: items[i],
           steer: flags.length > i ? flags[i] : false,
         ),
     ];
+    _queuesBySession[sessionId] = list;
+    if (sessionId == _sessionId) {
+      queue.value = list;
+    }
+  }
+
+  /// 选中会话变化时调用：面板切换为对应会话的队列（无缓存视为空）。
+  ///
+  /// Rust 不会因切换会话重发 `QueueState`，不主动切换展示的话，
+  /// 面板会残留上一个会话的队列。
+  void showQueueFor(String sessionId) {
+    queue.value = List.of(_queuesBySession[sessionId] ?? const []);
+  }
+
+  /// 会话删除时清理缓存，避免残留队列在会话重建后错误展示。
+  void forgetSession(String sessionId) {
+    _queuesBySession.remove(sessionId);
   }
 }

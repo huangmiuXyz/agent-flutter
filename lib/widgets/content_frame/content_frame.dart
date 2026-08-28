@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/layout_utils.dart' show readingWidth;
+import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
 
 /// A layout container that provides scroll, horizontal centering,
 /// reading-width constraint, and page-level top/bottom spacing.
@@ -30,7 +30,7 @@ class ContentFrame extends StatelessWidget {
         left: spacing.edgeMargin,
         right: spacing.edgeMargin,
       ),
-      child: SizedBox(width: readingWidth, child: child),
+      child: SizedBox(width: readingWidthFor(context), child: child),
     );
 
     // Always keep the same widget structure: toggling [scrollable] must not

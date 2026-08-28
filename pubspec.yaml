@@ -50,6 +50,8 @@ dependency_overrides:
   marionette_flutter: ^0.6.0
   win32: 6.4.0
   ffi: ^2.2.0
+  rust_lib_agent:
+    path: rust_builder
 
 dev_dependencies:
   flutter_test:

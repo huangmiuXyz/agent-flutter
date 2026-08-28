@@ -14,8 +14,10 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
 import 'package:agent/features/agents/store/agent_store.dart';
+import 'package:agent/services/mobile_work_dir.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/app_text_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -220,8 +222,27 @@ class _WorkDirMenu extends HookWidget {
     final maxPanelHeight = 8 * unitHeight + custom.controls.smallHeight + 48;
 
     Future<void> pickFromFileSystem() async {
+      // 提前取 messenger：onDismiss 后本组件 context 失效
+      final messenger = ScaffoldMessenger.maybeOf(context);
       // 先关闭面板，再弹出系统目录选择器
       onDismiss();
+
+      // 移动端：SAF 选中目录无法直接读（std::fs 限制），
+      // 导入副本到应用工作目录后再切换
+      if (isMobilePlatform) {
+        final imported = await MobileWorkDirService.instance.pickAndImport();
+        if (imported == null) {
+          messenger?.showSnackBar(
+            const SnackBar(
+              content: AppText('无法读取所选目录（Android 存储限制），已保留当前工作目录'),
+            ),
+          );
+          return;
+        }
+        await AgentStore.instance.setWorkDir(imported);
+        return;
+      }
+
       try {
         final path = await FilePicker.getDirectoryPath();
         if (path != null && path.isNotEmpty) {

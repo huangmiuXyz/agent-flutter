@@ -11,7 +11,7 @@ import 'package:agent/store/checkpoint_store.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/layout_utils.dart' show readingWidth;
+import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
 import 'package:agent/widgets/loading/app_loading.dart';
 
 import 'message_list_utils.dart';
@@ -42,15 +42,8 @@ class _KeepAtBottomPhysics extends ScrollPhysics {
   }) {
     if (savedMaxExtent != null) {
       final growth = newPosition.maxScrollExtent - savedMaxExtent!;
-      debugPrint(
-        '[AutoScroll][List] physics: savedMax=$savedMaxExtent '
-        'oldMax=${oldPosition.maxScrollExtent} '
-        'newMax=${newPosition.maxScrollExtent} growth=$growth '
-        'isScrolling=$isScrolling velocity=$velocity',
-      );
       if (growth.abs() > 0) {
         // 用户在底部 → 滚到新底部
-        debugPrint('[AutoScroll][List] physics: growth>0 -> jump to newMax');
         return newPosition.maxScrollExtent;
       }
     }
@@ -299,13 +292,6 @@ class MessageList extends StatelessWidget {
                 if (!pos.isScrollingNotifier.value) return;
                 // 视口底下没剩内容（== 0）即贴底
                 final newPinned = pos.extentAfter <= 0;
-                debugPrint(
-                  '[AutoScroll][List] onScroll(用户滚动): '
-                  'pixels=${pos.pixels.toStringAsFixed(1)} '
-                  'max=${pos.maxScrollExtent.toStringAsFixed(1)} '
-                  'extentAfter=${pos.extentAfter.toStringAsFixed(1)} '
-                  'pinned ${isPinnedRef.value} -> $newPinned',
-                );
                 isPinnedRef.value = newPinned;
                 if (pos.extentAfter > 0) {
                   savedMaxExtent.value = null;
@@ -372,11 +358,6 @@ class MessageList extends StatelessWidget {
             void jumpToBottom() {
               final sc = scrollController.value;
               if (sc == null || !sc.hasClients) return;
-              debugPrint(
-                '[AutoScroll][List] jumpToBottom: '
-                'pixels=${sc.position.pixels.toStringAsFixed(1)} -> '
-                'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}',
-              );
               sc.jumpTo(sc.position.maxScrollExtent);
             }
 
@@ -393,13 +374,6 @@ class MessageList extends StatelessWidget {
                 if (sc == null || !sc.hasClients) return;
                 isPinnedRef.value ??=
                     pinnedAtSchedule ?? sc.position.extentAfter <= 0;
-                debugPrint(
-                  '[AutoScroll][List] converge: '
-                  'pinnedAtSchedule=$pinnedAtSchedule '
-                  'pinned=${isPinnedRef.value} '
-                  'extentAfter=${sc.position.extentAfter.toStringAsFixed(1)} '
-                  'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}',
-                );
                 // 贴底才跟随：用户在中间翻历史时不拽回底部
                 if (isPinnedRef.value != true) return;
                 // 已被估算偏差推出视口才需要收敛；估算恰好精确时无事可做
@@ -519,10 +493,6 @@ class MessageList extends StatelessWidget {
             useEffect(() {
               final prevItemCount = lastItemCount.value;
               lastItemCount.value = itemCount;
-              debugPrint(
-                '[AutoScroll][List] itemCount: $prevItemCount -> '
-                '$itemCount',
-              );
               // 初始挂载（切换会话后首次构建）不跳底
               if (prevItemCount == itemCount) return null;
               convergeToBottomIfPinned();
@@ -581,19 +551,8 @@ class MessageList extends StatelessWidget {
             // 流式输出中，用户在底部则保存 maxScrollExtent 供 physics 使用
             useEffect(() {
               final mgr = SessionStore.instance;
-              debugPrint(
-                '[AutoScroll][List] 注册 onBeforeEmit '
-                'session=$sessionId',
-              );
               void onBeforeEmit() {
                 // 回调可能被覆盖/清空，先确认调用与 sc 状态
-                debugPrint(
-                  '[AutoScroll][List] onBeforeEmit 被调用: '
-                  'session=$sessionId sc=${scrollController.value != null} '
-                  'hasClients=${scrollController.value?.hasClients} '
-                  'streaming='
-                  '${mgr.streamingSessionIds.value.contains(sessionId)}',
-                );
                 final sc = scrollController.value;
                 if (sc == null || !sc.hasClients) return;
                 final streaming = mgr.streamingSessionIds.value.contains(
@@ -605,26 +564,16 @@ class MessageList extends StatelessWidget {
                 }
                 if (sc.position.extentAfter <= 0) {
                   savedMaxExtent.value = sc.position.maxScrollExtent;
-                  debugPrint(
-                    '[AutoScroll][List] onBeforeEmit: 贴底，保存 '
-                    'savedMax=${savedMaxExtent.value} '
-                    'max=${sc.position.maxScrollExtent.toStringAsFixed(1)}',
-                  );
                   // 文本增长（无新 part，itemCount 不变不触发跳底）时，
                   // 若懒加载估算偏差把最新内容/loading 推出视口，
                   // 帧后收敛恢复贴底；安排后用户滚走则不打扰。
                   convergeToBottomIfPinned(pinnedAtSchedule: true);
                 } else {
-                  debugPrint(
-                    '[AutoScroll][List] onBeforeEmit: 未贴底 '
-                    '(extentAfter=${sc.position.extentAfter.toStringAsFixed(1)}>0)，不保存',
-                  );
                 }
               }
 
               mgr.addBeforeEmitListener(onBeforeEmit);
               return () {
-                debugPrint('[AutoScroll][List] 注销 onBeforeEmit');
                 mgr.removeBeforeEmitListener(onBeforeEmit);
               };
             }, [sessionId, scrollController.value]);
@@ -820,20 +769,11 @@ class MessageList extends StatelessWidget {
               final sc = scrollController.value;
               if (sc == null || !sc.hasClients) return false;
               if (n.metrics.extentAfter > 0) {
-                debugPrint(
-                  '[AutoScroll][List] 滚轮/惯性滚动离开底部: '
-                  'extentAfter=${n.metrics.extentAfter.toStringAsFixed(1)} '
-                  'pinned ${isPinnedRef.value} -> false，清 savedMax',
-                );
                 isPinnedRef.value = false;
                 savedMaxExtent.value = null;
               } else if (isPinnedRef.value == false) {
                 // 滚回底部：恢复跟随（滚轮滚动时 onScroll 不更新状态，
                 // 这里补上，回到底部后继续跟随流式）
-                debugPrint(
-                  '[AutoScroll][List] 滚轮/惯性滚动回到底部: '
-                  '恢复跟随',
-                );
                 isPinnedRef.value = true;
               }
               return false;
@@ -886,7 +826,7 @@ class MessageList extends StatelessWidget {
                     Align(
                       alignment: Alignment.topCenter,
                       child: SizedBox(
-                        width: readingWidth,
+                        width: readingWidthFor(context),
                         child: listView ?? const SizedBox.shrink(),
                       ),
                     ),
@@ -899,7 +839,7 @@ class MessageList extends StatelessWidget {
                         request: measure.request!,
                         itemCount: listItemCount,
                         itemBuilder: buildListItem,
-                        width: readingWidth,
+                        width: readingWidthFor(context),
                         height: 600,
                       ),
                     // 右侧悬浮锚点面板：贴在聊天区右缘（窗口右侧），

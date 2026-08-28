@@ -179,8 +179,14 @@ class McpServerInfo {
 
 /// 从 config.json 读取所有 MCP Server 配置。
 List<McpServerInfo> loadMcpServers(Map<String, dynamic> data) {
-  final map = data['mcpServers'] as Map<String, dynamic>?;
-  if (map == null) return [];
+  // 兼容默认配置里的空数组写法（`mcpServers: []`）：
+  // 此时按“无服务器”处理，避免 List→Map 强转崩溃。
+  final raw = data['mcpServers'];
+  final map = switch (raw) {
+    List() => <String, dynamic>{},
+    Map() => Map<String, dynamic>.from(raw),
+    _ => <String, dynamic>{},
+  };
   return map.entries
       .map(
         (e) => McpServerInfo.fromJson(e.key, e.value as Map<String, dynamic>),

@@ -27,7 +27,10 @@ import 'package:agent/features/skills/store/skill_store.dart';
 import 'package:agent/rust_bridge/api/skills.dart' as bridge;
 import 'package:agent/store/config_store.dart';
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/platform.dart';
+import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/list/app_list.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 /// Settings category tabs.
 enum SettingsTab { display, models, mcp, localModels, skills, tools, agents }
@@ -243,6 +246,43 @@ class SettingsPage extends HookWidget {
         }
     }
 
+    // ── 移动端：顶部横向滚动 Tab + 单栏内容 ──
+    if (isMobilePlatform) {
+      return Scaffold(
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.symmetric(
+                  horizontal: custom.spacing.sm,
+                  vertical: custom.spacing.xs,
+                ),
+                child: Row(
+                  children: [
+                    for (final item in _sidebarsItems)
+                      _MobileSettingsTab(
+                        label: item.name,
+                        active: activeTab.value == item.tab,
+                        onTap: () {
+                          activeTab.value = item.tab;
+                          resetSubStates();
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const AppDivider(extent: 1, thickness: 1),
+              Expanded(
+                child: Material(color: Colors.transparent, child: content),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -293,6 +333,47 @@ class SettingsPage extends HookWidget {
             child: Material(color: Colors.transparent, child: content),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 移动端设置页顶部 Tab：胶囊按钮（窄屏横向滚动，6 个分类平铺放不下）。
+class _MobileSettingsTab extends StatelessWidget {
+  const _MobileSettingsTab({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.only(right: custom.spacing.xs),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: custom.controls.smallHeight,
+          padding: EdgeInsets.symmetric(horizontal: custom.spacing.md),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active
+                ? custom.colors.accent.withValues(alpha: 0.12)
+                : custom.colors.hover,
+            borderRadius: custom.radii.xs,
+          ),
+          child: AppText(
+            label,
+            variant: AppTextVariant.caption,
+            color: active ? custom.colors.accent : custom.colors.textPrimary,
+            style: active ? const TextStyle(fontWeight: FontWeight.w600) : null,
+          ),
+        ),
       ),
     );
   }

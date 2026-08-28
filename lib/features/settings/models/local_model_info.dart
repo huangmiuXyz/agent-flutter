@@ -18,12 +18,18 @@ class LocalModelInfo {
   /// 是否激活（启用）。未激活的模型不会出现在「运行模型」选择中。
   final bool enabled;
 
+  /// GPU 卸载层数（对应 llama.cpp `n_gpu_layers`）。
+  /// null = 自动：优先全部层卸载到 GPU，显存不足时自动减少层数（多余层用内存计算）；
+  /// 0 = 纯 CPU；>0 = 固定卸载指定层数。
+  final int? gpuLayers;
+
   const LocalModelInfo({
     required this.name,
     required this.path,
     this.contextSize = 4096,
     this.maxTokens,
     this.enabled = true,
+    this.gpuLayers,
   });
 
   factory LocalModelInfo.fromJson(Map<String, dynamic> json) => LocalModelInfo(
@@ -32,6 +38,7 @@ class LocalModelInfo {
     contextSize: (json['contextSize'] as num?)?.toInt() ?? 4096,
     maxTokens: (json['maxTokens'] as num?)?.toInt(),
     enabled: (json['enabled'] as bool?) ?? true,
+    gpuLayers: (json['gpuLayers'] as num?)?.toInt(),
   );
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +47,7 @@ class LocalModelInfo {
     'contextSize': contextSize,
     if (maxTokens != null) 'maxTokens': maxTokens,
     'enabled': enabled,
+    if (gpuLayers != null) 'gpuLayers': gpuLayers,
   };
 
   /// 显示名（不含扩展名的文件名，可后续编辑）。

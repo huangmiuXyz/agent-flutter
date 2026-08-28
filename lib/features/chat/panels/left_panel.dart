@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:signals_hooks/signals_hooks.dart';
+
+import 'package:agent/utils/platform.dart';
 
 import 'package:agent/features/chat/panels/session_list.dart';
 import 'package:agent/features/checkpoints/checkpoint_path_list.dart';
@@ -165,10 +168,10 @@ class LeftPanel extends HookWidget {
             style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
-        // 批量选择按钮：仅悬停 header 时显示
+        // 批量选择按钮：桌面仅悬停 header 时显示；移动端无 hover 恒显示
         AnimatedOpacity(
           duration: const Duration(milliseconds: 150),
-          opacity: headerHovered ? 1.0 : 0.0,
+          opacity: (headerHovered || isMobilePlatform) ? 1.0 : 0.0,
           child: AppIconButton(
             icon: 'checkSquare2',
             size: ButtonSize.sm,
@@ -240,7 +243,11 @@ class LeftPanel extends HookWidget {
 
   Future<void> _createSession(BuildContext context) async {
     try {
-      await SessionStore.instance.createAndOpen();
+      final id = await SessionStore.instance.createAndOpen();
+      // 移动端：新建后直接进入全屏聊天页
+      if (isMobilePlatform && context.mounted) {
+        context.go('/chat/$id');
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(

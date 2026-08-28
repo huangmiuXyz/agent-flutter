@@ -14,7 +14,9 @@ import 'package:agent/services/image_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/store/xterm_store.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/utils/layout_utils.dart' show readingWidth;
+import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
+import 'package:agent/utils/platform.dart';
+import 'package:agent/widgets/text/app_text.dart';
 
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/button_base.dart';
@@ -27,8 +29,9 @@ class ChatInput extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
+    final mobile = isMobilePlatform;
     final physicalHeight = 160.0 / MediaQuery.of(context).devicePixelRatio;
-    final width = readingWidth;
+    final width = readingWidthFor(context);
     final controller = useMemoized(() => FleatherController());
     final sending = useState(false);
     // 外部可控制的 FocusNode：快捷键折叠终端面板时聚焦聊天输入框
@@ -112,6 +115,28 @@ class ChatInput extends HookWidget {
       focusNode.requestFocus();
     }
 
+    // 移动端「更多」底部弹层：收纳 work_dir / agent / model 选择器
+    void showMoreSheet() {
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: custom.spacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                _MoreSheetRow(label: '工作目录', child: WorkDirSelector()),
+                _MoreSheetRow(label: '智能体', child: AgentSelector()),
+                _MoreSheetRow(label: '模型', child: ModelSelector()),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.fromLTRB(
         custom.spacing.sm,
@@ -121,7 +146,9 @@ class ChatInput extends HookWidget {
       ),
       child: SizedBox(
         width: width,
-        height: fullHeight ? null : physicalHeight,
+        height: fullHeight
+            ? null
+            : (mobile ? kMobileInputHeight : physicalHeight),
         child: Column(
           children: [
             Expanded(
@@ -130,7 +157,7 @@ class ChatInput extends HookWidget {
                 focusNode: focusNode,
                 onSubmit: send,
                 // 空文档时显示占位提示
-                placeholder: 'Enter 键发送信息',
+                placeholder: mobile ? '输入消息…' : 'Enter 键发送信息',
               ),
             ),
             SizedBox(
@@ -140,20 +167,32 @@ class ChatInput extends HookWidget {
                   // 图片上传按钮固定在左侧
                   AppIconButton(
                     icon: 'image',
-                    size: ButtonSize.sm,
+                    size: mobile ? ButtonSize.md : ButtonSize.sm,
                     tooltip: '上传图片',
                     onPressed: pickImages,
                   ),
                   SizedBox(width: custom.spacing.xs),
                   // 推理强度选择器（在按钮区域左侧）
                   ReasoningSelector(),
+                  if (mobile) ...[
+                    SizedBox(width: custom.spacing.xs),
+                    // 移动端：work_dir/agent/model 收纳进底部弹层
+                    AppIconButton(
+                      icon: 'moreHorizontal',
+                      size: ButtonSize.md,
+                      tooltip: '更多',
+                      onPressed: showMoreSheet,
+                    ),
+                  ],
                   const Spacer(),
-                  WorkDirSelector(),
-                  SizedBox(width: custom.spacing.xs),
-                  AgentSelector(),
-                  SizedBox(width: custom.spacing.xs),
-                  ModelSelector(),
-                  SizedBox(width: custom.spacing.xs),
+                  if (!mobile) ...[
+                    WorkDirSelector(),
+                    SizedBox(width: custom.spacing.xs),
+                    AgentSelector(),
+                    SizedBox(width: custom.spacing.xs),
+                    ModelSelector(),
+                    SizedBox(width: custom.spacing.xs),
+                  ],
                   SignalBuilder(
                     builder: (_) {
                       final sid = SessionStore.instance.selectedId.value;
@@ -164,7 +203,7 @@ class ChatInput extends HookWidget {
                       if (isStreaming) {
                         return AppIconButton(
                           icon: 'square',
-                          size: ButtonSize.sm,
+                          size: mobile ? ButtonSize.md : ButtonSize.sm,
                           backgroundColor: custom.colors.danger,
                           iconColor: custom.colors.onDanger,
                           tooltip: '停止生成',
@@ -174,7 +213,7 @@ class ChatInput extends HookWidget {
                       }
                       return AppIconButton(
                         icon: 'arrowUpRight',
-                        size: ButtonSize.sm,
+                        size: mobile ? ButtonSize.md : ButtonSize.sm,
                         backgroundColor: custom.colors.hover,
                         disabled: sending.value,
                         onPressed: send,
@@ -186,6 +225,39 @@ class ChatInput extends HookWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 移动端输入区固定高度（逻辑像素）：编辑区 + 工具栏行。
+/// 桌面沿用物理 160/dpr；移动端 devicePixelRatio ~3 会算出 ~53dp 过矮。
+const double kMobileInputHeight = 108.0;
+
+/// 「更多」弹层中的一行：左侧标签 + 右侧选择器。
+class _MoreSheetRow extends StatelessWidget {
+  const _MoreSheetRow({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final custom = CustomTheme.of(context);
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: custom.spacing.sm),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: AppText(
+              label,
+              variant: AppTextVariant.body,
+              color: custom.colors.textSecondary,
+            ),
+          ),
+          Expanded(child: child),
+        ],
       ),
     );
   }

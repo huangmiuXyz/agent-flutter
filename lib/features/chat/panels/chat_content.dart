@@ -14,7 +14,7 @@ import 'package:agent/features/chat/chat_input.dart';
 import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/features/chat/widgets/message_queue_panel.dart';
 import 'package:agent/store/session_store.dart';
-import 'package:agent/utils/layout_utils.dart' show readingWidth;
+import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
 import 'package:agent/widgets/divider/app_divider.dart';
 
 import 'message_list.dart';
@@ -102,7 +102,7 @@ class ChatContent extends HookWidget {
                 Align(
                   alignment: Alignment.topCenter,
                   child: SizedBox(
-                    width: readingWidth,
+                    width: readingWidthFor(context),
                     child: const MessageQueuePanel(),
                   ),
                 ),
