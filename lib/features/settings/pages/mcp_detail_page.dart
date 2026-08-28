@@ -11,6 +11,7 @@ import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/rust_bridge/api/mcp.dart' as api;
 import 'package:agent/rust_bridge/api/types.dart' as api;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/content_frame/content_frame.dart';
@@ -99,11 +100,11 @@ class McpDetailPage extends HookWidget {
           resources.value = upd;
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('操作失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '操作失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 

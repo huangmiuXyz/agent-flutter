@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
 
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
@@ -290,15 +291,11 @@ class _RightPanelState extends State<RightPanel>
     final text = _data.buildLogText();
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: AppText(
-            _data.recordedSnapshots.isEmpty
-                ? '暂无录制数据'
-                : '已复制 ${_data.recordedSnapshots.length} 条日志',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
+      NotificationStore.instance.notify(
+        message: _data.recordedSnapshots.isEmpty
+            ? '暂无录制数据'
+            : '已复制 ${_data.recordedSnapshots.length} 条日志',
+        duration: const Duration(seconds: 2),
       );
     }
   }

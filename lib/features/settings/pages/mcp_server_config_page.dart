@@ -10,6 +10,7 @@ import 'package:agent/hooks/use_debounced_callback.dart';
 
 import 'package:agent/rust_bridge/api/mcp.dart' as api;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
@@ -145,11 +146,11 @@ class McpServerConfigPage extends HookWidget {
         }
         api.reloadMcpServer(configPath: store.configPath, serverName: newName);
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 
@@ -171,9 +172,7 @@ class McpServerConfigPage extends HookWidget {
         });
 
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('已删除')));
+          NotificationStore.instance.notify(message: '已删除');
           // 通知 Rust 后端断开该服务器
           api.reloadMcpServer(
             configPath: store.configPath,
@@ -182,11 +181,11 @@ class McpServerConfigPage extends HookWidget {
           onBack();
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('删除失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '删除失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 

@@ -16,6 +16,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/settings/models/local_model_info.dart';
 import 'package:agent/services/local_llm/local_model_service.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -125,11 +126,7 @@ class LocalModelPage extends HookWidget {
           if (!existingPaths.contains(m.path)) m,
       ];
       if (newModels.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('所选模型已在列表中')));
-        }
+        NotificationStore.instance.notify(message: '所选模型已在列表中');
         return;
       }
       final updated = [...models.value, ...newModels];
@@ -216,21 +213,13 @@ class LocalModelPage extends HookWidget {
       if (confirmed == true) {
         final v = int.tryParse(editContextCtrl.text.trim());
         if (v == null || v <= 0) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: AppText('请输入有效的上下文长度')));
-          }
+          NotificationStore.instance.notify(message: '请输入有效的上下文长度');
           return;
         }
         final rawMax = editMaxTokensCtrl.text.trim();
         final maxTokens = rawMax.isEmpty ? null : int.tryParse(rawMax);
         if (rawMax.isNotEmpty && (maxTokens == null || maxTokens <= 0)) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: AppText('请输入有效的最长生成长度')));
-          }
+          NotificationStore.instance.notify(message: '请输入有效的最长生成长度');
           return;
         }
         // GPU 卸载：自动评估 / 手动（0 = 纯 CPU，正整数 = 固定层数）
@@ -239,11 +228,7 @@ class LocalModelPage extends HookWidget {
           final rawGpu = editGpuLayersCtrl.text.trim();
           final n = rawGpu.isEmpty ? 0 : int.tryParse(rawGpu);
           if (rawGpu.isNotEmpty && (n == null || n < 0)) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: AppText('请输入 0 或正整数（GPU 卸载层数）')),
-              );
-            }
+            NotificationStore.instance.notify(message: '请输入 0 或正整数（GPU 卸载层数）');
             return;
           }
           gpuLayers = n ?? 0;

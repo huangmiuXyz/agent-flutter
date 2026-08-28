@@ -10,12 +10,12 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_select.dart';
-import 'package:agent/widgets/text/app_text.dart';
 
 /// Full-screen form for adding a custom provider.
 class AddProviderPage extends HookWidget {
@@ -78,9 +78,7 @@ class AddProviderPage extends HookWidget {
         });
 
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('提供商添加成功')));
+          NotificationStore.instance.notify(message: '提供商添加成功');
           onSaved?.call(
             ProviderInfo(
               name: providerId,
@@ -91,11 +89,11 @@ class AddProviderPage extends HookWidget {
           );
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       } finally {
         saving.value = false;
       }

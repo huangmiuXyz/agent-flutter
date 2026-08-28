@@ -107,7 +107,11 @@ class _ChatDiffBlockState extends State<ChatDiffBlock> {
           _moveSource = path;
         case DiffLineKind.fileMove:
           _rows.add(
-            _HeaderRowData('move', _HeaderColor.accent, '移动文件 $_moveSource → $path'),
+            _HeaderRowData(
+              'move',
+              _HeaderColor.accent,
+              '移动文件 $_moveSource → $path',
+            ),
           );
         default:
           break; // 新建文件必有内容行，不会进入纯文件操作分支

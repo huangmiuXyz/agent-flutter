@@ -93,10 +93,9 @@ class SessionList extends HookWidget {
         }
 
         // 分组：主会话 + 各自子会话（均按更新时间倒序）
-        final parents = sessions
-            .where((s) => s.parentSessionId == null)
-            .toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        final parents =
+            sessions.where((s) => s.parentSessionId == null).toList()
+              ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         final childrenByParent = <String, List<api.SessionInfo>>{};
         for (final s in sessions.where((s) => s.parentSessionId != null)) {
           childrenByParent.putIfAbsent(s.parentSessionId!, () => []).add(s);
@@ -215,9 +214,7 @@ class SessionList extends HookWidget {
               final confirmed = await AppDialog.show(
                 context: context,
                 title: '删除会话',
-                child: AppText(
-                  '确定要删除「${session.name}」吗？此操作不可恢复。',
-                ),
+                child: AppText('确定要删除「${session.name}」吗？此操作不可恢复。'),
                 onOk: () {},
               );
               if (confirmed == true) {
@@ -313,8 +310,10 @@ class _SessionNameField extends HookWidget {
               if (newName.trim().isEmpty || newName.trim() == session.name) {
                 return;
               }
-              await SessionStore.instance
-                  .renameSession(session.id, newName.trim());
+              await SessionStore.instance.renameSession(
+                session.id,
+                newName.trim(),
+              );
             },
           ),
         ),

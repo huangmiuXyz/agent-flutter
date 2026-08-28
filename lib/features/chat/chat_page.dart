@@ -176,10 +176,9 @@ class ChatPage extends StatelessWidget {
     if (isMobilePlatform) {
       // 检查点视图切换与桌面保持一致
       return SignalBuilder(
-        builder: (_) =>
-            CheckpointStore.instance.showCheckpointView.value
-                ? const CheckpointList()
-                : const ChatContent(),
+        builder: (_) => CheckpointStore.instance.showCheckpointView.value
+            ? const CheckpointList()
+            : const ChatContent(),
       );
     }
     if (!_isRunningFromSource()) {

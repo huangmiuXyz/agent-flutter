@@ -13,6 +13,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/services/font_cache/font_cache_service.dart';
 import 'package:agent/services/font_cache/imported_font_service.dart';
 import 'package:agent/services/font_cache/system_font_service.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/store/setting_store.dart';
 import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
@@ -208,22 +209,15 @@ class FontSettingsPage extends HookWidget {
         allowedExtensions: ['ttf', 'otf'],
         dialogTitle: '导入字体文件',
       );
-      final paths = files
-          .map((f) => f.path)
-          .whereType<String>()
-          .toList();
+      final paths = files.map((f) => f.path).whereType<String>().toList();
       if (paths.isEmpty) return;
       final added = await ImportedFontService.instance.importFiles(paths);
       if (added.isNotEmpty) {
         rescanImported();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: AppText('已导入 ${added.length} 个字体'),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
+        NotificationStore.instance.notify(
+          message: '已导入 ${added.length} 个字体',
+          duration: const Duration(seconds: 2),
+        );
       }
     }
 
@@ -330,19 +324,14 @@ class FontSettingsPage extends HookWidget {
             itemCount: 1,
             itemBuilder: (ctx, i, {required isFirst, required isLast}) {
               final desc = switch (target.value) {
-                1 => terminalFont.value == null
-                    ? '终端字体（跟随界面字体）'
-                    : '终端字体',
-                2 => markdownFont.value == null
-                    ? 'Markdown 字体（跟随界面字体）'
-                    : 'Markdown 字体',
+                1 => terminalFont.value == null ? '终端字体（跟随界面字体）' : '终端字体',
+                2 =>
+                  markdownFont.value == null
+                      ? 'Markdown 字体（跟随界面字体）'
+                      : 'Markdown 字体',
                 _ => '界面字体',
               };
-              return AppBigRow(
-                name: actualFont,
-                description: desc,
-                dot: true,
-              );
+              return AppBigRow(name: actualFont, description: desc, dot: true);
             },
           ),
         );

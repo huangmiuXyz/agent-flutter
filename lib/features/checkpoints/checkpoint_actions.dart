@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:agent/rust_bridge/api/types.dart' as api_types;
 import 'package:agent/services/sync/cross_window_sync.dart';
 import 'package:agent/store/checkpoint_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/widgets/dialog/app_dialog.dart';
 import 'package:agent/widgets/text/app_text.dart';
@@ -36,22 +37,21 @@ Future<void> confirmRestoreCheckpoint(
   final summary = await CheckpointStore.instance.restore(cp);
   if (!context.mounted) return;
   if (summary == null) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: AppText('恢复失败，请检查工作目录是否为 git 仓库')));
+    NotificationStore.instance.notify(
+      message: '恢复失败，请检查工作目录是否为 git 仓库',
+      isError: true,
+    );
     return;
   }
   // 工作区已变化：刷新展开区的 diff 预览
   onApplied();
 
   final affected = [...summary.restored, ...summary.deleted];
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: AppText(
+  NotificationStore.instance.notify(
+    title: '恢复完成',
+    message:
         '已恢复 ${summary.restored.length} 个文件'
         '${summary.deleted.isEmpty ? '' : '，删除 ${summary.deleted.length} 个新增文件'}',
-      ),
-    ),
   );
 
   _afterApplied(cp, affected);
@@ -78,8 +78,9 @@ Future<void> confirmApplyCheckpoint(
   final summary = await CheckpointStore.instance.apply(cp);
   if (!context.mounted) return;
   if (summary == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: AppText('重新应用失败，请检查工作目录是否为 git 仓库')),
+    NotificationStore.instance.notify(
+      message: '重新应用失败，请检查工作目录是否为 git 仓库',
+      isError: true,
     );
     return;
   }
@@ -87,13 +88,11 @@ Future<void> confirmApplyCheckpoint(
   onApplied();
 
   final affected = [...summary.restored, ...summary.deleted];
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: AppText(
+  NotificationStore.instance.notify(
+    title: '重新应用完成',
+    message:
         '已重新应用 ${summary.restored.length} 个文件'
         '${summary.deleted.isEmpty ? '' : '，删除 ${summary.deleted.length} 个文件'}',
-      ),
-    ),
   );
 
   _afterApplied(cp, affected);

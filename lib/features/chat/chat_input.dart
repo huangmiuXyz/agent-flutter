@@ -93,9 +93,7 @@ class ChatInput extends HookWidget {
 
     /// 选择图片并插入 Fleather 文档（复制到 File 目录后按原始名引用）
     Future<void> pickImages() async {
-      final files = await FilePicker.pickFiles(
-        type: FileType.image,
-      );
+      final files = await FilePicker.pickFiles(type: FileType.image);
       if (files.isEmpty) return;
       for (final file in files) {
         final src = file.path;

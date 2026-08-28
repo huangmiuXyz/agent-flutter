@@ -17,6 +17,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/rust_bridge/api/providers.dart' as api;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
@@ -87,11 +88,11 @@ class ModelListPage extends HookWidget {
         });
         flags.value = updated;
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('操作失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '操作失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 

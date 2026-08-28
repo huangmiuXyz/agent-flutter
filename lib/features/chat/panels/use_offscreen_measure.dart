@@ -117,7 +117,11 @@ OffscreenMeasure useOffscreenMeasure() {
   final targetKey = useMemoized(() => GlobalKey());
   final request = useState<MeasureRequest?>(null);
   final attempts = useRef(0);
-  useEffect(() => () => controller.dispose(), []);
+  useEffect(
+    () =>
+        () => controller.dispose(),
+    [],
+  );
 
   void iterate() {
     final r = request.value;

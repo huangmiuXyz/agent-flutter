@@ -7,6 +7,7 @@ import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/settings_page.dart';
 import 'package:agent/layout/main_layout.dart' show showSettingsDialog;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/select/app_provider_model_select.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
@@ -57,11 +58,8 @@ class ModelSelector extends HookWidget {
     final resolved = AgentStore.instance.resolveModel();
     final currentValue =
         resolved.provider.isNotEmpty && resolved.model.isNotEmpty
-            ? AppProviderModelSelect.encodeKey(
-                resolved.provider,
-                resolved.model,
-              )
-            : null;
+        ? AppProviderModelSelect.encodeKey(resolved.provider, resolved.model)
+        : null;
 
     void onModelChanged(dynamic val) {
       if (val is! String) return;
@@ -70,10 +68,8 @@ class ModelSelector extends HookWidget {
       final (provider, model) = decoded;
       // 写入当前生效位置（全局或当前智能体的 config.json）
       AgentStore.instance.setDefaultModel(provider, model).then((ok) {
-        if (!ok && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: AppText('设置默认模型失败')),
-          );
+        if (!ok) {
+          NotificationStore.instance.notify(message: '设置默认模型失败', isError: true);
         }
       });
     }

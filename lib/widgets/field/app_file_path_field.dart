@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 
 import 'package:agent/services/mobile_work_dir.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/field/app_field.dart';
@@ -111,11 +112,10 @@ class AppFilePathField extends StatelessWidget {
       if (isMobilePlatform && pickerType == PickerType.directory) {
         final imported = await MobileWorkDirService.instance.pickAndImport();
         if (imported == null) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: AppText('无法读取所选目录（Android 存储限制）')),
-            );
-          }
+          NotificationStore.instance.notify(
+            message: '无法读取所选目录（Android 存储限制）',
+            isError: true,
+          );
           return;
         }
         controller.text = imported;
@@ -135,11 +135,11 @@ class AppFilePathField extends StatelessWidget {
         onChanged?.call(controller.text);
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: AppText('选择失败: $e')));
-      }
+      NotificationStore.instance.notify(
+        title: '选择失败',
+        message: '$e',
+        isError: true,
+      );
     }
   }
 }

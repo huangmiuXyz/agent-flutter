@@ -13,6 +13,7 @@ import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/features/settings/pages/model_list_page.dart';
 import 'package:agent/hooks/use_debounced_callback.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_secondary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
@@ -159,11 +160,11 @@ class _ConfigForm extends HookWidget {
           }
         });
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 
@@ -263,17 +264,15 @@ class _ConfigForm extends HookWidget {
       debugPrint('Deleted provider config: ${provider.name}');
 
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: AppText('配置已删除')));
+        NotificationStore.instance.notify(message: '配置已删除');
         onBack();
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: AppText('删除失败: $e')));
-      }
+      NotificationStore.instance.notify(
+        title: '删除失败',
+        message: '$e',
+        isError: true,
+      );
     }
   }
 }

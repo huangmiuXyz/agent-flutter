@@ -7,13 +7,13 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/rust_bridge/api/mcp.dart' as api;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
 import 'package:agent/widgets/select/app_select.dart';
 import 'package:agent/widgets/switch/app_switch.dart';
-import 'package:agent/widgets/text/app_text.dart';
 
 /// 添加 MCP 服务器页。
 class AddMcpServerPage extends HookWidget {
@@ -54,11 +54,10 @@ class AddMcpServerPage extends HookWidget {
       final data = store.data.value;
       final existing = loadMcpServers(data);
       if (existing.any((s) => s.name == name)) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('服务器名称 "$name" 已存在')));
-        }
+        NotificationStore.instance.notify(
+          message: '服务器名称 "$name" 已存在',
+          isError: true,
+        );
         return;
       }
 
@@ -85,19 +84,17 @@ class AddMcpServerPage extends HookWidget {
         store.updateMcpServers((list) => list.add(server));
 
         if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('服务器添加成功')));
+          NotificationStore.instance.notify(message: '服务器添加成功');
           // 通知 Rust 后端重新连接该服务器
           api.reloadMcpServer(configPath: store.configPath, serverName: name);
           onBack();
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       } finally {
         saving.value = false;
       }

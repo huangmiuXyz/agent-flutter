@@ -16,6 +16,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/services/mobile_work_dir.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
@@ -222,8 +223,6 @@ class _WorkDirMenu extends HookWidget {
     final maxPanelHeight = 8 * unitHeight + custom.controls.smallHeight + 48;
 
     Future<void> pickFromFileSystem() async {
-      // 提前取 messenger：onDismiss 后本组件 context 失效
-      final messenger = ScaffoldMessenger.maybeOf(context);
       // 先关闭面板，再弹出系统目录选择器
       onDismiss();
 
@@ -232,10 +231,9 @@ class _WorkDirMenu extends HookWidget {
       if (isMobilePlatform) {
         final imported = await MobileWorkDirService.instance.pickAndImport();
         if (imported == null) {
-          messenger?.showSnackBar(
-            const SnackBar(
-              content: AppText('无法读取所选目录（Android 存储限制），已保留当前工作目录'),
-            ),
+          NotificationStore.instance.notify(
+            message: '无法读取所选目录（Android 存储限制），已保留当前工作目录',
+            isError: true,
           );
           return;
         }

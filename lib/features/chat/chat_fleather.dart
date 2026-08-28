@@ -322,15 +322,12 @@ class _ChatFleatherState extends State<ChatFleather> {
     final caretRect = renderEditor.getLocalRectForCaret(
       _controller.selection.extent,
     );
-    SystemChannels.textInput.invokeMethod<void>(
-      'TextInput.setCaretRect',
-      {
-        'x': caretRect.left,
-        'y': caretRect.top,
-        'width': caretRect.width,
-        'height': caretRect.height,
-      },
-    );
+    SystemChannels.textInput.invokeMethod<void>('TextInput.setCaretRect', {
+      'x': caretRect.left,
+      'y': caretRect.top,
+      'width': caretRect.width,
+      'height': caretRect.height,
+    });
   }
 
   /// 文档是否为空：无文本且无图片标签

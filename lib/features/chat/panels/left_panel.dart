@@ -9,6 +9,7 @@ import 'package:agent/utils/platform.dart';
 import 'package:agent/features/chat/panels/session_list.dart';
 import 'package:agent/features/checkpoints/checkpoint_path_list.dart';
 import 'package:agent/store/checkpoint_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/button/app_icon_button.dart';
@@ -212,10 +213,8 @@ class LeftPanel extends HookWidget {
     }
 
     final ok = await CheckpointStore.instance.deletePaths(ids);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: AppText('删除失败')));
+    if (!ok) {
+      NotificationStore.instance.notify(message: '删除失败', isError: true);
     }
     selectMode.value = false;
   }
@@ -249,11 +248,11 @@ class LeftPanel extends HookWidget {
         context.go('/chat/$id');
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: AppText('创建失败: $e')));
-      }
+      NotificationStore.instance.notify(
+        title: '创建会话失败',
+        message: '$e',
+        isError: true,
+      );
     }
   }
 }

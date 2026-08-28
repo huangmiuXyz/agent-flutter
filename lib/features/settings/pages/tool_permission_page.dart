@@ -30,6 +30,7 @@ import 'package:agent/rust_bridge/api/agents.dart' as bridge_agents;
 import 'package:agent/rust_bridge/api/builtin_tools.dart' as bridge_tools;
 import 'package:agent/rust_bridge/api/types.dart' as bridge_types;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/form/app_form_page.dart';
@@ -137,11 +138,11 @@ class ToolPermissionPage extends HookWidget {
           ConfigStore.instance.reload();
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 

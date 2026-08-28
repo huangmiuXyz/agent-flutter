@@ -19,6 +19,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
@@ -57,9 +58,10 @@ class ReasoningSelector extends HookWidget {
       menuMinWidth: 100,
       onChanged: (v) {
         AgentStore.instance.setReasoningEffort(v).then((ok) {
-          if (!ok && context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: AppText('设置推理强度失败：找不到当前提供商的配置')),
+          if (!ok) {
+            NotificationStore.instance.notify(
+              message: '设置推理强度失败：找不到当前提供商的配置',
+              isError: true,
             );
           }
         });

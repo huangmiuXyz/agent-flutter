@@ -1,8 +1,9 @@
-/// 流式对话结束通知弹窗 — 应用内右下角自动弹出
+/// 流式对话结束通知 / 通用操作提示弹窗 — 应用内右下角自动弹出
 ///
 /// 挂在 [MainLayout] body 的 Stack 顶层，监听 [NotificationStore.notices]，
-/// 在右下角堆叠展示流结束通知卡片：
-/// - 点击卡片 → 切换到对应会话
+/// 在右下角堆叠展示通知卡片：
+/// - 流结束通知：点击卡片 → 切换到对应会话
+/// - 通用提示（[StreamCompletionNotice.sessionId] 为空）：点击仅关闭
 /// - 点击 × 或超时（见 [NotificationStore.displayDuration]）→ 关闭
 library;
 
@@ -60,14 +61,17 @@ class StreamCompletionNotifications extends StatelessWidget {
     );
   }
 
-  /// 打开通知对应的会话（与左侧会话列表点击行为一致）。
+  /// 打开通知对应的会话（与左侧会话列表点击行为一致）；
+  /// 通用提示（无会话归属）点击仅关闭。
   void _openSession(StreamCompletionNotice notice) {
     NotificationStore.instance.dismiss(notice.id);
+    final sid = notice.sessionId;
+    if (sid == null) return;
     final store = SessionStore.instance;
-    if (store.selectedId.value != notice.sessionId) {
-      store.selectedId.value = notice.sessionId;
+    if (store.selectedId.value != sid) {
+      store.selectedId.value = sid;
     }
-    unawaited(store.switchTo(notice.sessionId));
+    unawaited(store.switchTo(sid));
   }
 }
 
@@ -131,12 +135,15 @@ class _NoticeCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AppText(
-                        notice.title,
-                        variant: AppTextVariant.body,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      SizedBox(height: 2),
+                      // 通用提示可只传 message（无标题行）
+                      if (notice.title.isNotEmpty) ...[
+                        AppText(
+                          notice.title,
+                          variant: AppTextVariant.body,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        SizedBox(height: 2),
+                      ],
                       AppText(
                         notice.message,
                         variant: AppTextVariant.caption,

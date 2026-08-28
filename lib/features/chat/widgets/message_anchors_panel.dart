@@ -64,7 +64,11 @@ class MessageAnchorsPanel extends HookWidget {
     // 鼠标离开竖条后的关闭延迟：期间移入浮层则取消，
     // 保证 hover 区域只有竖条一窄条，浮层只是显示出来可点击
     final closeTimer = useRef<Timer?>(null);
-    useEffect(() => () => closeTimer.value?.cancel(), []);
+    useEffect(
+      () =>
+          () => closeTimer.value?.cancel(),
+      [],
+    );
 
     void startCloseTimer() {
       closeTimer.value?.cancel();
@@ -108,8 +112,7 @@ class MessageAnchorsPanel extends HookWidget {
                     hovered.value = true;
                   },
                   onExit: (_) => startCloseTimer(),
-                  onHover: (event) =>
-                      hoverY.value = event.localPosition.dy,
+                  onHover: (event) => hoverY.value = event.localPosition.dy,
                   cursor: SystemMouseCursors.click,
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
@@ -120,7 +123,8 @@ class MessageAnchorsPanel extends HookWidget {
                       String? nearest;
                       var best = double.infinity;
                       for (final a in anchors) {
-                        final ay = _anchorBarInnerPadding +
+                        final ay =
+                            _anchorBarInnerPadding +
                             a.ratio.clamp(0.0, 1.0) * usable;
                         final d = (ay - y).abs();
                         if (d < best) {
@@ -253,11 +257,7 @@ class _AnchorBarPainter extends CustomPainter {
         ..color = isActive ? activeColor : inactiveColor
         ..strokeWidth = isActive ? 4 : 3
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(5, y),
-        Offset(size.width - 5, y),
-        paint,
-      );
+      canvas.drawLine(Offset(5, y), Offset(size.width - 5, y), paint);
     }
   }
 

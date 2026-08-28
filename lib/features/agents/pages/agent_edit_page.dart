@@ -27,6 +27,7 @@ import 'package:agent/rust_bridge/api/builtin_tools.dart' as bridge;
 import 'package:agent/rust_bridge/api/skills.dart' as bridge;
 import 'package:agent/rust_bridge/api/types.dart' as bridge;
 import 'package:agent/store/config_store.dart';
+import 'package:agent/store/notification_store.dart';
 import 'package:agent/utils/file_utils.dart';
 import 'package:agent/widgets/breadcrumb/app_breadcrumb.dart';
 import 'package:agent/widgets/button/app_primary_button.dart';
@@ -162,11 +163,7 @@ class AgentEditPage extends HookWidget {
     Future<Map<String, dynamic>?> buildCfg() async {
       final name = nameController.text.trim();
       if (name.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: AppText('请填写名称')));
-        }
+        NotificationStore.instance.notify(message: '请填写名称');
         return null;
       }
 
@@ -274,11 +271,11 @@ class AgentEditPage extends HookWidget {
           configStore.reload();
         }
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       }
     }
 
@@ -288,9 +285,7 @@ class AgentEditPage extends HookWidget {
       if (id.isEmpty ||
           id == kGlobalAgentId ||
           id.contains(RegExp(r'[\\/:*?"<>|]'))) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: AppText('标识无效：不能为空、不能为 全局、不能包含路径字符')),
-        );
+        NotificationStore.instance.notify(message: '标识无效：不能为空、不能为 全局、不能包含路径字符');
         return;
       }
 
@@ -306,11 +301,11 @@ class AgentEditPage extends HookWidget {
         await AgentStore.instance.refresh();
         onSaved();
       } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: AppText('保存失败: $e')));
-        }
+        NotificationStore.instance.notify(
+          title: '保存失败',
+          message: '$e',
+          isError: true,
+        );
       } finally {
         saving.value = false;
       }
@@ -602,17 +597,15 @@ class AgentEditPage extends HookWidget {
       await bridge.deleteAgent(agentDir: agent!.directoryPath);
       await AgentStore.instance.refresh();
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: AppText('已删除')));
+        NotificationStore.instance.notify(message: '已删除');
         onSaved();
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: AppText('删除失败: $e')));
-      }
+      NotificationStore.instance.notify(
+        title: '删除失败',
+        message: '$e',
+        isError: true,
+      );
     }
   }
 }
