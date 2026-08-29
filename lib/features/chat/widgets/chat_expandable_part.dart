@@ -40,6 +40,16 @@ class ChatExpandablePart extends HookWidget {
   final Widget Function(BuildContext context, String rawArguments)?
   argumentsBuilder;
 
+  /// 展开区结果自定义构建器：替换默认的「结果文本」渲染。
+  /// 入参为原始 arguments 与原始 tool_result 文本（未做格式化/剥离，
+  /// 各工具视图自行按结构解析），仅在结果可用时调用。
+  final Widget Function(
+    BuildContext context,
+    String rawArguments,
+    String rawResult,
+  )?
+  resultBuilder;
+
   /// 展开内容左侧是否显示竖分割线（深度思考保留，工具调用去掉）
   final bool showLeftDivider;
 
@@ -62,6 +72,7 @@ class ChatExpandablePart extends HookWidget {
     this.resultContent,
     this.children,
     this.argumentsBuilder,
+    this.resultBuilder,
     this.showLeftDivider = true,
     this.initiallyExpanded = false,
     this.stickToBottom = false,
@@ -101,10 +112,10 @@ class ChatExpandablePart extends HookWidget {
       ).convert(jsonDecode(rawArguments));
     } catch (_) {}
 
-    // 解析结果内容
-    final rawResult = resultContent;
+    // 解析结果内容（resultBuilder 场景使用未加工的原始文本）
+    final rawResult = resultContent ?? '';
     String? resultText;
-    if (rawResult != null && rawResult.isNotEmpty) {
+    if (rawResult.isNotEmpty) {
       try {
         final json = jsonDecode(rawResult);
         resultText = const JsonEncoder.withIndent('  ').convert(json);
@@ -125,17 +136,26 @@ class ChatExpandablePart extends HookWidget {
     final customWidgetsExist =
         argumentsBuilder != null || (children != null && children!.isNotEmpty);
 
+    // 结果区由注册表组件接管（resultBuilder）：通用文本只承担输入段，
+    // 结果段整体交由工具专属视图渲染
+    final showCustomResult = resultBuilder != null && resultAvailable;
+
     // 输入(参数)与输出(结果)合并为同一段文本，共用同一个 VirtualParagraphText；
     // 输入段落在前，输出段落紧随其后，均按换行拆分为段落
-    final inputParagraphCount = splitTextIntoParagraphs(
-      argumentsText,
-      mode: ParagraphSplitMode.newline,
-    ).length;
-    final virtualText = customWidgetsExist
+    final virtualText = showCustomResult
+        ? (customWidgetsExist ? '' : argumentsText)
+        : customWidgetsExist
         ? (resultText ?? '')
         : resultAvailable
         ? '$argumentsText\n\n$resultText'
         : argumentsText;
+    // 输入段落数恒按 argumentsText 计（showCustomResult 时输出段离开
+    // 通用文本，其余场景 virtualText = 参数 + 结果，段落索引以此为界
+    // 区分输入/输出样式与分隔线位置）
+    final inputParagraphCount = splitTextIntoParagraphs(
+      argumentsText,
+      mode: ParagraphSplitMode.newline,
+    ).length;
 
     // 输入段落用次级文字色，输出段落用成功色；两者之间渲染分隔线。
     // 输出段落经 ANSI 解析渲染彩色（shell_command 等工具输出保留颜色码），
@@ -206,10 +226,13 @@ class ChatExpandablePart extends HookWidget {
                   ),
                   SizedBox(width: custom.spacing.xs),
                   Expanded(
+                    // 注册表标题含路径/命令等长参数：单行省略，不换行撑高头部
                     child: AppText(
                       title,
                       variant: AppTextVariant.caption,
                       color: titleColor,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   AppIcon(
@@ -276,29 +299,54 @@ class ChatExpandablePart extends HookWidget {
                                   ),
                             ],
                           ),
-                        // 自定义内容与输出之间的分隔线
-                        if (customWidgetsExist && resultAvailable) ...[
+                        // 结果区由工具专属视图渲染：输入段（无自定义参数时）
+                        // 独立虚拟滚动，随后分隔线 + resultBuilder
+                        if (showCustomResult) ...[
+                          if (!customWidgetsExist && argumentsText.isNotEmpty)
+                            VirtualParagraphText(
+                              text: argumentsText,
+                              splitMode: ParagraphSplitMode.newline,
+                              fontSize: custom.typography.captionSize,
+                              lineHeight: 18,
+                              maxHeight:
+                                  custom.controls.chatPartExpandedMaxHeight,
+                              paragraphPaddingBlock: 0,
+                              paragraphGap: 4,
+                              paragraphBuilder: paragraphBuilder,
+                            ),
                           SizedBox(height: custom.spacing.sm),
                           Container(height: 1, color: custom.colors.separator),
                           SizedBox(height: custom.spacing.sm),
+                          resultBuilder!(context, rawArguments, rawResult),
+                        ] else ...[
+                          // 自定义内容与输出之间的分隔线
+                          if (customWidgetsExist && resultAvailable) ...[
+                            SizedBox(height: custom.spacing.sm),
+                            Container(
+                              height: 1,
+                              color: custom.colors.separator,
+                            ),
+                            SizedBox(height: custom.spacing.sm),
+                          ],
+                          // 输入与输出共用同一个 VirtualParagraphText
+                          // 短内容按自然高度完整展示；超过 chatPartExpandedMaxHeight 时
+                          // 虚拟滚动（只构建可见段落），避免大输出（如 `ls -R .`）
+                          // 一次性构建数十万段落导致 UI 卡死。
+                          VirtualParagraphText(
+                            text: virtualText,
+                            splitMode: ParagraphSplitMode.newline,
+                            fontSize: custom.typography.captionSize,
+                            lineHeight: 18,
+                            maxHeight:
+                                custom.controls.chatPartExpandedMaxHeight,
+                            paragraphPaddingBlock: 0,
+                            paragraphGap: 4,
+                            // 内容增长时自动滚动到底部（深度思考流式输出跟随）
+                            stickToBottom: stickToBottom,
+                            bottomThreshold: 0,
+                            paragraphBuilder: paragraphBuilder,
+                          ),
                         ],
-                        // 输入与输出共用同一个 VirtualParagraphText
-                        // 短内容按自然高度完整展示；超过 chatPartExpandedMaxHeight 时
-                        // 虚拟滚动（只构建可见段落），避免大输出（如 `ls -R .`）
-                        // 一次性构建数十万段落导致 UI 卡死。
-                        VirtualParagraphText(
-                          text: virtualText,
-                          splitMode: ParagraphSplitMode.newline,
-                          fontSize: custom.typography.captionSize,
-                          lineHeight: 18,
-                          maxHeight: custom.controls.chatPartExpandedMaxHeight,
-                          paragraphPaddingBlock: 0,
-                          paragraphGap: 4,
-                          // 内容增长时自动滚动到底部（深度思考流式输出跟随）
-                          stickToBottom: stickToBottom,
-                          bottomThreshold: 0,
-                          paragraphBuilder: paragraphBuilder,
-                        ),
                       ],
                     ),
                   ),

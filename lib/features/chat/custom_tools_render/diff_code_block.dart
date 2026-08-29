@@ -330,6 +330,9 @@ class DiffCodeBlock extends StatefulWidget {
     return _extModes[ext] ?? _extModes[path.toLowerCase()];
   }
 
+  /// 公开入口：按文件路径推断语法语言（read_file 结果等复用）
+  static Mode? modeForPath(String path) => _modeForPath(path);
+
   /// 带缓存的解析入口：同一 diff 不重复解析（build 可被父级频繁触发）
   static List<DiffLine> parseDiff(String diff) {
     final cached = _parseCache[diff];

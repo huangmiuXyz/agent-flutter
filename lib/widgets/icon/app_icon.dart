@@ -80,6 +80,10 @@ const Map<String, IconData> _registry = {
   'command': LucideIcons.command,
   'moreHorizontal': LucideIcons.moreHorizontal,
   'messageSquare': LucideIcons.messageSquare,
+  'textSearch': LucideIcons.textSearch,
+  'fileSearch': LucideIcons.fileSearch,
+  'bookOpen': LucideIcons.bookOpen,
+  'folderTree': LucideIcons.folderTree,
 };
 
 class AppIcon extends StatelessWidget {

@@ -25,7 +25,8 @@ import 'chat_expandable_part.dart';
 import 'chat_image_part.dart';
 import 'chat_search_part.dart';
 
-import '../custom_tools_render/chat_diff_block.dart';
+import '../custom_tools_render/tool_args_extractor.dart';
+import '../custom_tools_render/tool_render_registry.dart';
 import 'chat_text_part.dart';
 import 'package:agent/widgets/terminal/readonly_terminal.dart';
 
@@ -608,7 +609,8 @@ class ChatMessageItem extends HookWidget {
     return null;
   }
 
-  /// 工具调用卡片：apply_patch 走专用 diff 渲染，其余保持通用样式。
+  /// 工具调用卡片：内置工具走注册表专属渲染（图标 / 标题 / 参数视图），
+  /// 未注册的工具（MCP 等外部工具）保持通用样式。
   ///
   /// 执行中的 shell_command 等工具（tool_call_frag 态）如有流式输出，
   /// 在展开区渲染只读终端实时展示；命令结束后（tool_call 态）由
@@ -619,7 +621,9 @@ class ChatMessageItem extends HookWidget {
     String? streamedText,
     PendingToolPermission? pending,
   ) {
-    final isPatch = _toolCallName(part.content) == 'apply_patch';
+    final toolName = _toolCallName(part.content);
+    final spec = toolRenderSpec(toolName);
+    final isPatch = toolName == 'apply_patch';
     // 仅执行中的卡片展示流式终端；完成后 toolOutputBuffers 仍在会话内
     // 保留，但不再渲染（结果以 tool_result 文本为准）
     final isRunning = part.partType == PartTypes.toolCallFrag;
@@ -629,11 +633,16 @@ class ChatMessageItem extends HookWidget {
         : null;
     return ChatExpandablePart(
       content: part.content,
-      iconName: isPatch ? 'fileCode' : 'mousePointer2',
-      title: isPatch ? '应用补丁' : _toolCallTitle(part.content),
-      titleColor: isPatch ? custom.colors.success : custom.colors.accent,
+      iconName: spec?.iconName ?? 'mousePointer2',
+      // 注册表标题从参数提取关键信息（如「读取文件 src/main.rs」），
+      // 流式期间参数是半截 JSON，extractToolArgs 容错提取已到达部分
+      title: spec != null
+          ? spec.title(extractToolArgs(_toolCallRawArguments(part.content)))
+          : _toolCallTitle(part.content),
+      titleColor: spec?.titleColor?.call(custom.colors) ?? custom.colors.accent,
       resultContent: _lookupResult(part.content),
-      argumentsBuilder: isPatch ? _buildPatchDiff : null,
+      argumentsBuilder: spec?.argumentsBuilder,
+      resultBuilder: spec?.resultBuilder,
       // 工具调用去掉左侧分割线（深度思考保留）
       showLeftDivider: false,
       // 仅 apply_patch 默认展开便于直接查看 diff，其余工具调用保持收起；
@@ -684,15 +693,16 @@ class ChatMessageItem extends HookWidget {
     );
   }
 
-  /// 用 diff 代码块渲染 apply_patch 的 patch 参数。
-  /// 提取逻辑在 ChatDiffBlock 内部增量完成：流式期间 arguments 是
-  /// 不断增长的半截 JSON（`{"patch": "*** Begin Patch...`），整段
-  /// jsonDecode 必然失败；若等 JSON 完整才渲染，diff 只能在流式结束后
-  /// 一次性出现（非实时）。StreamingPatchExtractor 容错提取 patch
-  /// 字符串值（字符串未闭合时取全部剩余文本、转义逐字符解码），
-  /// diff 随流式逐行增长，每 chunk 只处理新增文本。
-  Widget _buildPatchDiff(BuildContext context, String rawArguments) {
-    return ChatDiffBlock.arguments(rawArguments: rawArguments);
+  /// 读取工具调用的原始 arguments（streaming 期间为半截 JSON）。
+  /// 解析交给注册表渲染组件内部的 extractToolArgs 容错处理。
+  String _toolCallRawArguments(String content) {
+    try {
+      final json = jsonDecode(content) as Map<String, dynamic>;
+      final function = json['function'] as Map<String, dynamic>?;
+      final arguments = function?['arguments'];
+      if (arguments is String) return arguments;
+    } catch (_) {}
+    return '';
   }
 
   /// 读取工具调用名称（streaming 早期即稳定）
