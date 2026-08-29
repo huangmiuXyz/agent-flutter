@@ -4,11 +4,14 @@ PODS:
   - flutter_pty_new (0.0.1):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
+  - rust_lib_agent (0.0.1):
+    - FlutterMacOS
 
 DEPENDENCIES:
   - desktop_multi_window (from `Flutter/ephemeral/.symlinks/plugins/desktop_multi_window/macos`)
   - flutter_pty_new (from `Flutter/ephemeral/.symlinks/plugins/flutter_pty_new/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
+  - rust_lib_agent (from `Flutter/ephemeral/.symlinks/plugins/rust_lib_agent/macos`)
 
 EXTERNAL SOURCES:
   desktop_multi_window:
@@ -17,11 +20,14 @@ EXTERNAL SOURCES:
     :path: Flutter/ephemeral/.symlinks/plugins/flutter_pty_new/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
+  rust_lib_agent:
+    :path: Flutter/ephemeral/.symlinks/plugins/rust_lib_agent/macos
 
 SPEC CHECKSUMS:
   desktop_multi_window: 93667594ccc4b88d91a97972fd3b1b89667fa80a
   flutter_pty_new: 76ea3908c5d46eba13bb9254a48c5c201128b408
   FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
+  rust_lib_agent: a06a19c3248b6629234148d96a9f1a89725f8af8
 
 PODFILE CHECKSUM: 1e95c36afbfd1cb6423ceca4de7a8e1b256fb6ac
 

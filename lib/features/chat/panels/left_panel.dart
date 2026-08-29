@@ -243,9 +243,9 @@ class LeftPanel extends HookWidget {
   Future<void> _createSession(BuildContext context) async {
     try {
       final id = await SessionStore.instance.createAndOpen();
-      // 移动端：新建后直接进入全屏聊天页
+      // 移动端：新建后直接进入全屏聊天页（push 压栈，保留会话列表可返回）
       if (isMobilePlatform && context.mounted) {
-        context.go('/chat/$id');
+        context.push('/chat/$id');
       }
     } catch (e) {
       NotificationStore.instance.notify(

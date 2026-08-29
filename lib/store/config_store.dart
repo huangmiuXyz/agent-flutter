@@ -7,6 +7,7 @@ import 'package:signals/signals.dart';
 
 import 'package:agent/features/settings/models/mcp_server_info.dart';
 import 'package:agent/store/file_signal_store.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/utils/platform_dirs.dart';
 
 /// 全局配置 Store — 基于 [JsonFileSignalStore]：
@@ -195,6 +196,9 @@ class ConfigStore extends JsonFileSignalStore {
   // ── 路径解析 ──
 
   static bool _inProjectDir() {
+    // 移动端进程 cwd 为 `/`，`/data` 恒存在，会误判为项目目录，
+    // 导致配置落到只读路径。移动端一律走应用私有目录。
+    if (isMobilePlatform) return false;
     return File('./config.json').existsSync() ||
         File('./pubspec.yaml').existsSync() ||
         Directory('./data').existsSync();

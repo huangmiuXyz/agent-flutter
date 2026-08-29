@@ -252,9 +252,9 @@ class SessionList extends HookWidget {
               // 立即更新选中态，让 UI 先切换，不等待数据加载
               SessionStore.instance.selectedId.value = session.id;
               SessionStore.instance.switchTo(session.id);
-              // 移动端：进入全屏聊天页
+              // 移动端：进入全屏聊天页（push 压栈，保留会话列表可返回）
               if (isMobilePlatform) {
-                context.go('/chat/${session.id}');
+                context.push('/chat/${session.id}');
               }
             },
       // 选择模式下隐藏悬停操作按钮，避免干扰

@@ -32,7 +32,7 @@ void openFile(String path) {
     // 移动端：跳转 app 内编辑器全屏路由（EditorPage 监听 store 切换文件）
     final ctx = rootNavigatorContext;
     if (ctx != null) {
-      ctx.go(AppRoutes.editor);
+      ctx.push(AppRoutes.editor);
     }
   }
 }

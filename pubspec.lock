@@ -162,7 +162,7 @@ packages:
     source: hosted
     version: "1.2.1"
   code_forge:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       path: ".patches/code_forge"
       relative: true
@@ -964,7 +964,7 @@ packages:
     source: hosted
     version: "0.6.0"
   rust_lib_agent:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       path: rust_builder
       relative: true
