@@ -582,7 +582,7 @@ class SessionStore {
 
   /// 单个事件应用到 session state。
   ///
-  /// 处理 Chunk / ReasoningChunk / ToolCallFragment / ToolCall / Done / Error。
+  /// 处理 Chunk / ToolCallFragment / ToolCall / Done / Error / ReasoningChunk。
   /// FrontendToolCall 不在此处理（由 EngineClient 直接路由到 handler）。
   void _onSessionEvent(String sessionId, SessionState s, EngineEvent event) {
     // 被显式取消的旧流，其残留的终止事件（Done / Error）应被忽略：
@@ -590,6 +590,18 @@ class SessionStore {
     // 流式状态，或触发队列自动发送下一条消息。
     if (event is EngineEvent_Done || event is EngineEvent_Error) {
       if (_cancelledStreams.remove(sessionId)) return;
+    }
+
+    // 后端自发产生的流（子智能体子会话等，前端未经过 sendMessage/retry）
+    // 不会在发送时标记流式：首个流内容事件到达时补标记，让消息列表
+    // loading、最新轮流式渲染、会话列表「生成中」状态与手动发送一致。
+    // 已显式取消的旧流残留事件不重新标记；Done / Error 交给 _clearStreaming
+    // 清理，SteerInjected / QueueState 等非流内容事件不参与标记
+    // （SteerInjected 无活跃流时还是触发 _autoContinue 的判断依据）。
+    if (_isLiveStreamEvent(event) &&
+        !_cancelledStreams.contains(sessionId) &&
+        !streamingSessionIds.value.contains(sessionId)) {
+      streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     }
 
     // 流式创建的 assistant 消息，记录模型名
@@ -792,7 +804,15 @@ class SessionStore {
   }
 
   Future<void> _doConsumeNonSteer(String sessionId) async {
-    final text = await api.consumeNonSteer(sessionId: sessionId);
+    String? text;
+    try {
+      text = await api.consumeNonSteer(sessionId: sessionId);
+    } catch (e) {
+      // unawaited 路径不允许向 zone 抛未处理异常（会话关闭/引擎不可用等
+      // 场景静默跳过，队列状态以 Rust 侧为准）
+      debugPrint('[Queue] consumeNonSteer 失败 sid=$sessionId: $e');
+      return;
+    }
     if (text == null) return;
 
     // 复用 sendPrompt 路径（跟随当前智能体的模型配置，失败静默）
@@ -807,6 +827,23 @@ class SessionStore {
         if (id != sessionId) id,
     };
     return true;
+  }
+
+  /// 事件是否代表一条活跃流的实时内容（后端自发流据此补标记流式状态）。
+  ///
+  /// 覆盖所有「流正在产出/等待产出」的事件类型；不含 Done / Error（终止）、
+  /// QueueState（队列快照）、SessionRenamed（标题改完，流可能已结束）、
+  /// SteerInjected（无活跃流时触发自动继续的信号，标记会破坏该判断）。
+  bool _isLiveStreamEvent(EngineEvent event) {
+    return event is EngineEvent_Chunk ||
+        event is EngineEvent_ReasoningChunk ||
+        event is EngineEvent_ToolCallFragment ||
+        event is EngineEvent_ToolCall ||
+        event is EngineEvent_ToolOutputDelta ||
+        event is EngineEvent_WebSearchCall ||
+        event is EngineEvent_ToolPermissionRequest ||
+        event is EngineEvent_FrontendToolCall ||
+        event is EngineEvent_Retry;
   }
 
   /// 流结束 → 弹出完成通知；[error] 非空时按错误样式展示。
