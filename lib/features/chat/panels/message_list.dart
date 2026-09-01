@@ -88,8 +88,14 @@ class _ReportMsgOffsetState extends State<_ReportMsgOffset> {
   @override
   void didUpdateWidget(covariant _ReportMsgOffset oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 父级 rebuild（流式输出/主题变化）后偏移可能已变，重新上报
-    WidgetsBinding.instance.addPostFrameCallback((_) => _report());
+    // 父级 rebuild 后偏移可能已变，重新上报。
+    // 仅当子树真的换了实例时才测：part 缓存命中的 item（占流式期间
+    // 可见 item 的大多数）child 是同一实例，跳过测量避免每个 token
+    // 都对全部可见 item 做一次视口遍历。identical 而非 ==：
+    // 部分 widget（如 Padding）实现了 ==，会漏掉真实变化。
+    if (!identical(widget.child, oldWidget.child)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _report());
+    }
   }
 
   void _report() {

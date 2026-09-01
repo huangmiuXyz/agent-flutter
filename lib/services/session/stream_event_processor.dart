@@ -44,12 +44,12 @@ class StreamEventProcessor {
         'call_type': 'function',
         'function': {'name': event.name, 'arguments': event.arguments},
       });
-      final existing = findPartContent(s, event.partId);
-      if (existing != null) {
+      if (findPartContent(s, event.partId) != null) {
         s.updatePartContent(event.partId, content);
       } else {
-        _ensureMessageExists(s, event.msgId);
-        s.partsByMsg[event.msgId]!.add(
+        s.ensureMessage(event.msgId);
+        s.addPart(
+          event.msgId,
           api.PartInfo(
             id: event.partId,
             msgId: event.msgId,
@@ -106,12 +106,13 @@ class StreamEventProcessor {
       if (existing != null) {
         s.updatePartContent(event.partId, content);
       } else {
-        _ensureMessageExists(s, event.msgId);
-        s.partsByMsg[event.msgId]!.add(
+        s.ensureMessage(event.msgId);
+        s.addPart(
+          event.msgId,
           api.PartInfo(
             id: event.partId,
             msgId: event.msgId,
-            seq: s.partsByMsg[event.msgId]!.length,
+            seq: s.partCountOf(event.msgId),
             partType: PartTypes.webSearch,
             content: content,
           ),
@@ -162,28 +163,26 @@ class StreamEventProcessor {
     String partType, {
     String? msgId,
   }) {
-    for (final parts in s.partsByMsg.values) {
-      for (int i = 0; i < parts.length; i++) {
-        if (parts[i].id == partId) {
-          parts[i] = parts[i].copyWith(content: parts[i].content + text);
-          return;
-        }
-      }
+    // 按 part_id 走索引定位（O(1)），避免每次 chunk 全表扫描
+    final existing = s.partById(partId);
+    if (existing != null) {
+      s.updatePart(partId, content: existing.content + text);
+      return;
     }
     // 找不到 part（工具调用后 Rust 发了新的 stream，partId 是新的）
     // 创建新消息，优先使用 Rust 侧传过来的 msgId
     // 注意：同 msgId 的消息可能已存在（如 reasoning part 先行创建），此处追加而非覆盖
     final newMsgId = msgId ?? '${partId}_msg';
     if (!s.partsByMsg.containsKey(newMsgId)) {
-      s.messageOrder.add(newMsgId);
-      s.partsByMsg[newMsgId] = [];
+      s.ensureMessage(newMsgId);
       s.messageRoles[newMsgId] = 'assistant';
     }
-    s.partsByMsg[newMsgId]!.add(
+    s.addPart(
+      newMsgId,
       api.PartInfo(
         id: partId,
         msgId: newMsgId,
-        seq: s.partsByMsg[newMsgId]!.length,
+        seq: s.partCountOf(newMsgId),
         partType: partType,
         content: text,
       ),
@@ -200,7 +199,7 @@ class StreamEventProcessor {
     String result,
   ) {
     if (msgId.isEmpty || partId.isEmpty) return;
-    _ensureMessageExists(s, msgId);
+    s.ensureMessage(msgId);
 
     final content = jsonEncode({
       'id': partId,
@@ -216,11 +215,12 @@ class StreamEventProcessor {
       s.updatePartType(partId, PartTypes.toolCall);
     } else {
       // 极端情况：没收到片段事件（如重连后），直接新建完成态卡片
-      s.partsByMsg[msgId]!.add(
+      s.addPart(
+        msgId,
         api.PartInfo(
           id: partId,
           msgId: msgId,
-          seq: s.partsByMsg[msgId]!.length,
+          seq: s.partCountOf(msgId),
           partType: PartTypes.toolCall,
           content: content,
         ),
@@ -232,25 +232,8 @@ class StreamEventProcessor {
     s.pendingPermissions.remove(partId);
   }
 
-  /// 确保消息存在
-  static void _ensureMessageExists(SessionState s, String msgId) {
-    if (!s.partsByMsg.containsKey(msgId)) {
-      s.partsByMsg[msgId] = [];
-      if (!s.messageOrder.contains(msgId)) {
-        s.messageOrder.add(msgId);
-      }
-    }
-  }
-
   /// 在 partsByMsg 中查找 partId 对应的 content，找不到返回 null
   static String? findPartContent(SessionState s, String partId) {
-    for (final parts in s.partsByMsg.values) {
-      for (final part in parts) {
-        if (part.id == partId) {
-          return part.content;
-        }
-      }
-    }
-    return null;
+    return s.partById(partId)?.content;
   }
 }

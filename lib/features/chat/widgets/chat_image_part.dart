@@ -74,6 +74,9 @@ class ChatImagePart extends StatelessWidget {
                   width: 20,
                   height: 20,
                   fit: BoxFit.cover,
+                  // 缩略图只有 20 逻辑像素，按 2x 解码 40px：
+                  // 不传 cacheWidth 会按原图全分辨率解码进内存
+                  cacheWidth: 40,
                   errorBuilder: (_, _, _) => Icon(
                     Icons.image_outlined,
                     size: 18,

@@ -312,7 +312,11 @@ class ChatMessageItem extends HookWidget {
     // 随位置变化；streaming 在 Done/Error 后翻转（part 实例不变），
     // 必须纳入键，否则文本 part 会停留在流式增量渲染态（最后一行
     // 永远以纯文本显示，代码围栏不再闭合）。
-    final partCache = useRef<Map<Object, Widget>>({});
+    // 以 part.id 为键而非 part 实例：流式期间每个 chunk 都会 copyWith 出新
+    // 实例，若按实例（或含实例的 record）做键，每个 token 都会新增一条缓存
+    // 条目且永不淘汰，长回复下把每个中间态内容都钉在内存里。
+    // 按 id 覆写后缓存条目数恒等于 part 数（有界），旧 widget 可被回收。
+    final partCache = useRef<Map<String, _PartCacheEntry>>({});
     // 主题切换时缓存失效（缓存树内引用的是旧主题样式）
     final cacheTheme = useRef<CustomTheme?>(null);
     if (!identical(cacheTheme.value, custom)) {
@@ -478,30 +482,37 @@ class ChatMessageItem extends HookWidget {
     List<api.PartInfo> visibleParts,
     CustomTheme custom,
     double minPartHeight,
-    Map<Object, Widget> partCache,
+    Map<String, _PartCacheEntry> partCache,
   ) {
     final part = visibleParts[index];
     final isLast = index == visibleParts.length - 1;
-    // 缓存查找：part 实例与位置未变 → 复用整个（含薄壳的）widget 实例，
-    // 子树完全不 rebuild；RepaintBoundary 同时隔离未变化卡片的重绘。
-    // 流式输出文本纳入键：工具卡片内容增长时缓存失效重建。
-    return partCache.putIfAbsent(
-      (
-        part,
-        isLast,
-        streaming,
-        toolStreamedOutputs[part.id],
-        pendingPermissions[part.id],
-      ),
-      () => _buildPartWithSpacingInner(
-        part,
-        custom,
-        minPartHeight,
-        isLast,
-        toolStreamedOutputs[part.id],
-        pendingPermissions[part.id],
-      ),
+    final streamedText = toolStreamedOutputs[part.id];
+    final pending = pendingPermissions[part.id];
+    // 缓存键 = 全部影响渲染的输入（不含 part 实例本身）。
+    // part 实例每次 copyWith 都是新的，纳入键会让缓存永不命中。
+    final key = (
+      part.content,
+      part.partType,
+      isLast,
+      streaming,
+      streamedText,
+      pending,
     );
+    final cached = partCache[part.id];
+    if (cached != null && cached.key == key) {
+      // 未变化的 part：返回同一 widget 实例，updateChild 直接跳过整棵子树
+      return cached.widget;
+    }
+    final widget = _buildPartWithSpacingInner(
+      part,
+      custom,
+      minPartHeight,
+      isLast,
+      streamedText,
+      pending,
+    );
+    partCache[part.id] = _PartCacheEntry(key, widget);
+    return widget;
   }
 
   Widget _buildPartWithSpacingInner(
@@ -721,4 +732,15 @@ class ChatMessageItem extends HookWidget {
     if (name.isNotEmpty) return '工具调用: $name';
     return '工具调用';
   }
+}
+
+/// part widget 缓存条目：键为影响渲染的全部输入，值为已构建的 widget 实例。
+class _PartCacheEntry {
+  const _PartCacheEntry(this.key, this.widget);
+
+  /// 影响渲染的输入快照（内容 / 类型 / 位置 / 流式标志 / 工具输出 / 权限态）。
+  ///
+  /// 比较成本：Record 的 == 逐字段比较，String 先比长度，内容增长时 O(1) 失效。
+  final Object key;
+  final Widget widget;
 }

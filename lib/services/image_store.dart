@@ -58,6 +58,15 @@ class ImageStore {
   /// 按文件名解析完整路径
   String resolvePath(String filename) => p.join(imagesDir, filename);
 
+  /// 文件存在性缓存：UI 每次重建都会同步 stat 一遍图片文件。
+  /// 文件名随机生成且文件一旦写入不会被删除，缓存结果即可。
+  final Map<String, bool> _existsCache = {};
+
   /// 文件名对应的图片文件是否存在
-  bool exists(String filename) => File(resolvePath(filename)).existsSync();
+  bool exists(String filename) {
+    return _existsCache.putIfAbsent(
+      filename,
+      () => File(resolvePath(filename)).existsSync(),
+    );
+  }
 }

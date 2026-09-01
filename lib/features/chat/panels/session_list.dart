@@ -104,19 +104,15 @@ class SessionList extends HookWidget {
           list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         }
 
-        final items = <Widget>[];
+        // 先收集行描述符，再交给 AppList 的虚拟滚动模式惰性构建：
+        // 会话多时每次刷新只 build 可见行，而不是整棵树全量构建+布局。
+        final rows = <_SessionRow>[];
         for (final parent in parents) {
           final children =
               childrenByParent[parent.id] ?? const <api.SessionInfo>[];
-          items.add(
-            _buildSessionItem(
-              context: context,
+          rows.add(
+            _SessionRow(
               session: parent,
-              selectedId: selectedId,
-              selectMode: selectMode,
-              selectedIds: selectedIds,
-              streamingIds: streamingIds,
-              onToggleSelection: _toggleSelection,
               expandable: children.isNotEmpty,
               collapsed: collapsed.value.contains(parent.id),
               onToggleExpand: () {
@@ -130,29 +126,32 @@ class SessionList extends HookWidget {
           );
           if (!collapsed.value.contains(parent.id)) {
             for (final child in children) {
-              items.add(
-                _buildSessionItem(
-                  context: context,
-                  session: child,
-                  selectedId: selectedId,
-                  selectMode: selectMode,
-                  selectedIds: selectedIds,
-                  streamingIds: streamingIds,
-                  onToggleSelection: _toggleSelection,
-                  child: true,
-                ),
-              );
+              rows.add(_SessionRow(session: child, child: true));
             }
           }
         }
 
-        return SingleChildScrollView(
-          child: AppList(
-            size: AppListSize.small,
-            containerPadding: EdgeInsets.zero,
-            itemGap: 0,
-            children: items,
-          ),
+        return AppList(
+          size: AppListSize.small,
+          containerPadding: EdgeInsets.zero,
+          itemGap: 0,
+          itemCount: rows.length,
+          itemBuilder: (context, index, _) {
+            final row = rows[index];
+            return _buildSessionItem(
+              context: context,
+              session: row.session,
+              selectedId: selectedId,
+              selectMode: selectMode,
+              selectedIds: selectedIds,
+              streamingIds: streamingIds,
+              onToggleSelection: _toggleSelection,
+              expandable: row.expandable,
+              collapsed: row.collapsed,
+              onToggleExpand: row.onToggleExpand,
+              child: row.child,
+            );
+          },
         );
       },
     );
@@ -332,4 +331,26 @@ class _SessionNameField extends HookWidget {
       ],
     );
   }
+}
+
+/// 会话行的轻量描述符：先收集结构（谁展开、谁是子项），
+/// 再由 AppList 的 itemBuilder 惰性构建 widget。
+class _SessionRow {
+  _SessionRow({
+    required this.session,
+    this.child = false,
+    this.expandable = false,
+    this.collapsed = false,
+    this.onToggleExpand,
+  });
+
+  final api.SessionInfo session;
+
+  /// 是否为子会话行（缩进展示）
+  final bool child;
+
+  /// 有子会话时显示展开/折叠按钮
+  final bool expandable;
+  final bool collapsed;
+  final VoidCallback? onToggleExpand;
 }

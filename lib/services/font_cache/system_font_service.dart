@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'dart:io' show Directory, File, Platform, Process;
+import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
@@ -117,12 +118,22 @@ class SystemFontService {
   }
 
   /// macOS：扫描系统字体目录，解析每个字体文件的 family 名。
+  ///
+  /// 整个扫描 + 解析放进后台 isolate：目录里有上百 MB 的 .ttc，
+  /// 全量读入 + name 表解析放主 isolate 会卡住 UI（首次打开字体设置即触发）。
   Future<List<String>> _enumerateMacFonts() async {
+    final dirs = [
+      for (final dirPath in _macFontDirs)
+        dirPath.replaceFirst('~/', '${Platform.environment['HOME'] ?? ''}/'),
+    ];
+    return Isolate.run(() => _scanMacFontDirs(dirs));
+  }
+
+  /// [Isolate.run] 的入口（静态函数，后台 isolate 内执行）
+  static Future<List<String>> _scanMacFontDirs(List<String> dirs) async {
     final names = <String>{};
-    for (final dirPath in _macFontDirs) {
-      final dir = Directory(
-        dirPath.replaceFirst('~/', '${Platform.environment['HOME']}/'),
-      );
+    for (final dirPath in dirs) {
+      final dir = Directory(dirPath);
       if (!dir.existsSync()) continue;
       try {
         for (final f in dir.listSync().whereType<File>()) {

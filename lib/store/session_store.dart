@@ -116,13 +116,153 @@ class SessionStore {
     _beforeEmitListeners.remove(fn);
   }
 
+  /// 流式文本合并窗口：一帧内到达的多个 chunk 攒成一次拼接 + 一次通知。
+  ///
+  /// 每个 chunk 单独 apply 会让 part.content 退化为 O(n²) 字符串拷贝，
+  /// 并触发一次全量重建；合并后拼接次数与重建次数都按帧收敛。
+  static const Duration _textChunkFlushDelay = Duration(milliseconds: 16);
+
+  /// sessionId → (partId → 待应用的增量文本)
+  final Map<String, Map<String, _PendingText>> _pendingText = {};
+
+  /// sessionId → 合并窗口定时器
+  final Map<String, Timer> _pendingTextTimers = {};
+
+  /// 防重入：_flushPendingText 内部会调 _emit，而 _emit 会先 flush
+  bool _flushingPendingText = false;
+
   /// 全量变更（新增/删除消息 / 流完成）
   void _emit() {
+    // 立即通知前先落定攒着的增量文本，避免内容滞后一帧或丢失
+    _flushAllPendingText();
     // 遍历时可能触发注册/注销（监听器内可能安排帧后回调），拷贝快照
     for (final listener in List.of(_beforeEmitListeners)) {
       listener();
     }
     sessions.value = Map.from(sessions.value);
+  }
+
+  // ── 流式文本合并 ──
+
+  /// 攒下一个文本 chunk，等合并窗口到点后一次性应用。
+  ///
+  /// Chunk / ReasoningChunk 之外的事件在 [_onSessionEvent] 入口处会先
+  /// [_flushPendingText]，保证内容顺序与后端一致。
+  void _bufferTextChunk(String sessionId, SessionState s, EngineEvent event) {
+    final bool isReasoning;
+    final String partId;
+    final String content;
+    final BigInt totalLen;
+    final String msgId;
+    if (event is EngineEvent_ReasoningChunk) {
+      isReasoning = true;
+      partId = event.partId;
+      content = event.content;
+      totalLen = event.totalLen;
+      msgId = event.msgId;
+    } else if (event is EngineEvent_Chunk) {
+      isReasoning = false;
+      partId = event.partId;
+      content = event.content;
+      totalLen = event.totalLen;
+      msgId = event.msgId;
+    } else {
+      return;
+    }
+
+    // 去重必须按事件逐个判定（total_len 单调递增）；合并只改变拼接与
+    // 通知的频率，不改变去重语义。
+    if (isReasoning) {
+      if (s.isReasoningRedundant(partId, totalLen)) return;
+      s.trackReasoningLength(partId, totalLen);
+    } else {
+      if (s.isTextRedundant(partId, totalLen)) return;
+      s.trackTextLength(partId, totalLen);
+    }
+    if (content.isEmpty || partId.isEmpty) return;
+
+    final slots =
+        _pendingText.putIfAbsent(sessionId, () => <String, _PendingText>{});
+    final key = '${isReasoning ? 'r' : 't'}|$partId';
+    final slot = slots.putIfAbsent(
+      key,
+      () => _PendingText(
+        partId: partId,
+        isReasoning: isReasoning,
+        msgId: msgId,
+      ),
+    );
+    slot.buffer.write(content);
+    if (slot.msgId.isEmpty) slot.msgId = msgId;
+
+    _pendingTextTimers.putIfAbsent(
+      sessionId,
+      () => Timer(_textChunkFlushDelay, () {
+        _pendingTextTimers.remove(sessionId);
+        _flushPendingText(sessionId);
+      }),
+    );
+  }
+
+  /// 把攒下的文本 chunk 应用到 [SessionState]。
+  ///
+  /// [notify] 为 false 时只落数据不通知（调用方随后会 [_emit]，避免重复通知）。
+  void _flushPendingText(String sessionId, {bool notify = true}) {
+    final pending = _pendingText.remove(sessionId);
+    _pendingTextTimers.remove(sessionId)?.cancel();
+    _pendingTextTimers.remove(sessionId);
+    if (pending == null || pending.isEmpty) return;
+
+    final s = sessions.value[sessionId];
+    if (s == null) return;
+
+    // 首个内容到达 = 重试已成功，清除重试提示
+    s.retryStatus = null;
+
+    for (final item in pending.values) {
+      final text = item.buffer.toString();
+      if (text.isEmpty) continue;
+      if (item.isReasoning) {
+        StreamEventProcessor.appendReasoningContent(
+          s,
+          item.partId,
+          text,
+          msgId: item.msgId.isEmpty ? null : item.msgId,
+        );
+      } else {
+        StreamEventProcessor.appendPartContent(
+          s,
+          item.partId,
+          text,
+          msgId: item.msgId.isEmpty ? null : item.msgId,
+        );
+      }
+      _tagStreamModel(s, sessionId, item.msgId);
+    }
+
+    if (notify) _emit();
+  }
+
+  /// 落定所有会话攒下的增量文本
+  void _flushAllPendingText() {
+    if (_flushingPendingText || _pendingText.isEmpty) return;
+    _flushingPendingText = true;
+    try {
+      for (final sid in _pendingText.keys.toList()) {
+        _flushPendingText(sid, notify: false);
+      }
+    } finally {
+      _flushingPendingText = false;
+    }
+  }
+
+  /// 为流式新建的 assistant 消息记录模型标签（取最近一次 send 上下文）
+  void _tagStreamModel(SessionState s, String sessionId, String msgId) {
+    if (msgId.isEmpty || s.messageModels.containsKey(msgId)) return;
+    final ctx = _sendContext[sessionId];
+    if (ctx == null) return;
+    s.messageModels[msgId] =
+        ctx.provider.isNotEmpty ? '${ctx.provider} / ${ctx.model}' : ctx.model;
   }
 
   // ── 会话列表 ──
@@ -368,7 +508,7 @@ class SessionStore {
     final userMsgId =
         '${sessionId}_user_${DateTime.now().millisecondsSinceEpoch}';
     s.messageOrder.add(userMsgId);
-    s.partsByMsg[userMsgId] = [
+    s.setMessageParts(userMsgId, [
       api.PartInfo(
         id: '${userMsgId}_part',
         msgId: userMsgId,
@@ -388,7 +528,7 @@ class SessionStore {
             'name': imageNames.length > i ? imageNames[i] : '',
           }),
         ),
-    ];
+    ]);
     s.messageRoles[userMsgId] = 'user';
 
     _emit();
@@ -467,7 +607,7 @@ class SessionStore {
     final s = _ensureState(sessionId);
 
     // 1. 重建本地用户消息 parts：文本 + 图片（按文档顺序，存 {file, name} JSON）
-    s.partsByMsg[msgId] = [
+    s.setMessageParts(msgId, [
       api.PartInfo(
         id: '${msgId}_part',
         msgId: msgId,
@@ -486,7 +626,7 @@ class SessionStore {
             'name': imageNames.length > i ? imageNames[i] : '',
           }),
         ),
-    ];
+    ]);
 
     _emit();
 
@@ -496,7 +636,7 @@ class SessionStore {
       final tailIds = s.messageOrder.sublist(msgIndex + 1);
       final tailPartIds = <String>{};
       for (final id in tailIds) {
-        final parts = s.partsByMsg.remove(id);
+        final parts = s.removeMessage(id);
         if (parts != null) {
           for (final p in parts) {
             tailPartIds.add(p.id);
@@ -578,6 +718,14 @@ class SessionStore {
     _sessionSubs.remove(sessionId)?.cancel();
     EngineClient.instance.unsubscribeSession(sessionId);
     _cancelledStreams.remove(sessionId);
+    _discardPendingText(sessionId);
+  }
+
+  /// 丢弃未落定的增量文本（会话销毁时用，内容已无意义）
+  void _discardPendingText(String sessionId) {
+    _pendingText.remove(sessionId);
+    _pendingTextTimers.remove(sessionId)?.cancel();
+    _pendingTextTimers.remove(sessionId);
   }
 
   /// 单个事件应用到 session state。
@@ -585,6 +733,12 @@ class SessionStore {
   /// 处理 Chunk / ToolCallFragment / ToolCall / Done / Error / ReasoningChunk。
   /// FrontendToolCall 不在此处理（由 EngineClient 直接路由到 handler）。
   void _onSessionEvent(String sessionId, SessionState s, EngineEvent event) {
+    // 结构性事件（Done / ToolCall / ...）前先落定攒着的增量文本，
+    // 保证 UI 里的内容顺序与后端一致
+    if (event is! EngineEvent_Chunk && event is! EngineEvent_ReasoningChunk) {
+      _flushPendingText(sessionId, notify: false);
+    }
+
     // 被显式取消的旧流，其残留的终止事件（Done / Error）应被忽略：
     // 此时可能已有新流在运行（同一 sessionId），误处理会清掉新流的
     // 流式状态，或触发队列自动发送下一条消息。
@@ -604,12 +758,11 @@ class SessionStore {
       streamingSessionIds.value = {...streamingSessionIds.value, sessionId};
     }
 
-    // 流式创建的 assistant 消息，记录模型名
-    String? eMsgId;
-    if (event is EngineEvent_Chunk) {
-      eMsgId = event.msgId;
-    } else if (event is EngineEvent_ReasoningChunk) {
-      eMsgId = event.msgId;
+    // 文本 chunk 走合并缓冲：一帧内攒着的增量只拼接一次、只通知一次。
+    // 注意流式补标记（上方）对 chunk 同样生效，须先于缓冲分支执行。
+    if (event is EngineEvent_Chunk || event is EngineEvent_ReasoningChunk) {
+      _bufferTextChunk(sessionId, s, event);
+      return;
     }
 
     // 自动重试提示：显示系统提示行，等待 N 秒后重试
@@ -630,10 +783,9 @@ class SessionStore {
       _notifyToolPermission(sessionId, event);
     }
 
-    // 首个内容到达 = 重试已成功，清除重试提示
-    if (event is EngineEvent_Chunk ||
-        event is EngineEvent_ReasoningChunk ||
-        event is EngineEvent_ToolCallFragment ||
+    // 工具片段/结果到达 = 重试已成功，清除重试提示
+    //（文本 chunk 的清除在 _flushPendingText 里做）
+    if (event is EngineEvent_ToolCallFragment ||
         event is EngineEvent_ToolCall) {
       if (s.retryStatus != null) {
         s.retryStatus = null;
@@ -672,7 +824,7 @@ class SessionStore {
       final partType = event.source == 'sub_agent'
           ? PartTypes.subAgentText
           : PartTypes.text;
-      s.partsByMsg[steerMsgId] = [
+      s.setMessageParts(steerMsgId, [
         api.PartInfo(
           id: '${steerMsgId}_part',
           msgId: steerMsgId,
@@ -680,7 +832,7 @@ class SessionStore {
           partType: partType,
           content: event.text,
         ),
-      ];
+      ]);
       s.messageRoles[steerMsgId] = 'user';
       _emit();
 
@@ -716,21 +868,8 @@ class SessionStore {
       return;
     }
 
-    // 应用 Chunk / ToolCallFragment / ToolCall / ReasoningChunk
+    // 应用 ToolCallFragment / ToolCall / ToolPermissionRequest 等事件
     StreamEventProcessor.applyToState(s, event);
-
-    // 记录 assistant 消息的模型标签（从最近一次 send 上下文取）
-    if (eMsgId != null &&
-        eMsgId.isNotEmpty &&
-        !s.messageModels.containsKey(eMsgId)) {
-      final ctx = _sendContext[sessionId];
-      if (ctx != null) {
-        final label = ctx.provider.isNotEmpty
-            ? '${ctx.provider} / ${ctx.model}'
-            : ctx.model;
-        s.messageModels[eMsgId] = label;
-      }
-    }
 
     _emit();
   }
@@ -927,4 +1066,23 @@ class _SendContext {
   final String provider;
   final String model;
   _SendContext(this.provider, this.model);
+}
+
+/// 合并窗口内攒下的流式文本
+class _PendingText {
+  _PendingText({
+    required this.partId,
+    required this.isReasoning,
+    required this.msgId,
+  });
+
+  final String partId;
+
+  /// true 表示 reasoning part（与正文分开累积，去重表也不同）
+  final bool isReasoning;
+
+  /// Rust 侧带来的 msg_id（可能为空，此时由 processor 兜底生成）
+  String msgId;
+
+  final StringBuffer buffer = StringBuffer();
 }
