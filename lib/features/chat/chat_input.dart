@@ -8,6 +8,7 @@ import 'package:signals_hooks/signals_hooks.dart';
 import 'package:agent/features/agents/widgets/agent_selector.dart';
 import 'package:agent/features/chat/widgets/model_selector.dart';
 import 'package:agent/features/chat/widgets/reasoning_selector.dart';
+import 'package:agent/features/chat/widgets/tool_toggle.dart';
 import 'package:agent/features/chat/widgets/work_dir_selector.dart';
 import 'package:agent/features/chat/chat_fleather.dart';
 import 'package:agent/services/image_store.dart';
@@ -168,6 +169,11 @@ class ChatInput extends HookWidget {
                     size: mobile ? ButtonSize.md : ButtonSize.sm,
                     tooltip: '上传图片',
                     onPressed: pickImages,
+                  ),
+                  SizedBox(width: custom.spacing.xs),
+                  // 工具开关：控制是否把工具传给 AI（图片上传右侧）
+                  ToolToggle(
+                    size: mobile ? ButtonSize.md : ButtonSize.sm,
                   ),
                   SizedBox(width: custom.spacing.xs),
                   // 推理强度选择器（在按钮区域左侧）

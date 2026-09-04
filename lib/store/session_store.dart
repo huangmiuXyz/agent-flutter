@@ -81,6 +81,13 @@ class SessionStore {
   /// 标题自动生成中的会话 ID 集合（TitleGenerating → SessionRenamed 之间）
   final titleGeneratingIds = signal(<String>{});
 
+  /// 是否把工具定义传给 AI（聊天输入框工具栏开关控制）。
+  ///
+  /// true = 正常传入工具（默认）；false = 纯对话模式，
+  /// 后端不传任何工具定义，AI 无法调用工具。
+  /// 发送消息时读取当前值透传给 Rust 侧。
+  final enableTools = signal(true);
+
   // ── 内部 ──
 
   /// 每个 session 的事件订阅句柄（用于切换会话或销毁时取消）
@@ -573,6 +580,7 @@ class SessionStore {
         workDir: AgentStore.instance.resolveWorkDir(),
         imagePaths: imagePaths,
         imageNames: imageNames,
+        enableTools: enableTools.value,
       );
     } catch (e) {
       // 启动失败：追加错误消息并清理流状态
@@ -679,6 +687,7 @@ class SessionStore {
         workDir: AgentStore.instance.resolveWorkDir(),
         imagePaths: imagePaths,
         imageNames: imageNames,
+        enableTools: enableTools.value,
       );
     } catch (e) {
       StreamEventProcessor.appendPartContent(
@@ -931,6 +940,7 @@ class SessionStore {
         dbPath: dbPath,
         sessionId: sessionId,
         workDir: AgentStore.instance.resolveWorkDir(),
+        enableTools: enableTools.value,
       );
     } catch (_) {
       // 继续失败不阻断（结果已持久化，用户可手动触发下一条消息）

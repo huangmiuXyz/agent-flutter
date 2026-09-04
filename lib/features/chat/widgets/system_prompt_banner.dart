@@ -7,6 +7,7 @@ import 'package:agent/features/chat/widgets/chat_expandable_part.dart';
 import 'package:agent/rust_bridge/api/agents.dart' as bridge_api;
 import 'package:agent/rust_bridge/api/types.dart';
 import 'package:agent/services/sync/file_watcher.dart';
+import 'package:agent/store/session_store.dart';
 import 'package:agent/store/theme_store.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/widgets/markdown/markdown_preview.dart';
@@ -14,7 +15,7 @@ import 'package:agent/widgets/markdown/markdown_preview.dart';
 /// 消息列表首项的「系统提示词」折叠项（随内容滚动，不固定在视口顶部）。
 ///
 /// 展示当前智能体实际注入 LLM 的全部 system 前置段（MCP 资源 → 运行环境 →
-/// 提示词文件 → 技能清单）。内容按注入顺序连续拼接、不分段，与发送给模型
+/// 提示词文件 → 技能清单 → 纯对话说明）。内容按注入顺序连续拼接、不分段，与发送给模型
 /// 的内容一致。数据由后端同一套拼装逻辑生成（FRB `getSystemPrompts`，
 /// 与聊天请求共用 agent-core 的 `build_system_sections`），前端只负责
 /// 拉取与渲染：
@@ -31,6 +32,8 @@ class SystemPromptBanner extends HookWidget {
     final custom = CustomTheme.of(context);
     // hooks 必须在所有提前返回之前调用
     final agent = useExistingSignal(AgentStore.instance.currentAgent);
+    // 工具开关：展示的系统提示词与实际发送一致（纯对话下净化工具暗示）
+    final toolsEnabled = useExistingSignal(SessionStore.instance.enableTools);
     final markdownFontFamily = useExistingSignal(
       ThemeStore.instance.markdownFontFamily,
     );
@@ -46,6 +49,7 @@ class SystemPromptBanner extends HookWidget {
         sections.value = await bridge_api.getSystemPrompts(
           configPath: a.configPath,
           workDir: AgentStore.instance.resolveWorkDir(),
+          enableTools: SessionStore.instance.enableTools.value,
         );
       } catch (_) {
         // 引擎不可用等异常：保持现状，等下次触发（展开/目录变化/切换）
@@ -64,7 +68,7 @@ class SystemPromptBanner extends HookWidget {
         } catch (_) {}
       }
       return () => watcher?.dispose();
-    }, [agent.value?.configPath]);
+    }, [agent.value?.configPath, toolsEnabled.value]);
 
     final loaded = sections.value;
     if (loaded == null || loaded.isEmpty) return const SizedBox.shrink();

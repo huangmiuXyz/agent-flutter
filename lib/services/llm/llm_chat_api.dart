@@ -56,6 +56,7 @@ mixin ChatApi on GuardedApi {
     String? systemPrompt,
     List<String> imagePaths = const [],
     List<String> imageNames = const [],
+    bool? enableTools,
   }) =>
       guard(
         '启动流式聊天失败',
@@ -71,6 +72,7 @@ mixin ChatApi on GuardedApi {
           systemPrompt: systemPrompt,
           imagePaths: imagePaths,
           imageNames: imageNames,
+          enableTools: enableTools,
         ),
       );
 
@@ -85,6 +87,7 @@ mixin ChatApi on GuardedApi {
     required String sessionId,
     String? dbPath,
     String? workDir,
+    bool? enableTools,
   }) =>
       guard(
         '继续会话失败',
@@ -95,6 +98,7 @@ mixin ChatApi on GuardedApi {
           dbPath: dbPath,
           sessionId: sessionId,
           workDir: workDir,
+          enableTools: enableTools,
         ),
       );
 
@@ -113,6 +117,7 @@ mixin ChatApi on GuardedApi {
     String? dbPath,
     List<String> imagePaths = const [],
     List<String> imageNames = const [],
+    bool? enableTools,
   }) =>
       guard(
         '重试失败',
@@ -127,6 +132,7 @@ mixin ChatApi on GuardedApi {
           dbPath: dbPath,
           imagePaths: imagePaths,
           imageNames: imageNames,
+          enableTools: enableTools,
         ),
       );
 

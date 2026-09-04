@@ -84,6 +84,7 @@ const Map<String, IconData> _registry = {
   'fileSearch': LucideIcons.fileSearch,
   'bookOpen': LucideIcons.bookOpen,
   'folderTree': LucideIcons.folderTree,
+  'wrench': LucideIcons.wrench,
 };
 
 class AppIcon extends StatelessWidget {
