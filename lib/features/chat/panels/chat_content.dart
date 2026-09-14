@@ -3,9 +3,10 @@
 // ignore: implementation_imports
 import 'package:fleather/src/rendering/editable_box.dart'
     show RenderEditableContainerBox;
-import 'package:flutter/gestures.dart' show HitTestResult, kTouchSlop;
+import 'package:flutter/gestures.dart'
+    show HitTestResult, kPrimaryMouseButton, kTouchSlop;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderEditable;
+import 'package:flutter/rendering.dart' show RenderEditable, RenderParagraph;
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:signals_hooks/signals_hooks.dart';
 
@@ -15,6 +16,7 @@ import 'package:agent/features/chat/widgets/chat_message_item.dart';
 import 'package:agent/features/chat/widgets/message_queue_panel.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
+import 'package:agent/widgets/context_menu/context_menu.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 
 import 'message_list.dart';
@@ -36,10 +38,15 @@ class ChatContent extends HookWidget {
     //   2. 点击位置未命中可编辑组件（输入框/富文本编辑器）；
     //   3. 点击未落在 Fleather 编辑器内（chatFleatherPointerUp 内层标记）。
     final downPos = useRef<Offset?>(null);
+    // 按下时的按键：右键抬起不能取消焦点 —— SelectableRegion 的右键菜单
+    // 与文本选区都依赖它的 focus，一旦 unfocus 会触发 clearSelection，
+    // 表现为「右键菜单刚出现就消失 / 选区被清空」。
+    final downButtons = useRef<int>(0);
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
         downPos.value = event.position;
+        downButtons.value = event.buttons;
         // 每次点击开始重置用户消息标记（点击卡片外空白仍正常取消焦点）
         userMessagePointerUp = false;
         // 每次点击开始重置 Fleather 编辑器标记（点击编辑器外空白仍正常取消焦点）
@@ -47,8 +54,12 @@ class ChatContent extends HookWidget {
       },
       onPointerUp: (event) {
         final down = downPos.value;
+        final buttons = downButtons.value;
         downPos.value = null;
+        downButtons.value = 0;
         if (down == null) return;
+        // 只处理左键点击：右键/中键用于菜单与选择，误 unfocus 会清掉选区
+        if (buttons != kPrimaryMouseButton) return;
         // 滚动/拖动（位移超过 touch slop）不取消，避免打断滚动
         if ((event.position - down).distance > kTouchSlop) return;
         // 点击了可编辑组件（输入框/编辑器）不取消，避免打断编辑。
@@ -70,9 +81,19 @@ class ChatContent extends HookWidget {
               entry.target is RenderEditable ||
               entry.target is RenderEditableContainerBox,
         );
+        // 落在可选中文本（Markdown/消息正文的 RenderParagraph）上时不取消：
+        // SelectionArea 的选区、右键菜单、复制快捷键都依赖它的 focus
+        final hitSelectableText = result.path.any(
+          (entry) => entry.target is RenderParagraph,
+        );
         // 用户消息卡片整体（含空白/按钮）点击也不取消：
         // 卡片内层 Listener 已置位标记（pointer up 叶子→根分发，内层先执行）
-        if (!hitEditable && !userMessagePointerUp && !chatFleatherPointerUp) {
+        // 自研右键菜单打开时同样不取消（菜单面板自身持有焦点）
+        if (!hitEditable &&
+            !hitSelectableText &&
+            !userMessagePointerUp &&
+            !chatFleatherPointerUp &&
+            !ContextMenu.isOpen) {
           FocusManager.instance.primaryFocus?.unfocus();
         }
         userMessagePointerUp = false; // 消费标记

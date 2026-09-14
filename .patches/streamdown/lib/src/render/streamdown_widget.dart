@@ -11,11 +11,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../parser/parser.dart';
 import '../parser/tokenizer.dart';
 import 'ast_renderer.dart';
 import 'syntax_theme.dart';
+
+/// 文本复制快捷键：SelectionArea 只注册 Actions、不绑快捷键
+/// （Flutter SDK selectable_region 中无 Shortcuts），不补这层的话选中
+/// 文本后 Ctrl+C / ⌘C 无人响应，只有右键菜单里的「复制」可用。
+/// 仅挂在 SelectableRegion 外层，不影响输入框与终端（终端 Ctrl+C 是中断信号）。
+const Map<ShortcutActivator, Intent> _kCopyShortcuts = <ShortcutActivator, Intent>{
+  SingleActivator(LogicalKeyboardKey.keyC, control: true):
+      CopySelectionTextIntent.copy,
+  SingleActivator(LogicalKeyboardKey.keyC, meta: true):
+      CopySelectionTextIntent.copy,
+};
 
 /// Flicker-free streaming markdown widget.
 ///
@@ -196,6 +208,11 @@ class _StreamdownState extends State<Streamdown> {
     final padded = widget.padding != null
         ? Padding(padding: widget.padding!, child: renderer)
         : renderer;
-    return widget.selectable ? SelectionArea(child: padded) : padded;
+    return widget.selectable
+        ? Shortcuts(
+            shortcuts: _kCopyShortcuts,
+            child: SelectionArea(child: padded),
+          )
+        : padded;
   }
 }
