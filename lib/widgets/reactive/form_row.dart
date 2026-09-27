@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 /// A horizontal form row that places [label] on the left and [child] (the
 /// form control) on the right, each taking **50%** of the row width.
+///
+/// On narrow/mobile screens the two halves get too cramped (fixed-size
+/// controls like sliders overflow), so the row falls back to a vertical
+/// layout (label above, control full-width below) to avoid horizontal
+/// overflow.
 ///
 /// The label style matches [AppField] (caption + secondary color) so the
 /// horizontal row pattern and the vertical field pattern share the same
@@ -34,6 +40,28 @@ class FormRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final custom = CustomTheme.of(context);
 
+    final labelWidget = AppText(
+      label,
+      variant: AppTextVariant.caption,
+      color: custom.colors.textSecondary,
+    );
+
+    // 移动端/窄屏：50/50 分栏会让固定宽度控件（如 Slider）横向溢出，
+    // 改为垂直排布（label 在上、控件通栏在下）。
+    if (isMobilePlatform) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: custom.spacing.xs),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            labelWidget,
+            SizedBox(height: custom.spacing.sm),
+            SizedBox(width: double.infinity, child: child),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.symmetric(vertical: custom.spacing.xs),
       child: Row(
@@ -43,11 +71,7 @@ class FormRow extends StatelessWidget {
             flex: 1,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: AppText(
-                label,
-                variant: AppTextVariant.caption,
-                color: custom.colors.textSecondary,
-              ),
+              child: labelWidget,
             ),
           ),
           SizedBox(width: custom.spacing.md),

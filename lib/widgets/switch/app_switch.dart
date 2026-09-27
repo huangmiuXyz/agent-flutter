@@ -150,14 +150,18 @@ class AppSwitch extends HookWidget {
         children: [
           switchWidget,
           SizedBox(width: custom.spacing.sm),
-          GestureDetector(
-            onTap: isDisabled ? null : () => onChanged?.call(!value),
-            child: AppText(
-              label!,
-              variant: AppTextVariant.body,
-              color: isDisabled
-                  ? custom.colors.textDisabled
-                  : custom.colors.textPrimary,
+          // 文本用 Flexible 参与弹性布局（限制宽度以便自动换行），
+          // 避免 label 较长时横向溢出
+          Flexible(
+            child: GestureDetector(
+              onTap: isDisabled ? null : () => onChanged?.call(!value),
+              child: AppText(
+                label!,
+                variant: AppTextVariant.body,
+                color: isDisabled
+                    ? custom.colors.textDisabled
+                    : custom.colors.textPrimary,
+              ),
             ),
           ),
         ],

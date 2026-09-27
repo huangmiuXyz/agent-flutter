@@ -116,15 +116,25 @@ class ChatInput extends HookWidget {
 
     // 移动端「更多」底部弹层：收纳 work_dir / agent / model 选择器
     void showMoreSheet() {
+      // 弹窗打开时不让聊天输入框保持聚焦，否则手机上会自动弹出输入法软键盘
+      focusNode.unfocus();
       showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
         builder: (ctx) => SafeArea(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: custom.spacing.lg),
+            // 底部显式留白，避免内容贴底（SafeArea 在无系统安全区的
+            // 预览窗口里 bottom 为 0）
+            padding: EdgeInsets.fromLTRB(
+              custom.spacing.lg,
+              0,
+              custom.spacing.lg,
+              custom.spacing.lg,
+            ),
             child: Column(
+              // 高度按内容收缩（只包住三行），宽度经 stretch 撑满弹窗
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: const [
                 _MoreSheetRow(label: '工作目录', child: WorkDirSelector()),
                 _MoreSheetRow(label: '智能体', child: AgentSelector()),
@@ -160,7 +170,11 @@ class ChatInput extends HookWidget {
               ),
             ),
             SizedBox(
-              height: custom.spacing.lg,
+              // 移动端按钮用 ButtonSize.md(mediumHeight=32)，行高需匹配避免溢出；
+              // 桌面 ButtonSize.sm 高度为 24，沿用 lg 间距即可。
+              height: mobile
+                  ? custom.controls.mediumHeight
+                  : custom.spacing.lg,
               child: Row(
                 children: [
                   // 图片上传按钮固定在左侧
@@ -250,6 +264,7 @@ class _MoreSheetRow extends StatelessWidget {
     final custom = CustomTheme.of(context);
     return Padding(
       padding: EdgeInsets.symmetric(vertical: custom.spacing.sm),
+      // 行撑满弹窗宽度：标签靠左，选择框靠右且按内容自适应宽度
       child: Row(
         children: [
           SizedBox(
@@ -260,7 +275,8 @@ class _MoreSheetRow extends StatelessWidget {
               color: custom.colors.textSecondary,
             ),
           ),
-          Expanded(child: child),
+          Spacer(),
+          child,
         ],
       ),
     );

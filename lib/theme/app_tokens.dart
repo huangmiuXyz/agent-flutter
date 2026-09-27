@@ -162,9 +162,9 @@ class AppRadii {
   });
 
   factory AppRadii.defaults() => const AppRadii(
-    xs: BorderRadius.all(Radius.circular(4)),
-    sm: BorderRadius.all(Radius.circular(8)),
-    md: BorderRadius.all(Radius.circular(12)),
+    xs: BorderRadius.all(Radius.circular(6)),
+    sm: BorderRadius.all(Radius.circular(10)),
+    md: BorderRadius.all(Radius.circular(14)),
     full: BorderRadius.all(Radius.circular(999)),
   );
 
@@ -377,23 +377,38 @@ class AppShadows {
     return AppShadows(
       small: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: dark ? 0.20 : 0.08),
+          color: Colors.black.withValues(alpha: dark ? 0.28 : 0.04),
           blurRadius: 4,
           offset: const Offset(0, 1),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: dark ? 0.15 : 0.02),
+          blurRadius: 1,
+          offset: const Offset(0, 0),
         ),
       ],
       medium: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: dark ? 0.25 : 0.10),
-          blurRadius: 8,
-          offset: const Offset(0, 3),
+          color: Colors.black.withValues(alpha: dark ? 0.35 : 0.06),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: dark ? 0.20 : 0.03),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
         ),
       ],
       large: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: dark ? 0.30 : 0.12),
-          blurRadius: 16,
-          offset: const Offset(0, 6),
+          color: Colors.black.withValues(alpha: dark ? 0.45 : 0.10),
+          blurRadius: 24,
+          offset: const Offset(0, 12),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: dark ? 0.25 : 0.04),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
         ),
       ],
     );

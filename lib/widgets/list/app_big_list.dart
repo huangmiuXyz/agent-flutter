@@ -570,21 +570,41 @@ class AppBigList extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (count != null) ...[
-            AppText(count.toString(), variant: AppTextVariant.title),
-            if (countLabel != null)
-              Padding(
-                padding: EdgeInsets.only(left: 4),
-                child: AppText(
-                  countLabel!,
-                  variant: AppTextVariant.caption,
-                  color: custom.colors.textSecondary,
-                ),
-              ),
-          ],
-          const Spacer(),
+          // ---- Count + label: flexible so it never forces an overflow ----
+          Expanded(
+            child: Row(
+              children: [
+                if (count != null) ...[
+                  AppText(count.toString(), variant: AppTextVariant.title),
+                  if (countLabel != null)
+                    Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: AppText(
+                          countLabel!,
+                          variant: AppTextVariant.caption,
+                          color: custom.colors.textSecondary,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                ],
+              ],
+            ),
+          ),
+          // ---- Actions: keep natural size, wrap to a new row when narrow ----
           if (actions != null)
-            Row(mainAxisSize: MainAxisSize.min, children: actions!),
+            Flexible(
+              flex: 0,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 0,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: actions!,
+              ),
+            ),
         ],
       ),
     );

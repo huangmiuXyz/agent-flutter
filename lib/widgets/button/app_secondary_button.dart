@@ -79,7 +79,7 @@ class AppSecondaryButton extends StatelessWidget {
           side: BorderSide(color: custom.colors.borderSubtle),
         ),
       ),
-      elevation: WidgetStateProperty.all(1),
+      elevation: WidgetStateProperty.all(0),
     );
   }
 

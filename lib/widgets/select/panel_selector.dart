@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'package:agent/theme/custom_theme.dart';
+import 'package:agent/utils/platform.dart';
 import 'package:agent/widgets/context_menu/context_menu.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
@@ -459,9 +460,10 @@ class PanelSelector<T> extends HookWidget {
       );
       isOpen.value = true;
 
-      if (searchable) {
+      if (searchable && !isMobilePlatform) {
         // 菜单挂载后把光标聚焦到搜索框（post-frame，
-        // 避免与列表 autofocus / 菜单动画竞争）
+        // 避免与列表 autofocus / 菜单动画竞争）。
+        // 移动端不自动聚焦：否则会自动弹出输入法软键盘
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!isOpen.value || !ContextMenu.isOpen) return;
           searchFocusNode.requestFocus();
@@ -520,8 +522,16 @@ class PanelSelector<T> extends HookWidget {
                 : null,
             padding: EdgeInsets.symmetric(horizontal: custom.spacing.sm),
             decoration: BoxDecoration(
-              color: isHovered.value ? custom.colors.hover : Colors.transparent,
+              color: isHovered.value
+                  ? custom.colors.hover
+                  : (isOpen.value ? custom.colors.hover.withValues(alpha: 0.6) : Colors.transparent),
               borderRadius: custom.radii.xs,
+              border: Border.all(
+                color: isHovered.value || isOpen.value
+                    ? custom.colors.borderSubtle
+                    : Colors.transparent,
+                width: 1,
+              ),
             ),
             // 非 fullWidth 时按钮宽度跟随内容（widthFactor 让 Align 收缩到子内容），
             // 超出 maxWidth 由外层 ConstrainedBox 截断；Center 会填满有限 maxWidth 导致宽度固定。

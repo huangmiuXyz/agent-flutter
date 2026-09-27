@@ -212,11 +212,12 @@ class ChatExpandablePart extends HookWidget {
           onTap: () {
             expandedState.value = !expandedState.value;
           },
-          borderRadius: custom.radii.sm,
+          borderRadius: custom.radii.xs,
+          hoverColor: custom.colors.hover.withValues(alpha: 0.5),
           child: SizedBox(
             height: collapsedHeight,
             child: Padding(
-              padding: EdgeInsets.only(right: custom.spacing.sm),
+              padding: EdgeInsets.symmetric(horizontal: custom.spacing.xs),
               child: Row(
                 children: [
                   AppIcon(

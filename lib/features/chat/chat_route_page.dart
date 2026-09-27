@@ -8,11 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:signals_flutter/signals_flutter.dart';
 
 import 'package:agent/features/chat/chat_page.dart';
-import 'package:agent/features/commands/widgets/command_palette.dart';
 import 'package:agent/store/session_store.dart';
 import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/button/app_icon_button.dart';
-import 'package:agent/widgets/button/button_base.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
 class ChatRoutePage extends StatelessWidget {
@@ -41,17 +38,6 @@ class ChatRoutePage extends StatelessWidget {
             );
           },
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: AppIconButton(
-              icon: 'command',
-              size: ButtonSize.sm,
-              tooltip: '命令面板',
-              onPressed: () => showCommandPalette(context),
-            ),
-          ),
-        ],
       ),
       body: const ChatPage(),
     );

@@ -155,7 +155,7 @@ class MainLayout extends StatelessWidget {
     final footer = Container(
       height: custom.controls.footerHeight,
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: custom.colors.selected)),
+        border: Border(top: BorderSide(color: custom.colors.borderSubtle)),
         color: bgColor,
       ),
     );
@@ -167,7 +167,7 @@ class MainLayout extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: bgColor,
-              border: Border(bottom: BorderSide(color: custom.colors.selected)),
+              border: Border(bottom: BorderSide(color: custom.colors.borderSubtle)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -211,7 +211,7 @@ class MainLayout extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: bgColor,
-            border: Border(bottom: BorderSide(color: custom.colors.selected)),
+            border: Border(bottom: BorderSide(color: custom.colors.borderSubtle)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,

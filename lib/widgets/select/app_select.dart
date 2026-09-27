@@ -8,6 +8,8 @@ import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/field/app_field.dart';
 import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/list/app_list.dart';
+import 'package:agent/utils/platform.dart';
+import 'package:agent/widgets/context_menu/menu_keyboard_clamp.dart';
 
 /// A single option inside [AppSelect].
 class AppSelectOption<T> {
@@ -302,7 +304,13 @@ class AppSelect<T> extends HookWidget {
               followerAnchor: showAbove
                   ? Alignment.bottomLeft
                   : Alignment.topLeft,
-              child: Material(
+              // 键盘避让：向下展开且键盘弹出时上移，避免菜单被软键盘盖住
+              child: MenuKeyboardClamp(
+                anchorBottom: fieldBottom,
+                showAbove: showAbove,
+                gap: custom.spacing.xs,
+                margin: custom.spacing.xs,
+                child: Material(
                 color: Colors.transparent,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
@@ -351,7 +359,12 @@ class AppSelect<T> extends HookWidget {
                                         custom.spacing.xs,
                                       ),
                                       keyboardNavigable: searchable,
-                                      initialFocusedIndex: searchable ? 0 : -1,
+                                      // 移动端不做默认聚焦（↑/↓ 导航 index 为 -1），
+                                      // 避免选中项被误高亮只显示键盘导航
+                                      initialFocusedIndex:
+                                          searchable && !isMobilePlatform
+                                              ? 0
+                                              : -1,
                                       emptyPlaceholder: searchable
                                           ? '无匹配项'
                                           : null,
@@ -376,6 +389,7 @@ class AppSelect<T> extends HookWidget {
                     ),
                   ),
                 ),
+              ),
               ),
             ),
           ],

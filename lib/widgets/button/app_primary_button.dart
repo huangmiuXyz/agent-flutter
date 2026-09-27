@@ -79,7 +79,7 @@ class AppPrimaryButton extends StatelessWidget {
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(borderRadius: sizing.borderRadius),
       ),
-      elevation: WidgetStateProperty.all(2),
+      elevation: WidgetStateProperty.all(0),
     );
   }
 

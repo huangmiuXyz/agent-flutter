@@ -47,30 +47,36 @@ class LeftPanel extends HookWidget {
       child: Column(
         children: [
           // ── 模式 Tab：对话 / 检查点（VS Code 图标风格） ──
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              custom.spacing.sm,
-              custom.spacing.xs,
-              custom.spacing.sm,
-              0,
+          // 移动端不使用检查点（引擎依赖外部 git 命令，手机不可用），直接隐藏切换
+          if (!isMobilePlatform) ...[
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                custom.spacing.sm,
+                custom.spacing.xs,
+                custom.spacing.sm,
+                0,
+              ),
+              child: AppIconTabBar(
+                icons: const [
+                  LucideIcons.messageSquareMore,
+                  LucideIcons.history,
+                ],
+                tooltips: const ['对话', '检查点'],
+                activeIndex: isLeftCheckpointMode.value ? 1 : 0,
+                onChanged: (i) {
+                  // 切换左侧模式时退出批量选择状态
+                  selectMode.value = false;
+                  if (i == 1) {
+                    CheckpointStore.instance.switchToCheckpoints();
+                  } else {
+                    CheckpointStore.instance.switchToChat();
+                  }
+                },
+              ),
             ),
-            child: AppIconTabBar(
-              icons: const [LucideIcons.messageSquareMore, LucideIcons.history],
-              tooltips: const ['对话', '检查点'],
-              activeIndex: isLeftCheckpointMode.value ? 1 : 0,
-              onChanged: (i) {
-                // 切换左侧模式时退出批量选择状态
-                selectMode.value = false;
-                if (i == 1) {
-                  CheckpointStore.instance.switchToCheckpoints();
-                } else {
-                  CheckpointStore.instance.switchToChat();
-                }
-              },
-            ),
-          ),
-          // Tab 栏下方分割线
-          const AppDivider(extent: 1, thickness: 1),
+            // Tab 栏下方分割线
+            const AppDivider(extent: 1, thickness: 1),
+          ],
           // ── 标题区（两种模式都显示，样式与聊天一致） ──
           MouseRegion(
             onEnter: (_) => isHeaderHovered.value = true,

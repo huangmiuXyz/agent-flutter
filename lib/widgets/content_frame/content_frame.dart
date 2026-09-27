@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:agent/theme/custom_theme.dart';
 import 'package:agent/utils/layout_utils.dart' show readingWidthFor;
+import 'package:agent/utils/platform.dart';
 
 /// A layout container that provides scroll, horizontal centering,
 /// reading-width constraint, and page-level top/bottom spacing.
@@ -17,15 +18,29 @@ class ContentFrame extends StatelessWidget {
   /// with [AppBigList.sections]) that provides its own scrolling.
   final bool scrollable;
 
-  const ContentFrame({super.key, required this.child, this.scrollable = true});
+  /// 页顶内边距覆盖值；为空时按平台取默认：桌面端用 `spacing.pageTop`
+  /// （为弹窗标题预留空间），移动端用紧凑间距避免顶部过空。
+  final double? topPadding;
+
+  const ContentFrame({
+    super.key,
+    required this.child,
+    this.scrollable = true,
+    this.topPadding,
+  });
 
   @override
   Widget build(BuildContext context) {
     final spacing = CustomTheme.of(context).spacing;
 
+    // 桌面弹窗顶部需为标题栏让位（pageTop=70）；移动端页面顶部已有导航
+    // /Tab 行，若沿用同样间距会出现过大的空白，改用紧凑间距。
+    final topPadding = this.topPadding ??
+        (isMobilePlatform ? spacing.md : spacing.pageTop);
+
     final padded = Padding(
       padding: EdgeInsets.only(
-        top: spacing.pageTop,
+        top: topPadding,
         bottom: spacing.sm,
         left: spacing.edgeMargin,
         right: spacing.edgeMargin,

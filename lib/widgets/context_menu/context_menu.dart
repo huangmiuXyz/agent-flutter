@@ -13,6 +13,8 @@ import 'package:agent/widgets/list/app_list.dart';
 import 'package:agent/widgets/divider/app_divider.dart';
 import 'package:agent/widgets/text/app_text.dart';
 
+import 'menu_keyboard_clamp.dart';
+
 // -------------------- 数据模型 --------------------
 class MenuItem {
   final String label;
@@ -352,7 +354,15 @@ class _MenuOverlay extends HookWidget {
                   ? -custom.spacing.edgeMargin
                   : custom.spacing.edgeMargin,
             ),
-            child: menuContent,
+            // 键盘避让：向下展开且键盘弹出时上移，避免菜单被软键盘盖住
+            child: MenuKeyboardClamp(
+              anchorBottom:
+                  ContextMenu.activeAnchorRect?.bottom ?? position.dy,
+              showAbove: showAbove,
+              gap: custom.spacing.edgeMargin,
+              margin: custom.spacing.edgeMargin,
+              child: menuContent,
+            ),
           )
         else
           Positioned(

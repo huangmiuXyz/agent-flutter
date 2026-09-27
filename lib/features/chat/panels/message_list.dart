@@ -828,12 +828,22 @@ class MessageList extends StatelessWidget {
                     ),
                 ];
                 return Stack(
+                  alignment: Alignment.centerRight,
                   children: [
-                    Align(
-                      alignment: Alignment.topCenter,
-                      child: SizedBox(
-                        width: readingWidthFor(context),
-                        child: listView ?? const SizedBox.shrink(),
+                    // 消息列表：左/右都钉住（right:0）撑满整个聊天区宽度，
+                    // 由 Align(topCenter) 把阅读宽度的列表居中对齐 ——
+                    // 左右边距对称，不能让列表贴着左缘右缘多出一截空白。
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: SizedBox(
+                          width: readingWidthFor(context),
+                          child: listView ?? const SizedBox.shrink(),
+                        ),
                       ),
                     ),
                     // 离屏测量区：跳转未测量消息 / 会话滚底期间临时挂载，
@@ -848,17 +858,22 @@ class MessageList extends StatelessWidget {
                         width: readingWidthFor(context),
                         height: 600,
                       ),
-                    // 右侧悬浮锚点面板：贴在聊天区右缘（窗口右侧），
-                    // 竖条在最右缘，浮层区域向左覆盖聊天区右侧。
-                    // 不随内容宽度/窗口宽度漂移。
+                    // 右侧悬浮锚点面板：纯浮层，贴右缘、垂直居中。
+                    // 用 Positioned 包裹，明确它不参与非定位布局、不占任何位置，
+                    // 只是悬浮在对话内容之上（列表在下方独立布局）。
                     Positioned(
-                      right: 0,
                       top: 0,
                       bottom: 0,
-                      child: MessageAnchorsPanel(
-                        anchors: panelAnchors,
-                        activeMsgId: activeMsgId,
-                        onJumpTo: jumpToMessage,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 3),
+                          child: MessageAnchorsPanel(
+                            anchors: panelAnchors,
+                            activeMsgId: activeMsgId,
+                            onJumpTo: jumpToMessage,
+                          ),
+                        ),
                       ),
                     ),
                   ],

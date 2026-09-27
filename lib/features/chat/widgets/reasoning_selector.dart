@@ -20,10 +20,7 @@ import 'package:agent/features/agents/store/agent_store.dart';
 import 'package:agent/features/settings/models/provider_info.dart';
 import 'package:agent/store/config_store.dart';
 import 'package:agent/store/notification_store.dart';
-import 'package:agent/theme/custom_theme.dart';
-import 'package:agent/widgets/icon/app_icon.dart';
 import 'package:agent/widgets/select/panel_selector.dart';
-import 'package:agent/widgets/text/app_text.dart';
 
 class ReasoningSelector extends HookWidget {
   const ReasoningSelector({super.key});
@@ -39,12 +36,6 @@ class ReasoningSelector extends HookWidget {
       for (final v in kReasoningEffortValues)
         {'label': kReasoningEffortLabels[v], 'value': v},
     ];
-
-    // 未配置模型时无 provider 可写，退化为占位文本
-    final resolved = AgentStore.instance.resolveModel();
-    if (resolved.provider.isEmpty || resolved.model.isEmpty) {
-      return _buildPlaceholder(context);
-    }
 
     final currentValue = AgentStore.instance.resolveReasoningEffort();
 
@@ -67,26 +58,6 @@ class ReasoningSelector extends HookWidget {
           }
         });
       },
-    );
-  }
-
-  Widget _buildPlaceholder(BuildContext context) {
-    final custom = CustomTheme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppIcon(
-          'lightbulb',
-          size: custom.typography.captionSize,
-          color: custom.colors.textSecondary,
-        ),
-        SizedBox(width: custom.spacing.xs),
-        AppText(
-          kReasoningEffortLabels[kReasoningEffortProviderDefault]!,
-          variant: AppTextVariant.caption,
-          color: custom.colors.textSecondary,
-        ),
-      ],
     );
   }
 }
